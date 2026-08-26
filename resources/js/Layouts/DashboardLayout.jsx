@@ -23,11 +23,43 @@ export default function DashboardLayout({ children, title }) {
   useEffect(() => {
     if (flash?.success) toast.success(flash.success);
     if (flash?.error) toast.error(flash.error);
+    if (flash?.message) toast(flash.message);
   }, [flash]);
 
   return (
     <>
-      <Toaster position="top-right" />
+      <Toaster 
+        position="top-right" 
+        containerStyle={{ zIndex: 999999 }}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            borderRadius: '16px',
+            padding: '16px 20px',
+            fontWeight: 600,
+            fontSize: '14px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          },
+          success: {
+            style: {
+              background: '#0B1A2D',
+              color: '#FFFFFF',
+              border: '1px solid #1E293B',
+            },
+            iconTheme: {
+              primary: '#10B981',
+              secondary: '#FFFFFF',
+            },
+          },
+          error: {
+            style: {
+              background: '#FFF1F2',
+              color: '#9F1239',
+              border: '1px solid #FECDD3',
+            },
+          },
+        }}
+      />
       <Head title={title} />
       <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900 dark:text-white transition-colors duration-300">
         {/* Sidebar sticky */}

@@ -104,7 +104,10 @@ Route::middleware([SetLocale::class])->group(function () {
         // Gestion des Périodes (Trimestres/Semestres)
         Route::resource('periodes', \App\Http\Controllers\PeriodeController::class);
 
-        // Gestion des élèves (Documents)
+        // Gestion des élèves (Documents & Profil Élève)
+        Route::get('mon-dossier', [EleveController::class, 'monDossier'])->name('eleves.mon-dossier');
+        Route::post('eleves/{eleve}/documents', [EleveController::class, 'storeDocument'])->name('eleves.documents.store');
+        Route::delete('eleves/documents/{document}', [EleveController::class, 'destroyDocument'])->name('eleves.documents.destroy');
         Route::get('eleves/{eleve}/certificat', [EleveController::class, 'downloadCertificate'])->name('eleves.certificat');
         Route::get('eleves/{eleve}/carte', [EleveController::class, 'downloadCarte'])->name('eleves.carte');
         Route::get('eleves/{eleve}/attestation', [EleveController::class, 'downloadAttestation'])->name('eleves.attestation');
@@ -154,7 +157,10 @@ Route::middleware([SetLocale::class])->group(function () {
         Route::resource('depenses', \App\Http\Controllers\DepenseController::class)
              ->only(['index', 'store', 'destroy']);
 
-        // Gestion des affectations (Cours)
+        // Espace Enseignant : Mes Cours
+        Route::get('mes-cours', [\App\Http\Controllers\CoursController::class, 'mesCours'])->name('cours.mes-cours');
+
+        // Gestion des affectations (Cours - Direction)
         Route::resource('cours', \App\Http\Controllers\CoursController::class)
              ->only(['index', 'store', 'destroy'])
              ->parameters(['cours' => 'cours']);
@@ -197,7 +203,7 @@ Route::middleware([SetLocale::class])->group(function () {
         // 💰 FINANCE DASHBOARD
         Route::get('/finances', [App\Http\Controllers\FinanceController::class, 'index'])
              ->name('finances.index')
-             ->middleware(['auth', 'verified', 'role:directeur|super-admin']); 
+             ->middleware(['auth', 'verified', 'role:directeur|super-admin|comptable']); 
 
         // 🔔 NOTIFICATIONS
         Route::get('/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
@@ -217,6 +223,7 @@ Route::middleware([SetLocale::class])->group(function () {
         // Gestion des Absences
         Route::get('absences/saisie/{classe}', [\App\Http\Controllers\AbsenceController::class, 'saisie'])->name('absences.saisie');
         Route::post('absences/saisie/{classe}', [\App\Http\Controllers\AbsenceController::class, 'storeBulk'])->name('absences.storeBulk');
+        Route::post('absences/toggle-lock/{classe}', [\App\Http\Controllers\AbsenceController::class, 'toggleLock'])->name('absences.toggleLock');
         Route::get('absences/history/{classe}', [\App\Http\Controllers\AbsenceController::class, 'history'])->name('absences.history');
         Route::resource('absences', \App\Http\Controllers\AbsenceController::class);
 
@@ -271,6 +278,12 @@ Route::middleware([SetLocale::class])->group(function () {
         Route::get('documents/download/{id}', [App\Http\Controllers\DocumentPedagogiqueController::class, 'download'])->name('documents.download');
         Route::resource('documents', App\Http\Controllers\DocumentPedagogiqueController::class)
              ->only(['index', 'store', 'destroy']);
+
+        // 📑 DEMANDES DE DOCUMENTS ADMINISTRATIFS (Guichet Numérique)
+        Route::get('demandes-documents', [App\Http\Controllers\DemandeDocumentController::class, 'index'])->name('demandes-documents.index');
+        Route::post('demandes-documents', [App\Http\Controllers\DemandeDocumentController::class, 'store'])->name('demandes-documents.store');
+        Route::patch('demandes-documents/{demandeDocument}/traiter', [App\Http\Controllers\DemandeDocumentController::class, 'traiter'])->name('demandes-documents.traiter');
+        Route::get('demandes-documents/{demandeDocument}/download', [App\Http\Controllers\DemandeDocumentController::class, 'download'])->name('demandes-documents.download');
 
         Route::get('/communications/inbox', [App\Http\Controllers\CommunicationController::class, 'inbox'])->name('communications.inbox');
         Route::get('/communications', [App\Http\Controllers\CommunicationController::class, 'index'])->name('communications.index');

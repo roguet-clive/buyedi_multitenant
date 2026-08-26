@@ -14,9 +14,7 @@ export default function Show({ inscription }) {
 
     const handleDelete = () => {
         if (!confirm(t('confirm_delete', 'Voulez-vous vraiment supprimer cette inscription ? Cette action est irréversible.'))) return;
-        destroy(route('inscriptions.destroy', inscription.id), {
-            onSuccess: () => toast.success(t('inscription_deleted', 'Inscription supprimée ✅')),
-        });
+        destroy(route('inscriptions.destroy', inscription.id));
     };
 
     const eleve = inscription.eleve?.user;

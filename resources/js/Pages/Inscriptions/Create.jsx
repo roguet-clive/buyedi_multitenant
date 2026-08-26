@@ -28,9 +28,13 @@ export default function Create(props) {
   // Helper to initialize fees state
   const initializeFees = () => {
     const feesState = {};
+    const paidFeeIds = (inscription?.paiements || []).map(p => p.frais_type_id);
+
     fraisTypes.forEach(type => {
+      const isPaid = paidFeeIds.includes(type.id);
       feesState[type.id] = {
-        selected: false,
+        selected: isPaid,
+        already_paid: isPaid,
         montant: type.montant || 0
       };
     });
@@ -105,6 +109,16 @@ export default function Create(props) {
 
   const isValidee = data.statut === 'validee';
 
+  // Tuitions info for the selected class
+  const selectedClasseFrais = useMemo(() => {
+    if (!data.classe_id || !props.fraisClasses) return null;
+    return props.fraisClasses.find(fc => String(fc.classe_id) === String(data.classe_id));
+  }, [data.classe_id, props.fraisClasses]);
+
+  const selectedClasseObj = useMemo(() => {
+    return classes.find(c => String(c.id) === String(data.classe_id));
+  }, [data.classe_id, classes]);
+
   return (
     <DashboardLayout title={inscription ? t('edit_inscription', 'Modifier') : t('create_inscription', 'Nouvelle Inscription')}>
 
@@ -117,7 +131,7 @@ export default function Create(props) {
             {inscription ? 'Modifier l’inscription' : 'Nouvelle Inscription'}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Remplissez les informations ci-dessous pour {inscription ? 'mettre à jour' : 'enregistrer'} l'étudiant.
+            Affectez l'élève à sa classe et encaissez les droits d'inscription obligatoires.
           </p>
         </div>
       </div>
@@ -134,7 +148,7 @@ export default function Create(props) {
             <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
               <UserIcon className="w-5 h-5" />
             </div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white">Informations Scolaires</h2>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-white">Affectation & Classe</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -144,7 +158,7 @@ export default function Create(props) {
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{t('eleve', 'Élève concerné')}</label>
                 {!inscription && (
                   <Link href={route('eleves.create')} className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors uppercase tracking-wider">
-                    + Ajouter Nouveau
+                    + Enregistrer Nouveau Dossier
                   </Link>
                 )}
               </div>
@@ -158,7 +172,7 @@ export default function Create(props) {
                   `}
                   value={data.eleve_id}
                   onChange={(e) => setData('eleve_id', e.target.value)}
-                  disabled={!!inscription} // On ne modifie pas l'élève d'une inscription existante
+                  disabled={!!inscription}
                 >
                   {elevePreSelectionne ? (
                     <option value={elevePreSelectionne.id}>
@@ -167,7 +181,7 @@ export default function Create(props) {
                   ) : (
                     elevesProp.length > 0 ? (
                       <>
-                        <option value="">{t('select_student', 'Sélectionnez un élève inscrit...')}</option>
+                        <option value="">{t('select_student', 'Sélectionnez un élève enregistré...')}</option>
                         {elevesProp.map((e) => (
                           <option key={e.id} value={e.id}>
                             {e.user.prenom} {e.user.nom} ({e.matricule})
@@ -175,7 +189,7 @@ export default function Create(props) {
                         ))}
                       </>
                     ) : (
-                      <option value="">{t('no_available_students', 'Aucun élève libre. Tous sont inscrits.')}</option>
+                      <option value="">{t('no_available_students', 'Tous les élèves enregistrés sont déjà inscrits.')}</option>
                     )
                   )}
                 </select>
@@ -185,7 +199,7 @@ export default function Create(props) {
 
             {/* CLASSE */}
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{t('classe', 'Classe affectée')}</label>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{t('classe', 'Classe d\'affectation')}</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <UserIcon className="h-5 w-5 text-slate-400" />
@@ -206,6 +220,34 @@ export default function Create(props) {
               {errors.classe_id && <p className="text-red-500 text-xs font-semibold mt-1">{errors.classe_id}</p>}
             </div>
           </div>
+
+          {/* APERÇU SCOLARITÉ DE LA CLASSE SÉLECTIONNÉE */}
+          {selectedClasseObj && (
+            <div className="mt-6 p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 shrink-0">
+                <AcademicCapIcon className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-blue-900 dark:text-blue-200">
+                    Grille Scolarité : {selectedClasseObj.nom}
+                  </h4>
+                  {selectedClasseFrais ? (
+                    <span className="text-sm font-black text-blue-700 dark:text-blue-300">
+                      Montant Annuel : {formatAmount(selectedClasseFrais.montant)}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                      Non définie dans la grille des scolarités
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-blue-800/80 dark:text-blue-300/80 mt-1">
+                  💡 <strong>Information :</strong> La scolarité annuelle est distincte de l'inscription. Elle sera réglée ultérieurement (par mois ou par tranches) via le Journal de Caisse.
+                </p>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* CARTE 2 : STATUT & DATE */}
@@ -219,7 +261,7 @@ export default function Create(props) {
             <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
               <CalendarDaysIcon className="w-5 h-5" />
             </div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-white">Paramètres d'inscription</h2>
+            <h2 className="text-lg font-bold text-slate-800 dark:text-white">Paramètres du Dossier</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -236,22 +278,22 @@ export default function Create(props) {
 
             {/* STATUT */}
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{t('type_inscription', 'Statut du Dossier')}</label>
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">{t('type_inscription', 'Statut de l\'Inscription')}</label>
               <select
                 className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors sm:text-sm appearance-none font-bold"
                 value={data.statut}
                 onChange={(e) => setData('statut', e.target.value)}
               >
-                <option value="validee" className="text-green-600">✅ Validée (Inscription Finale)</option>
+                <option value="validee" className="text-green-600">✅ Validée (Inscription Définitive)</option>
                 <option value="en_attente" className="text-amber-600">⏳ En attente (Préinscription)</option>
-                <option value="brouillon" className="text-slate-500">📝 Brouillon (Saisie libre)</option>
+                <option value="brouillon" className="text-slate-500">📝 Brouillon (Dossier incomplet)</option>
                 <option value="rejete" className="text-red-600">❌ Rejetée (Dossier clos)</option>
               </select>
             </div>
           </div>
         </motion.div>
 
-        {/* CARTE 3 : PAIEMENTS */}
+        {/* CARTE 3 : PAIEMENTS DES FRAIS D'INSCRIPTION & DOSSIER */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -269,8 +311,8 @@ export default function Create(props) {
                 <BanknotesIcon className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Frais Associés</h2>
-                {!isValidee && <p className="text-xs text-amber-600 font-semibold mt-0.5">La gestion financière s'active lorsque le dossier est "Validé".</p>}
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Droits & Frais d'Inscription</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Frais exigibles immédiatement pour valider le dossier d'inscription (Dossier, Badge, Tenue, etc.).</p>
               </div>
             </div>
             {inscription && isValidee && (
@@ -281,9 +323,12 @@ export default function Create(props) {
           </div>
 
           {(fraisTypes.length === 0) ? (
-            <div className="p-5 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center gap-3">
-              <XMarkIcon className="w-6 h-6 text-amber-500" />
-              <p className="font-semibold text-sm">Il n'y a aucun paramétrage de frais de scolarité actif sur la plateforme.</p>
+            <div className="p-5 bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl flex items-center gap-3">
+              <AcademicCapIcon className="w-6 h-6 text-blue-500 shrink-0" />
+              <div>
+                <p className="font-bold text-sm">Aucun frais d'inscription ou annexe configuré.</p>
+                <p className="text-xs text-blue-600 mt-0.5">L'inscription sera validée sans versement initial immédiat. La scolarité sera payée dans le Journal de Caisse.</p>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -306,13 +351,24 @@ export default function Create(props) {
                         checked={feeState.selected}
                         onChange={(e) => handleFeeChange(type.id, 'selected', e.target.checked)}
                         className="w-5 h-5 text-green-600 bg-slate-100 border-slate-300 rounded focus:ring-green-500 dark:bg-slate-900 dark:border-slate-600 transition-colors cursor-pointer"
-                        disabled={!isValidee}
+                        disabled={!isValidee || feeState.already_paid}
                       />
                       <div>
-                        <span className={`font-bold block ${feeState.selected ? 'text-green-800 dark:text-green-400' : 'text-slate-700 dark:text-slate-300'}`}>
-                          {type.nom}
-                        </span>
-                        <span className="text-xs font-mono text-slate-500 uppercase">{type.code}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold block ${feeState.selected ? 'text-green-800 dark:text-green-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                            {type.nom}
+                          </span>
+                          {feeState.already_paid && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+                              ✓ Déjà Réglé
+                            </span>
+                          )}
+                        </div>
+                        {type.code && (
+                          <span className="text-[10px] font-mono text-slate-500 uppercase bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">
+                            {type.code}
+                          </span>
+                        )}
                       </div>
                     </label>
 
@@ -330,7 +386,7 @@ export default function Create(props) {
                           `}
                         value={feeState.montant}
                         onChange={(e) => handleFeeChange(type.id, 'montant', e.target.value)}
-                        disabled={!feeState.selected || !isValidee}
+                        disabled={!feeState.selected || !isValidee || feeState.already_paid}
                       />
                     </div>
                   </div>
@@ -343,11 +399,11 @@ export default function Create(props) {
           <div className="mt-8 overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B1A2D] to-blue-950 p-[2px]">
             <div className="bg-[#0B1A2D] rounded-[14px] p-6 flex flex-col sm:flex-row justify-between items-center sm:items-end gap-4 shadow-inner">
               <div>
-                <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">Montant Exigible Immédiatement</p>
+                <p className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-1">Total Droits d'Inscription Exigibles</p>
                 {totalFrais > 0 ? (
-                  <p className="text-emerald-400 text-sm font-medium">Les paiements seront générés dès validation.</p>
+                  <p className="text-emerald-400 text-sm font-medium">Un reçu officiel d'inscription à 2 volets sera généré.</p>
                 ) : (
-                  <p className="text-slate-500 text-sm font-medium">Aucun paiement rattaché.</p>
+                  <p className="text-slate-500 text-sm font-medium">Aucun paiement initial sélectionné.</p>
                 )}
               </div>
               <div className="text-right w-full sm:w-auto">

@@ -25,10 +25,12 @@
 <body>
 
     <div class="header">
-        <div class="logo">{{ config('app.name', 'Buyedi') }}</div>
+        <div class="logo">{{ $etablissement->nom ?? config('app.name', 'Buyedi') }}</div>
         <div class="school-info">
             Année Scolaire : {{ $paiement->inscription->anneeScolaire->nom ?? 'N/A' }}<br>
-            Tél: +243 000 000 000 | Email: contact@buyedi.com
+            {{ $etablissement->adresse ?? '' }} 
+            @if(!empty($etablissement->telephone)) | Tél: {{ $etablissement->telephone }} @endif
+            @if(!empty($etablissement->email)) | Email: {{ $etablissement->email }} @endif
         </div>
     </div>
 
@@ -36,8 +38,8 @@
 
     <div class="details-box">
         <div class="row">
-            <span class="label">Référence :</span>
-            <span class="value">{{ $paiement->reference ?? 'N/A' }}</span>
+            <span class="label">N° Reçu :</span>
+            <span class="value">REC-{{ str_pad($paiement->id, 6, '0', STR_PAD_LEFT) }}</span>
         </div>
         <div class="row">
             <span class="label">Date :</span>

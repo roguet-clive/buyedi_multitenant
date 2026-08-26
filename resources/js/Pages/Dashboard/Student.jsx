@@ -1,6 +1,6 @@
 import DashboardLayout from "@/Layouts/DashboardLayout";
-import { Head } from "@inertiajs/react";
-import { BookOpen, Calendar, Clock, Trophy, TrendingUp, AlertCircle, FileText } from "lucide-react";
+import { Head, Link } from "@inertiajs/react";
+import { BookOpen, Calendar, Clock, Trophy, TrendingUp, AlertCircle, FileText, IdCard, FolderOpen } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Student({ eleve, inscription, stats, recentGrades, schedule, periode }) {
@@ -19,21 +19,33 @@ export default function Student({ eleve, inscription, stats, recentGrades, sched
 
     return (
         <DashboardLayout>
-            <Head title="Mon Espace Éleve" />
+            <Head title="Mon Espace Élève" />
 
             {/* Hero Section */}
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-600 rounded-3xl p-8 mb-8 text-white relative overflow-hidden shadow-xl">
+            <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-700 rounded-3xl p-8 mb-8 text-white relative overflow-hidden shadow-xl">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mt-10 -mr-10 blur-3xl"></div>
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
-                        <h1 className="text-3xl font-bold mb-2">Bonjour, {eleve.prenom} 👋</h1>
-                        <p className="text-indigo-100 text-lg">
-                            Classe de <span className="font-bold bg-white/20 px-2 py-1 rounded">{inscription.classe?.nom}</span>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-black uppercase tracking-wider mb-3">
+                            🎓 Année Scolaire en cours
+                        </div>
+                        <h1 className="text-3xl font-extrabold mb-1">Bonjour, {eleve.prenom} 👋</h1>
+                        <p className="text-indigo-100 text-base">
+                            Classe de <span className="font-bold bg-white/20 px-2.5 py-0.5 rounded-lg text-white">{inscription.classe?.nom}</span>
                         </p>
                     </div>
-                    <div className="text-right hidden md:block">
-                        <p className="text-sm opacity-80 uppercase tracking-wider mb-1">Période Actuelle</p>
-                        <p className="text-2xl font-bold">{periode}</p>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <div className="text-left sm:text-right bg-white/10 px-4 py-2.5 rounded-2xl backdrop-blur-sm">
+                            <p className="text-xs opacity-80 uppercase tracking-wider font-bold">Période Active</p>
+                            <p className="text-lg font-black">{periode}</p>
+                        </div>
+                        <Link
+                            href={route('eleves.mon-dossier')}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-700 hover:bg-indigo-50 font-extrabold text-sm rounded-2xl shadow-lg transition active:scale-95"
+                        >
+                            <IdCard className="w-5 h-5" />
+                            <span>Mon Dossier & Documents</span>
+                        </Link>
                     </div>
                 </div>
             </div>

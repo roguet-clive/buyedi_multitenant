@@ -34,19 +34,12 @@ export default function Show({ evaluation, inscriptions, notes: existingNotes })
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        router.post(route('evaluations.update_grades', evaluation.id), { grades }, {
-            onSuccess: () => toast.success('Notes enregistrées !')
-        });
+        router.post(route('evaluations.update_grades', evaluation.id), { grades });
     };
 
-    // Use Inertia router directly for custom payload structure if useForm is restrictive, 
-    // but actually useForm is better for processing state.
-    // Let's use router.post explicitly in handleSubmit or better:
-    // Just use router.post because `useForm` expects known fields, and here fields are dynamic (by inscription ID).
     const saveGrades = () => {
         router.post(route('evaluations.update_grades', evaluation.id), { grades }, {
             preserveScroll: true,
-            onSuccess: () => toast.success('Notes enregistrées avec succès !')
         });
     };
 

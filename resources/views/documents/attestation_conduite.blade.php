@@ -38,7 +38,11 @@
     <div class="header-container">
         <table class="header-table">
             <tr>
-                <td class="header-left"></td>
+                <td class="header-left">
+                    @if(!empty($etablissement['logo']))
+                        <img src="{{ $etablissement['logo'] }}" style="max-width: 80px; height: auto;" alt="Logo">
+                    @endif
+                </td>
                 <td class="header-center">
                     <div class="republic">République Gabonaise</div>
                     <div class="motto">Union - Travail - Justice</div>

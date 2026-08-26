@@ -293,14 +293,33 @@ class DashboardController extends Controller
             }
         }
 
+        // 5. Demandes de documents administratifs en attente
+        $pendingDemandesCount = \App\Models\DemandeDocument::where('statut', 'en_attente')->count();
+        $pendingDemandes = \App\Models\DemandeDocument::with(['eleve.user', 'eleve.inscriptions.classe'])
+            ->where('statut', 'en_attente')
+            ->latest()
+            ->take(4)
+            ->get()
+            ->map(function ($d) {
+                return [
+                    'id' => $d->id,
+                    'eleve_nom' => $d->eleve->user->nom_complet ?? ($d->eleve->user->nom . ' ' . $d->eleve->user->prenom),
+                    'classe' => $d->eleve->inscriptionActuelle?->classe?->nom ?? 'N/A',
+                    'type_label' => $d->type_label,
+                    'date' => $d->created_at->format('d M, H:i'),
+                ];
+            });
+
         return Inertia::render('Dashboard', [
             'counts' => [
                 'students' => $totalEleves,
                 'teachers' => $totalEnseignants,
                 'classes' => $totalClasses,
-                'parents' => $totalParents
+                'parents' => $totalParents,
+                'pending_demandes' => $pendingDemandesCount,
             ],
             'recentRegistrations' => $recentRegistrations,
+            'pendingDemandes' => $pendingDemandes,
             'currentYear' => $currentYear,
             'financialStats' => $financialStats,
             'financialChart' => $financialChart,

@@ -21,7 +21,9 @@
 <body>
 
     <div class="header">
-        <!-- <img src="{{ $etablissement['logo'] }}" class="logo" alt="Logo"> -->
+        @if(!empty($etablissement['logo']))
+            <img src="{{ $etablissement['logo'] }}" class="logo" alt="Logo">
+        @endif
         <div class="school-info">
             <h1>{{ $etablissement['nom'] }}</h1>
             <p>{{ $etablissement['adresse'] }} | Tél: {{ $etablissement['telephone'] }}</p>

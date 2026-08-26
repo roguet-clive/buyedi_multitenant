@@ -59,6 +59,41 @@ class DocumentPedagogiqueController extends Controller
             ]);
         }
 
+        // 👨‍👩‍👧 VUE PARENT
+        if (auth()->user()->hasRole('parent')) {
+            $parent = auth()->user()->parent;
+            $children = $parent ? $parent->eleves()->with(['inscriptions' => function($q) use ($currentYear) {
+                $q->where('annee_scolaire_id', $currentYear->id)->with('classe');
+            }])->get() : collect();
+
+            $classIds = $children->pluck('inscriptions')->flatten()->pluck('classe_id')->filter()->unique();
+
+            $params = $request->only(['matiere_id', 'type']);
+            $query = DocumentPedagogique::with(['classe', 'matiere', 'enseignant.user'])
+                ->whereIn('classe_id', $classIds)
+                ->where('annee_scolaire_id', $currentYear->id);
+
+            if ($request->matiere_id) {
+                $query->where('matiere_id', $request->matiere_id);
+            }
+            if ($request->type) {
+                $query->where('type', $request->type);
+            }
+
+            $documents = $query->latest()->get();
+            $matieres = Matiere::whereHas('cours', function($q) use ($classIds, $currentYear) {
+                $q->whereIn('classe_id', $classIds)
+                  ->where('annee_scolaire_id', $currentYear->id);
+            })->orderBy('nom')->get();
+
+            return Inertia::render('Documents/StudentIndex', [
+                'documents' => $documents,
+                'matieres' => $matieres,
+                'filters' => $params,
+                'isParent' => true
+            ]);
+        }
+
         // 👨‍🏫 VUE ENSEIGNANT
         if ($this->isTeacher()) {
              // ... (Keep Teacher Logic)
@@ -168,13 +203,15 @@ class DocumentPedagogiqueController extends Controller
             'date_limite' => $request->date_limite,
         ]);
 
-        // Notify Students
+        $document->load(['matiere', 'classe', 'enseignant.user']);
+
+        // 1. Récupérer les comptes Utilisateurs des élèves de la classe
         $studentsToNotify = \App\Models\User::whereHas('eleve.inscriptions', function($q) use ($request, $currentYear) {
             $q->where('classe_id', $request->classe_id)
               ->where('annee_scolaire_id', $currentYear->id);
         })->get();
 
-        // Notify Parents of those students
+        // 2. Récupérer les comptes Utilisateurs des parents d'élèves de cette classe
         $parentsToNotify = \App\Models\User::whereHas('parent.eleves.inscriptions', function($q) use ($request, $currentYear) {
             $q->where('classe_id', $request->classe_id)
               ->where('annee_scolaire_id', $currentYear->id);
@@ -182,11 +219,15 @@ class DocumentPedagogiqueController extends Controller
 
         $usersToNotify = $studentsToNotify->merge($parentsToNotify)->unique('id');
 
-        if ($usersToNotify->count() > 0) {
+        if ($usersToNotify->isNotEmpty()) {
             \Illuminate\Support\Facades\Notification::send($usersToNotify, new \App\Notifications\NouveauDocumentPedagogique($document));
         }
 
-        return back()->with('success', 'Document publié avec succès.');
+        $notifCount = $usersToNotify->count();
+        $studentCount = $studentsToNotify->count();
+        $parentCount = $parentsToNotify->count();
+
+        return back()->with('success', "Document publié avec succès ! Notification envoyée à {$studentCount} élève(s) et {$parentCount} parent(s).");
     }
 
     public function destroy($id)
@@ -223,6 +264,12 @@ class DocumentPedagogiqueController extends Controller
        if ($this->isStudent()) {
            $insc = $this->getStudentInscription();
            if ($insc && $insc->classe_id == $doc->classe_id) $canDownload = true;
+       }
+       if ($user->hasRole('parent')) {
+           $hasChildInClass = $user->parent?->eleves()->whereHas('inscriptions', function($q) use ($doc) {
+               $q->where('classe_id', $doc->classe_id);
+           })->exists();
+           if ($hasChildInClass) $canDownload = true;
        }
 
        if (!$canDownload) abort(403);

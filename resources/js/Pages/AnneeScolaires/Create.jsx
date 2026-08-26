@@ -18,20 +18,13 @@ export default function Create() {
     nom: generatePeriods(1, new Date().getFullYear())[0],
   });
 
-  useEffect(() => {
-    if (flash?.success) toast.success(flash.success);
-    if (flash?.error) toast.error(flash.error);
-  }, [flash]);
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!can('ajouter_annee_scolaire')) {
       toast.error(t('no_permission', '❌ Permission refusée'));
       return;
     }
-    form.post(route('annee_scolaires.store'), {
-      onSuccess: () => toast.success(t('annee_scolaire_created', 'Année scolaire créée ✅')),
-    });
+    form.post(route('annee_scolaires.store'));
   };
 
   const periods = generatePeriods(10, new Date().getFullYear());

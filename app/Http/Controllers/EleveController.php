@@ -18,7 +18,7 @@ class EleveController extends Controller
 
     public function __construct()
     {
-        $this->middleware('permission:voir_eleves')->only(['index', 'show']);
+        $this->middleware('permission:voir_eleves')->only(['index']);
         $this->middleware('permission:ajouter_eleves')->only(['create', 'store']);
         $this->middleware('permission:modifier_eleves')->only(['edit', 'update']);
         $this->middleware('permission:supprimer_eleves')->only('destroy');
@@ -26,34 +26,47 @@ class EleveController extends Controller
 
     public function index(Request $request)
     {
+        $user = $request->user();
+
+        // 🔒 Sécurité : Un élève ne doit jamais accéder à l'annuaire administratif complet des élèves
+        if ($user->hasRole('eleve')) {
+            return redirect()->route('eleves.mon-dossier');
+        }
+
         $search = $request->input('search');
         $sexe = $request->input('sexe');
         $classe_id = $request->input('classe_id');
-        $user = $request->user();
 
         $anneeEnCours = \App\Models\AnneeScolaire::where('en_cours', true)->first();
 
         $query = Eleve::with(['user', 'inscriptions.classe', 'parents.user'])
-            // Filtrer par année scolaire en cours par défaut (Isolation des données)
-            ->whereHas('inscriptions', function($q) use ($anneeEnCours) {
+            ->when($classe_id, function ($q) use ($classe_id, $anneeEnCours) {
+                $q->whereHas('inscriptions', function ($query) use ($classe_id, $anneeEnCours) {
+                    $query->where('classe_id', $classe_id);
+                    if ($anneeEnCours) {
+                        $query->where('annee_scolaire_id', $anneeEnCours->id);
+                    }
+                });
+            }, function ($q) use ($anneeEnCours) {
                 if ($anneeEnCours) {
-                    $q->where('annee_scolaire_id', $anneeEnCours->id);
+                    // Afficher les élèves inscrits dans l'année en cours OU les élèves pas encore assignés
+                    $q->where(function ($sub) use ($anneeEnCours) {
+                        $sub->whereHas('inscriptions', function ($i) use ($anneeEnCours) {
+                            $i->where('annee_scolaire_id', $anneeEnCours->id);
+                        })->orWhereDoesntHave('inscriptions');
+                    });
                 }
             })
-            ->when($search, fn($query, $search) =>
-                $query->whereHas('user', fn($q) =>
-                    $q->where('nom', 'like', "%{$search}%")
-                      ->orWhere('prenom', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                )
-            )
-            ->when($sexe, fn($q) => $q->where('sexe', $sexe))
-            ->when($classe_id, fn($q) => 
-                $q->whereHas('inscriptions', fn($query) =>
-                    $query->where('classe_id', $classe_id)
-                          ->when($anneeEnCours, fn($q2) => $q2->where('annee_scolaire_id', $anneeEnCours->id))
-                )
-            );
+            ->when($search, function($query, $search) {
+                $query->where(function($q) use ($search) {
+                    $q->whereHas('user', function($qu) use ($search) {
+                        $qu->where('nom', 'like', "%{$search}%")
+                           ->orWhere('prenom', 'like', "%{$search}%")
+                           ->orWhere('email', 'like', "%{$search}%");
+                    })->orWhere('matricule', 'like', "%{$search}%");
+                });
+            })
+            ->when($sexe, fn($q) => $q->where('sexe', $sexe));
 
         // 🔒 SCOPING DE DONNÉES PAR RÔLE
         if (!$user->hasRole(['super-admin', 'directeur'])) {
@@ -71,10 +84,11 @@ class EleveController extends Controller
             }
         }
 
-        $eleves = $query->paginate(10)->withQueryString();
+        $eleves = $query->latest()->paginate(10)->withQueryString();
 
         // Transformation sécurisée avec vérifications
-        $elevesTransformed = $eleves->getCollection()->map(function($eleve){
+        $elevesTransformed = $eleves->getCollection()->map(function($eleve) use ($anneeEnCours) {
+            $inscriptionEnCours = $anneeEnCours ? $eleve->inscriptions->firstWhere('annee_scolaire_id', $anneeEnCours->id) : null;
             return [
                 'id' => $eleve->id,
                 'matricule' => $eleve->matricule ?? 'N/A',
@@ -86,7 +100,9 @@ class EleveController extends Controller
                 'nom' => $eleve->user->nom ?? 'N/A',
                 'prenom' => $eleve->user->prenom ?? 'N/A',
                 'email' => $eleve->user->email ?? 'N/A',
-                'classe' => $eleve->classeActuelle()?->nom ?? 'Non assigné',
+                'is_inscrit' => (bool)$inscriptionEnCours,
+                'classe_annee' => $inscriptionEnCours?->classe?->nom ?? null,
+                'classe_actuelle' => $eleve->classeActuelle()?->nom ?? 'Non assigné',
                 'parents' => $eleve->parents->map(function($parent) {
                     return [
                         'id' => $parent->id,
@@ -102,11 +118,12 @@ class EleveController extends Controller
         $eleves->setCollection($elevesTransformed);
 
         // Récupérer toutes les classes pour les filtres
-        $classes = Classe::select('id', 'nom')->get();
+        $classes = Classe::select('id', 'nom')->orderBy('nom')->get();
 
         return Inertia::render('Eleves/Index', [
             'eleves' => $eleves,
             'classes' => $classes,
+            'anneeEnCours' => $anneeEnCours,
             'filters' => [
                 'search' => $search,
                 'sexe' => $sexe,
@@ -129,20 +146,40 @@ class EleveController extends Controller
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'prenom' => 'nullable|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'email' => 'nullable|email|unique:users,email',
             'sexe' => 'required|in:M,F',
             'date_naissance' => 'nullable|date',
             'lieu_naissance' => 'nullable|string|max:255',
             'probleme_particulier' => 'nullable|string',
             'photo' => 'nullable|image|max:2048',
+        ], [
+            'nom.required' => 'Le nom de famille de l\'élève est obligatoire.',
+            'sexe.required' => 'Veuillez sélectionner le genre de l\'élève.',
+            'email.email' => 'L\'adresse email saisie n\'est pas valide.',
+            'email.unique' => 'Cette adresse email est déjà attribuée à un autre compte.',
+            'photo.image' => 'Le fichier photo doit être une image valide (JPG, PNG).',
+            'photo.max' => 'La photo ne doit pas dépasser 2 Mo.',
         ]);
 
         $defaultPassword = Str::random(10);
 
+        // Auto-génération d'un email système si non fourni
+        $email = $validated['email'] ?? null;
+        if (empty($email)) {
+            $baseSlug = Str::slug(($validated['prenom'] ?? '') . '.' . $validated['nom']);
+            if (empty($baseSlug)) {
+                $baseSlug = 'eleve';
+            }
+            $email = strtolower($baseSlug . '.' . rand(100, 999) . '@buyedi.ga');
+            while (User::where('email', $email)->exists()) {
+                $email = strtolower($baseSlug . '.' . rand(1000, 9999) . '@buyedi.ga');
+            }
+        }
+
         $user = User::create([
             'nom' => $validated['nom'],
             'prenom' => $validated['prenom'] ?? null,
-            'email' => $validated['email'],
+            'email' => $email,
             'password' => bcrypt($defaultPassword),
         ]);
         $user->assignRole('eleve');
@@ -151,30 +188,216 @@ class EleveController extends Controller
             ? $request->file('photo')->store('eleves', 'public')
             : null;
 
+        $matricule = 'EL-' . date('Y') . '-' . strtoupper(Str::random(5));
+        while (Eleve::where('matricule', $matricule)->exists()) {
+            $matricule = 'EL-' . date('Y') . '-' . strtoupper(Str::random(5));
+        }
+
         $eleve = Eleve::create([
             'user_id' => $user->id,
             'sexe' => $validated['sexe'],
             'date_naissance' => $validated['date_naissance'] ?? null,
             'lieu_naissance' => $validated['lieu_naissance'] ?? null,
             'probleme_particulier' => $validated['probleme_particulier'] ?? null,
-            'matricule' => 'ELEVE-' . strtoupper(Str::random(6)),
+            'matricule' => $matricule,
             'photo' => $path,
         ]);
 
-        Mail::to($user->email)->send(new NewUserCredentials($user, $defaultPassword));
+        try {
+            if (!empty($validated['email'])) {
+                Mail::to($user->email)->send(new NewUserCredentials($user, $defaultPassword));
+            }
+        } catch (\Exception $e) {
+            // Ignorer si mailer non configuré
+        }
 
-        return redirect()->route('eleves.index')->with('success', 'Élève créé avec succès ✅');
+        return redirect()->route('inscriptions.create.eleve', $eleve->id)
+            ->with('success', "Dossier de l'élève {$user->nom} {$user->prenom} créé avec succès ✅ Vous pouvez maintenant choisir sa classe et finaliser son inscription.");
     }
 
-    public function show($id)
+    /**
+     * Accès direct au dossier de l'élève ou parent connecté
+     */
+    public function monDossier(Request $request)
+    {
+        $user = $request->user();
+        if ($user->hasRole('eleve')) {
+            $eleve = Eleve::where('user_id', $user->id)->first();
+            if (!$eleve) {
+                return redirect()->route('dashboard')->with('error', "Aucun dossier élève associé à votre compte.");
+            }
+            return $this->show($request, $eleve->id);
+        }
+
+        if ($user->hasRole('parent')) {
+            $parent = \App\Models\ParentModel::where('user_id', $user->id)->first();
+            $firstStudent = $parent?->eleves()->first();
+            if ($firstStudent) {
+                return $this->show($request, $firstStudent->id);
+            }
+            return redirect()->route('dashboard')->with('error', "Aucun élève rattaché à votre compte parent.");
+        }
+
+        return redirect()->route('eleves.index');
+    }
+
+    public function show(Request $request, $id)
     {
         $eleve = Eleve::with(['user', 'inscriptions.classe', 'inscriptions.anneeScolaire', 'documents'])
             ->findOrFail($id);
 
-        $paiements = \App\Models\Paiement::whereIn('inscription_id', $eleve->inscriptions->pluck('id'))
-            ->with('fraisType', 'inscription.anneeScolaire')
-            ->latest('date_paiement')
-            ->get();
+        $user = $request->user();
+
+        // 🔒 Sécurité : Un élève ne peut voir que son propre dossier
+        if ($user->hasRole('eleve') && !$user->hasRole(['super-admin', 'directeur'])) {
+            if ($eleve->user_id !== $user->id) {
+                abort(403, "Accès refusé : vous ne pouvez consulter que votre propre dossier scolaire.");
+            }
+        }
+
+        // 🔒 Sécurité : Un parent ne peut voir que les dossiers de ses enfants
+        if ($user->hasRole('parent') && !$user->hasRole(['super-admin', 'directeur', 'enseignant'])) {
+            $hasChild = $eleve->parents()->where('user_id', $user->id)->exists();
+            if (!$hasChild) {
+                abort(403, "Accès refusé : cet élève n'est pas associé à votre compte parent.");
+            }
+        }
+
+        // 🔒 Sécurité d'accès : Un enseignant ne peut consulter que les élèves de ses classes
+        if ($this->isTeacher() && !$user->hasRole(['super-admin', 'directeur'])) {
+            $myClassIds = $this->getTeacherClassIds();
+            $hasStudent = $eleve->inscriptions()->whereIn('classe_id', $myClassIds)->exists();
+            if (!$hasStudent) {
+                abort(403, "Accès refusé : cet élève ne fait pas partie de vos classes.");
+            }
+        }
+
+        $canViewFinances = $user && ($user->can('voir_paiements') || $user->hasRole(['super-admin', 'directeur']));
+
+        $currentInscription = $eleve->inscriptionEnCours ?: $eleve->inscriptions->sortByDesc('id')->first();
+
+        $paiements = collect();
+        $financeStats = null;
+
+        if ($canViewFinances) {
+            $paiements = \App\Models\Paiement::whereIn('inscription_id', $eleve->inscriptions->pluck('id'))
+                ->with(['fraisType', 'inscription.anneeScolaire', 'user'])
+                ->latest('date_paiement')
+                ->latest('id')
+                ->get();
+
+            // Calculs financiers approfondis pour l'année scolaire en cours
+            if ($currentInscription) {
+                $fraisClasse = \App\Models\FraisClasse::where('classe_id', $currentInscription->classe_id)
+                    ->where('annee_scolaire_id', $currentInscription->annee_scolaire_id)
+                    ->first();
+                
+                $fraisTypeScolarite = \App\Models\FraisType::where('is_scolarite', true)
+                    ->where('annee_scolaire_id', $currentInscription->annee_scolaire_id)
+                    ->first();
+
+                $montantAnnuel = $fraisClasse ? (float)$fraisClasse->montant : ($fraisTypeScolarite ? (float)$fraisTypeScolarite->montant : 0);
+                
+                // Paiements de scolarité de cette inscription
+                $paiementsScolarite = $paiements->filter(fn($p) => $p->inscription_id == $currentInscription->id && $p->fraisType && $p->fraisType->is_scolarite);
+                $totalScolaritePayee = (float)$paiementsScolarite->sum('montant');
+                $resteAPayer = max(0, $montantAnnuel - $totalScolaritePayee);
+                $pourcentage = $montantAnnuel > 0 ? min(100, round(($totalScolaritePayee / $montantAnnuel) * 100)) : 0;
+
+                // Décomposition des 10 mois scolaires
+                $schoolMonths = [
+                    ['mois' => 'Septembre', 'numero' => 1],
+                    ['mois' => 'Octobre', 'numero' => 2],
+                    ['mois' => 'Novembre', 'numero' => 3],
+                    ['mois' => 'Décembre', 'numero' => 4],
+                    ['mois' => 'Janvier', 'numero' => 5],
+                    ['mois' => 'Février', 'numero' => 6],
+                    ['mois' => 'Mars', 'numero' => 7],
+                    ['mois' => 'Avril', 'numero' => 8],
+                    ['mois' => 'Mai', 'numero' => 9],
+                    ['mois' => 'Juin', 'numero' => 10],
+                ];
+
+                $montantMensuel = $montantAnnuel > 0 ? round($montantAnnuel / 10) : 0;
+
+                // Extraire tous les mois enregistrés dans les règlements
+                $moisPayesMap = [];
+                foreach ($paiementsScolarite as $p) {
+                    if (!empty($p->mois)) {
+                        $liste = array_map('trim', explode(',', $p->mois));
+                        foreach ($liste as $m) {
+                            $moisPayesMap[mb_strtolower($m)] = [
+                                'date' => $p->date_paiement ? $p->date_paiement->format('d/m/Y') : null,
+                                'montant' => (float)$p->montant,
+                                'paiement_id' => $p->id,
+                            ];
+                        }
+                    }
+                }
+
+                // Mois courant de l'année scolaire (1 = Sept, 2 = Oct, ..., 10 = Juin)
+                $curMonthReal = (int) date('n');
+                $moisScolaireActuel = match ($curMonthReal) {
+                    9 => 1,
+                    10 => 2,
+                    11 => 3,
+                    12 => 4,
+                    1 => 5,
+                    2 => 6,
+                    3 => 7,
+                    4 => 8,
+                    5 => 9,
+                    6, 7, 8 => 10,
+                    default => 1,
+                };
+
+                $moisDetails = [];
+                $nbMoisEnRetard = 0;
+                $montantEnRetard = 0;
+
+                foreach ($schoolMonths as $idx => $mInfo) {
+                    $nomMois = $mInfo['mois'];
+                    $cle = mb_strtolower($nomMois);
+                    $isPaid = isset($moisPayesMap[$cle]) || ($totalScolaritePayee >= (($idx + 1) * $montantMensuel) && $montantMensuel > 0);
+                    $isDue = ($idx + 1) <= $moisScolaireActuel;
+
+                    $statut = 'a_venir';
+                    $isRetard = false;
+
+                    if ($isPaid) {
+                        $statut = 'paye';
+                    } elseif ($isDue) {
+                        $statut = 'en_retard';
+                        $isRetard = true;
+                        $nbMoisEnRetard++;
+                        $montantEnRetard += $montantMensuel;
+                    }
+
+                    $moisDetails[] = [
+                        'mois' => $nomMois,
+                        'numero' => $idx + 1,
+                        'statut' => $statut, // 'paye' | 'en_retard' | 'a_venir'
+                        'est_paye' => $isPaid,
+                        'est_retard' => $isRetard,
+                        'montant' => $montantMensuel,
+                        'info_reglement' => $moisPayesMap[$cle] ?? null,
+                    ];
+                }
+
+                $financeStats = [
+                    'montant_annuel' => $montantAnnuel,
+                    'total_paye' => $totalScolaritePayee,
+                    'reste_a_payer' => $resteAPayer,
+                    'pourcentage' => $pourcentage,
+                    'montant_mensuel' => $montantMensuel,
+                    'mois_details' => $moisDetails,
+                    'nb_mois_en_retard' => $nbMoisEnRetard,
+                    'montant_en_retard' => $montantEnRetard,
+                    'est_a_jour' => $nbMoisEnRetard === 0,
+                    'mois_actuel_nom' => $schoolMonths[min(9, $moisScolaireActuel - 1)]['mois'],
+                ];
+            }
+        }
 
         $absences = \App\Models\Absence::whereIn('inscription_id', $eleve->inscriptions->pluck('id'))
             ->latest('date')
@@ -194,25 +417,31 @@ class EleveController extends Controller
                 'email' => $eleve->user->email ?? 'N/A',
                 'classe' => $eleve->classeActuelle()?->nom ?? 'Non assigné', // Priorité année en cours
                 'annee_actuelle' => $eleve->inscriptionEnCours?->anneeScolaire?->nom ?? ($eleve->inscriptionActuelle?->anneeScolaire?->nom ?? '-'),
+                'is_inscrit_annee_en_cours' => (bool)$currentInscription,
+                'inscription_en_cours_id' => $currentInscription?->id,
             ],
-            'inscriptions' => $eleve->inscriptions->map(function ($insc) {
+            'financeStats' => $financeStats,
+            'inscriptions' => $eleve->inscriptions->map(function ($insc) use ($canViewFinances) {
                 return [
                     'id' => $insc->id,
                     'annee' => $insc->anneeScolaire->nom,
                     'classe' => $insc->classe->nom,
                     'date' => $insc->date_inscription->format('d/m/Y'),
-                    'total_frais' => $insc->total_frais,
+                    'total_frais' => $canViewFinances ? $insc->total_frais : null,
                     'en_cours' => $insc->anneeScolaire->en_cours
                 ];
             }),
             'paiements' => $paiements->map(function ($p) {
                 return [
                     'id' => $p->id,
-                    'date' => $p->date_paiement->format('d/m/Y'),
-                    'montant' => $p->montant,
-                    'type' => $p->fraisType->nom,
-                    'annee' => $p->inscription->anneeScolaire->nom,
-                    'reference' => $p->reference,
+                    'date' => $p->date_paiement ? $p->date_paiement->format('d/m/Y') : '-',
+                    'montant' => (float)$p->montant,
+                    'type' => $p->fraisType?->nom ?? 'Frais',
+                    'is_scolarite' => (bool)($p->fraisType?->is_scolarite),
+                    'mois' => $p->mois,
+                    'mode' => $p->mode_paiement,
+                    'annee' => $p->inscription?->anneeScolaire?->nom ?? '-',
+                    'caissier' => $p->user ? ($p->user->nom . ' ' . ($p->user->prenom ? $p->user->prenom[0] . '.' : '')) : 'Caisse',
                 ];
             }),
             'documents' => $eleve->documents->map(function ($doc) {
@@ -220,6 +449,7 @@ class EleveController extends Controller
                     'id' => $doc->id,
                     'nom' => $doc->nom,
                     'type' => $doc->type,
+                    'description' => $doc->description,
                     'url' => $doc->url,
                     'date' => $doc->created_at->format('d/m/Y'),
                 ];
@@ -229,7 +459,7 @@ class EleveController extends Controller
                     'id' => $abs->id,
                     'date' => $abs->date->format('d/m/Y'),
                     'type' => $abs->type,
-                    'justifiee' => (bool)$abs->justifiee,
+                    'justifiee' => $abs->justifiee,
                     'motif' => $abs->motif,
                 ];
             }),
@@ -306,27 +536,97 @@ class EleveController extends Controller
 
     public function downloadCertificate(Eleve $eleve)
     {
+        $user = auth()->user();
+        if ($user && $user->hasRole(['eleve', 'parent', 'enseignant'])) {
+            $hasApproved = \App\Models\DemandeDocument::where('eleve_id', $eleve->id)
+                ->where('type_document', 'certificat_scolarite')
+                ->where('statut', 'approuve')
+                ->exists();
+
+            if (!$hasApproved) {
+                return redirect()->route('demandes-documents.index')
+                    ->with('error', 'Le téléchargement direct des documents administratifs est restreint. Veuillez soumettre une demande au secrétariat.');
+            }
+        }
+
         $eleve->load(['user', 'inscriptions.classe', 'inscriptions.anneeScolaire']);
         if (!$eleve->inscriptionActuelle) return back()->with('error', 'L\'élève n\'est pas inscrit cette année.');
 
+        $inscription = $eleve->inscriptionActuelle;
+
+        // S'assurer qu'un code de sécurité existe pour la vérification du QR Code
+        if (!$inscription->code_securite) {
+            $inscription->update([
+                'code_securite' => (string) \Illuminate\Support\Str::uuid(),
+            ]);
+        }
+
+        $qrData = route('inscriptions.verify', $inscription->code_securite);
+
+        $qrCode = base64_encode(
+            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+                ->size(150)
+                ->margin(0)
+                ->errorCorrection('M')
+                ->generate($qrData)
+        );
+
+        $reference = 'CS/' . ($inscription->anneeScolaire->nom ?? date('Y')) . '/' . $eleve->matricule;
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('documents.certificat_scolarite', [
             'eleve' => $eleve,
-            'inscription' => $eleve->inscriptionActuelle,
-            'etablissement' => $this->getEtablissementData()
-        ]);
+            'inscription' => $inscription,
+            'etablissement' => $this->getEtablissementData(),
+            'qrCode' => $qrCode,
+            'reference' => $reference,
+        ])->setPaper('a4', 'portrait');
+
         return $pdf->download('certificat_' . $eleve->matricule . '.pdf');
     }
 
     public function downloadCarte(Eleve $eleve)
     {
+        $user = auth()->user();
+        if ($user && $user->hasRole(['eleve', 'parent', 'enseignant'])) {
+            $hasApproved = \App\Models\DemandeDocument::where('eleve_id', $eleve->id)
+                ->where('type_document', 'carte_scolaire')
+                ->where('statut', 'approuve')
+                ->exists();
+
+            if (!$hasApproved) {
+                return redirect()->route('demandes-documents.index')
+                    ->with('error', 'Le téléchargement direct des documents administratifs est restreint. Veuillez soumettre une demande au secrétariat.');
+            }
+        }
+
         $eleve->load(['user', 'inscriptions.classe', 'inscriptions.anneeScolaire']);
         if (!$eleve->inscriptionActuelle) return back()->with('error', 'L\'élève n\'est pas inscrit cette année.');
 
+        $inscription = $eleve->inscriptionActuelle;
+
+        // S'assurer qu'un code de sécurité existe pour la vérification du QR Code
+        if (!$inscription->code_securite) {
+            $inscription->update([
+                'code_securite' => (string) \Illuminate\Support\Str::uuid(),
+            ]);
+        }
+
+        $qrData = route('inscriptions.verify', $inscription->code_securite);
+
+        $qrCode = base64_encode(
+            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+                ->size(160)
+                ->margin(0)
+                ->errorCorrection('M')
+                ->generate($qrData)
+        );
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('documents.carte_eleve', [
             'eleve' => $eleve,
-            'inscription' => $eleve->inscriptionActuelle,
-            'etablissement' => $this->getEtablissementData()
-        ])->setPaper([0, 0, 241, 153], 'landscape'); // Format CR80 (Carte de crédit) 85.6mm x 54mm approx en points
+            'inscription' => $inscription,
+            'etablissement' => $this->getEtablissementData(),
+            'qrCode' => $qrCode,
+        ])->setPaper([0, 0, 242.64, 153.01], 'landscape'); // Format CR80 (Carte de crédit) 85.6mm x 54mm
 
         return $pdf->download('carte_' . $eleve->matricule . '.pdf');
     }
@@ -346,13 +646,52 @@ class EleveController extends Controller
 
     public function downloadFiche(Eleve $eleve)
     {
+        $user = auth()->user();
+        if ($user && $user->hasRole(['eleve', 'parent', 'enseignant'])) {
+            $hasApproved = \App\Models\DemandeDocument::where('eleve_id', $eleve->id)
+                ->where('type_document', 'fiche_synthese')
+                ->where('statut', 'approuve')
+                ->exists();
+
+            if (!$hasApproved) {
+                return redirect()->route('demandes-documents.index')
+                    ->with('error', 'Le téléchargement direct des documents administratifs est restreint. Veuillez soumettre une demande au secrétariat.');
+            }
+        }
+
         $eleve->load(['user', 'inscriptions.classe', 'inscriptions.anneeScolaire', 'parents.user']);
+
+        $inscription = $eleve->inscriptionActuelle ?? $eleve->inscriptions()->latest()->first();
+
+        // S'assurer qu'un code de sécurité existe pour le QR Code
+        if ($inscription && !$inscription->code_securite) {
+            $inscription->update([
+                'code_securite' => (string) \Illuminate\Support\Str::uuid(),
+            ]);
+        }
+
+        $qrData = $inscription && $inscription->code_securite
+            ? route('inscriptions.verify', $inscription->code_securite)
+            : route('eleves.show', $eleve->id);
+
+        $qrCode = base64_encode(
+            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+                ->size(150)
+                ->margin(0)
+                ->errorCorrection('M')
+                ->generate($qrData)
+        );
+
+        $reference = 'FICHE/' . ($inscription->anneeScolaire->nom ?? date('Y')) . '/' . $eleve->matricule;
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('documents.fiche_renseignements', [
             'eleve' => $eleve,
-            'inscription' => $eleve->inscriptionActuelle,
-            'etablissement' => $this->getEtablissementData()
-        ]);
+            'inscription' => $inscription,
+            'etablissement' => $this->getEtablissementData(),
+            'qrCode' => $qrCode,
+            'reference' => $reference,
+        ])->setPaper('a4', 'portrait');
+
         return $pdf->download('fiche_renseignements_' . $eleve->matricule . '.pdf');
     }
 
@@ -362,9 +701,75 @@ class EleveController extends Controller
         
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('documents.billet_sortie', [
             'eleve' => $eleve,
-            'inscription' => $eleve->inscriptionActuelle ?? null, // Peut être généré même sans inscription active pour test ? Non, mieux vaut être safe.
+            'inscription' => $eleve->inscriptionActuelle ?? null,
             'etablissement' => $this->getEtablissementData()
         ]);
         return $pdf->download('billet_sortie_' . $eleve->matricule . '.pdf');
+    }
+
+    /**
+     * Téléversement d'une pièce justificative dans le dossier de l'élève
+     */
+    public function storeDocument(Request $request, Eleve $eleve)
+    {
+        $user = $request->user();
+
+        // 🔒 Sécurité : élève propriétaire, parent associé, ou admin/directeur/personnel
+        $isSelf = $user->hasRole('eleve') && $eleve->user_id === $user->id;
+        $isParentOf = $user->hasRole('parent') && $eleve->parents()->where('user_id', $user->id)->exists();
+        $isAdmin = $user->hasRole(['super-admin', 'directeur', 'personnel']);
+
+        if (!$isSelf && !$isParentOf && !$isAdmin) {
+            abort(403, "Vous n'avez pas l'autorisation d'ajouter un document à ce dossier.");
+        }
+
+        $validated = $request->validate([
+            'nom' => 'required|string|max:255',
+            'type' => 'nullable|string|max:100',
+            'description' => 'nullable|string|max:500',
+            'fichier' => 'required|file|mimes:pdf,jpg,jpeg,png,webp|max:5120',
+        ], [
+            'nom.required' => 'Le libellé du document est obligatoire.',
+            'fichier.required' => 'Veuillez sélectionner un fichier à téléverser.',
+            'fichier.mimes' => 'Le format doit être un PDF, une image JPG, PNG ou WEBP.',
+            'fichier.max' => 'La taille maximale autorisée est de 5 Mo.',
+        ]);
+
+        $path = $request->file('fichier')->store('documents_eleves', 'public');
+
+        $eleve->documents()->create([
+            'nom' => $validated['nom'],
+            'fichier' => $path,
+            'type' => $validated['type'] ?? 'Pièce justificative',
+            'description' => $validated['description'] ?? null,
+            'date_upload' => now(),
+        ]);
+
+        return back()->with('success', "Le document '{$validated['nom']}' a été téléversé avec succès dans le dossier ✅");
+    }
+
+    /**
+     * Suppression d'une pièce justificative du dossier de l'élève
+     */
+    public function destroyDocument(Request $request, \App\Models\Document $document)
+    {
+        $user = $request->user();
+        $eleve = $document->eleve;
+
+        $isSelf = $user->hasRole('eleve') && $eleve && $eleve->user_id === $user->id;
+        $isParentOf = $user->hasRole('parent') && $eleve && $eleve->parents()->where('user_id', $user->id)->exists();
+        $isAdmin = $user->hasRole(['super-admin', 'directeur', 'personnel']);
+
+        if (!$isSelf && !$isParentOf && !$isAdmin) {
+            abort(403, "Vous n'avez pas l'autorisation de supprimer ce document.");
+        }
+
+        if ($document->fichier) {
+            Storage::disk('public')->delete($document->fichier);
+        }
+
+        $document->delete();
+
+        return back()->with('success', 'Document retiré du dossier avec succès 🗑️');
     }
 }

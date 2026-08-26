@@ -5,7 +5,7 @@ import useTranslation from "@/Hooks/useTranslation";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import Modal from "@/Components/Modal";
 import {
-    Pencil, Trash2, Eye, User, Briefcase, GraduationCap, Phone, MapPin, Search, Plus, CheckCircle2, X
+    Pencil, Trash2, Eye, User, Briefcase, GraduationCap, Phone, MapPin, Search, Plus, CheckCircle2, X, AlertCircle, Loader2
 } from "lucide-react";
 
 function EnseignantForm({ enseignant, onClose }) {
@@ -14,22 +14,26 @@ function EnseignantForm({ enseignant, onClose }) {
         nom: enseignant?.nom || "",
         prenom: enseignant?.prenom || "",
         email: enseignant?.user?.email || "",
+        password: "",
         sexe: enseignant?.sexe || "M",
         telephone: enseignant?.telephone || "",
         adresse: enseignant?.adresse || "",
         specialite: enseignant?.specialite || "",
+        cv: null,
     });
 
     useEffect(() => {
         if (enseignant) {
             form.setData({
-                nom: enseignant.nom,
-                prenom: enseignant.prenom,
+                nom: enseignant.nom || "",
+                prenom: enseignant.prenom || "",
                 email: enseignant.user?.email || "",
+                password: "",
                 sexe: enseignant.sexe || "M",
                 telephone: enseignant.telephone || "",
                 adresse: enseignant.adresse || "",
                 specialite: enseignant.specialite || "",
+                cv: null,
             });
         } else {
             form.reset();
@@ -39,22 +43,33 @@ function EnseignantForm({ enseignant, onClose }) {
     const submit = (e) => {
         e.preventDefault();
         if (enseignant) {
-            router.post(route("enseignants.update", enseignant.id), {
-                _method: "put",
-                ...form.data,
-                cv: form.data.cv, // Ensure file is sent
-            }, {
+            form.transform((data) => ({
+                ...data,
+                _method: "PUT",
+            })).post(route("enseignants.update", enseignant.id), {
+                forceFormData: true,
                 onSuccess: () => {
+                    toast.success("Dossier enseignant mis à jour avec succès ✅");
                     onClose();
                     form.reset();
                 },
+                onError: (errs) => {
+                    const firstErr = Object.values(errs)[0];
+                    toast.error(firstErr || "Veuillez vérifier les informations saisies.");
+                }
             });
         } else {
             form.post(route("enseignants.store"), {
+                forceFormData: true,
                 onSuccess: () => {
+                    toast.success("Enseignant intégré avec succès ✅");
                     onClose();
                     form.reset();
                 },
+                onError: (errs) => {
+                    const firstErr = Object.values(errs)[0];
+                    toast.error(firstErr || "Veuillez vérifier les informations saisies.");
+                }
             });
         }
     };
@@ -76,7 +91,22 @@ function EnseignantForm({ enseignant, onClose }) {
                 </button>
             </div>
 
-            <form onSubmit={submit} className="p-6 md:p-8 pt-0 flex flex-col gap-6">
+            {/* BANNIÈRE D'ERREURS */}
+            {form.errors && Object.keys(form.errors).length > 0 && (
+                <div className="mx-6 md:mx-8 mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200 flex items-start gap-3 shadow-sm">
+                    <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                        <p className="font-bold mb-1">Veuillez corriger les informations suivantes :</p>
+                        <ul className="list-disc list-inside space-y-0.5 text-xs">
+                            {Object.entries(form.errors).map(([key, msg]) => (
+                                <li key={key}>{msg}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            )}
+
+            <form onSubmit={submit} className="p-6 md:p-8 pt-0 flex flex-col gap-6" encType="multipart/form-data">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
                     {/* 1. Informations Personnelles */}
                     <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
@@ -87,25 +117,45 @@ function EnseignantForm({ enseignant, onClose }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="md:col-span-1">
                                 <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("nom", "Nom")} <span className="text-red-500">*</span></label>
-                                <input type="text" required className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm"
+                                <input type="text" required className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
                                     value={form.data.nom} onChange={(e) => form.setData("nom", e.target.value)} />
                                 {form.errors.nom && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.nom}</p>}
                             </div>
 
                             <div className="md:col-span-1">
                                 <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("prenom", "Prénom")} <span className="text-red-500">*</span></label>
-                                <input type="text" required className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm"
+                                <input type="text" required className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
                                     value={form.data.prenom} onChange={(e) => form.setData("prenom", e.target.value)} />
+                                {form.errors.prenom && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.prenom}</p>}
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("email", "Email Professionnel")} <span className="text-red-500">*</span></label>
+                                <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">
+                                    {t("email", "Email Professionnel")} <span className="text-slate-400 font-normal text-xs">(Optionnel • Auto-généré si vide)</span>
+                                </label>
                                 <div className="relative">
-                                    <input type="email" required className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm"
-                                        value={form.data.email} onChange={(e) => form.setData("email", e.target.value)} placeholder="prenom.nom@ecole.com" />
+                                    <input type="email" className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
+                                        value={form.data.email} onChange={(e) => form.setData("email", e.target.value)} placeholder="prenom.nom@ecole.com (facultatif)" />
                                 </div>
                                 {form.errors.email && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.email}</p>}
                                 <p className="text-xs text-slate-400 mt-1.5">Sera utilisé pour créer son compte d'accès Portail.</p>
+                            </div>
+
+                            <div className="md:col-span-2">
+                                <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">
+                                    {t("password", "Mot de passe d'accès")} <span className="text-slate-400 font-normal text-xs">{enseignant ? "(Laisser vide pour conserver l'actuel)" : "(Par défaut : 12345678)"}</span>
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-mono text-sm"
+                                        value={form.data.password}
+                                        onChange={(e) => form.setData("password", e.target.value)}
+                                        placeholder={enseignant ? "Laisser vide pour ne pas modifier" : "12345678"}
+                                    />
+                                </div>
+                                {form.errors.password && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.password}</p>}
+                                <p className="text-xs text-slate-400 mt-1.5">Mot de passe pour se connecter sur l'espace enseignant.</p>
                             </div>
 
                             <div className="md:col-span-2">
@@ -131,14 +181,16 @@ function EnseignantForm({ enseignant, onClose }) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="md:col-span-1">
                                 <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400" /> {t("telephone", "Téléphone")}</label>
-                                <input type="text" className="w-full border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm"
+                                <input type="text" className="w-full border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
                                     value={form.data.telephone} onChange={(e) => form.setData("telephone", e.target.value)} placeholder="+241 00 00 00 00" />
+                                {form.errors.telephone && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.telephone}</p>}
                             </div>
 
                             <div className="md:col-span-1">
                                 <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-400" /> {t("adresse", "Adresse")}</label>
-                                <input type="text" className="w-full border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm"
+                                <input type="text" className="w-full border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
                                     value={form.data.adresse} onChange={(e) => form.setData("adresse", e.target.value)} placeholder="Quartier, Ville" />
+                                {form.errors.adresse && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.adresse}</p>}
                             </div>
 
                             <div className="md:col-span-2">
@@ -149,11 +201,12 @@ function EnseignantForm({ enseignant, onClose }) {
                             </div>
 
                             <div className="md:col-span-2">
-                                <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("cv", "Curriculum Vitae (PDF)")}</label>
+                                <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("cv", "Curriculum Vitae (PDF, Max 4Mo)")}</label>
                                 <div className="relative">
-                                    <input type="file" accept=".pdf,.png,.jpg,.jpeg" className="w-full border border-dashed border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/40 hover:file:bg-blue-100"
+                                    <input type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" className="w-full border border-dashed border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/40 hover:file:bg-blue-100"
                                         onChange={(e) => form.setData("cv", e.target.files[0])} />
                                 </div>
+                                {form.errors.cv && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.cv}</p>}
                             </div>
                         </div>
                     </div>
@@ -166,17 +219,14 @@ function EnseignantForm({ enseignant, onClose }) {
                     </button>
                     <button type="submit" disabled={form.processing}
                         className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all active:scale-95 disabled:opacity-70">
-                        {enseignant ? (
-                            <>
-                                <CheckCircle2 className="w-5 h-5" />
-                                {t("update", "Mettre à jour le dossier")}
-                            </>
+                        {form.processing ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : enseignant ? (
+                            <CheckCircle2 className="w-5 h-5" />
                         ) : (
-                            <>
-                                <Plus className="w-5 h-5" />
-                                {t("create", "Intégrer l'enseignant")}
-                            </>
+                            <Plus className="w-5 h-5" />
                         )}
+                        {enseignant ? t("update", "Mettre à jour le dossier") : t("create", "Intégrer l'enseignant")}
                     </button>
                 </div>
             </form>

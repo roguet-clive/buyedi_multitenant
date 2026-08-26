@@ -222,6 +222,28 @@ export default function ShowEnseignant({ auth, enseignant, cours, emploisDuTemps
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* CARTE ACCÈS PORTAIL */}
+                                    <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-xl shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-800 md:col-span-2">
+                                        <h3 className="text-lg font-black text-slate-800 dark:text-white mb-6 flex items-center gap-3">
+                                            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 rounded-xl"><Mail className="w-5 h-5" /></div>
+                                            Compte & Accès au Portail Enseignant
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700">
+                                            <div>
+                                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold block mb-1">Identifiant / Email</label>
+                                                <p className="text-slate-800 dark:text-white font-bold font-mono text-sm">{enseignant.user?.email || '-'}</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold block mb-1">Matricule</label>
+                                                <p className="text-slate-800 dark:text-white font-bold font-mono text-sm">{enseignant.matricule || '-'}</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-slate-400 uppercase tracking-widest font-bold block mb-1">Mot de passe initial</label>
+                                                <p className="text-slate-800 dark:text-white font-bold font-mono text-sm">12345678 <span className="text-xs text-slate-400 font-sans font-normal">(Par défaut)</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 

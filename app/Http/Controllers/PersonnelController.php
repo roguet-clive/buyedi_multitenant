@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Personnel;
 use App\Models\User;
-use App\Models\Contrat; // Import Contrat
+use App\Models\Contrat;
+use Spatie\Permission\Models\Role;
 use Illuminate\Http\Request;
-use Inertia\Inertia; // Import Inertia
-use Illuminate\Support\Facades\DB; // Import DB
-use Illuminate\Support\Facades\Hash; // Import Hash
+use Inertia\Inertia;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class PersonnelController extends Controller
 {
@@ -27,7 +28,7 @@ class PersonnelController extends Controller
     {
         $search = $request->input('search');
 
-        $personnels = Personnel::with(['user', 'user.contrat'])
+        $personnels = Personnel::with(['user.roles', 'user.contrat'])
             ->when($search, function ($query, $search) {
                 $query->whereHas('user', function ($q) use ($search) {
                     $q->where('nom', 'like', "%{$search}%")
@@ -41,8 +42,12 @@ class PersonnelController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        // Rôles assignables aux membres du personnel
+        $roles = Role::whereNotIn('name', ['eleve', 'parent'])->get(['id', 'name']);
+
         return Inertia::render('Personnels/Index', [
             'personnels' => $personnels,
+            'roles' => $roles,
             'filters' => ['search' => $search],
         ]);
     }
@@ -53,26 +58,33 @@ class PersonnelController extends Controller
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
+            'password' => 'nullable|string|min:6',
+            'role' => 'nullable|string|exists:roles,name',
             'poste' => 'required|string|max:255',
             'telephone' => 'nullable|string|max:20',
             'adresse' => 'nullable|string|max:255',
             'sexe' => 'required|in:M,F',
             'date_embauche' => 'nullable|date',
             'date_naissance' => 'nullable|date',
-            'salaire_base' => 'required|numeric|min:0', // 💰 Contrat
+            'salaire_base' => 'required|numeric|min:0',
             'type_contrat' => 'required|string|in:CDI,CDD,Vacataire,Stage',
         ]);
 
         DB::transaction(function () use ($validated) {
+            $plainPassword = !empty($validated['password']) ? $validated['password'] : '12345678';
+            $roleName = !empty($validated['role']) ? $validated['role'] : 'personnel';
+
+            // 1. Création du compte utilisateur
             $user = User::create([
                 'nom' => $validated['nom'],
                 'prenom' => $validated['prenom'],
                 'email' => $validated['email'],
-                'password' => Hash::make('password'),
+                'password' => Hash::make($plainPassword),
             ]);
 
-            $user->assignRole('personnel');
+            $user->assignRole($roleName);
 
+            // 2. Création du profil Personnel
             Personnel::create([
                 'user_id' => $user->id,
                 'poste' => $validated['poste'],
@@ -83,7 +95,7 @@ class PersonnelController extends Controller
                 'date_naissance' => $validated['date_naissance'] ?? null,
             ]);
 
-            // 📜 Création du Contrat Automatique
+            // 3. Création du Contrat
             Contrat::create([
                 'user_id' => $user->id,
                 'type' => $validated['type_contrat'],
@@ -93,7 +105,7 @@ class PersonnelController extends Controller
             ]);
         });
 
-        return redirect()->route('personnels.index')->with('success', 'Personnel et contrat créés avec succès.');
+        return redirect()->route('personnels.index')->with('success', 'Employé, compte d\'accès utilisateur et contrat créés avec succès en 1 seule étape.');
     }
 
     public function update(Request $request, Personnel $personnel)
@@ -102,22 +114,34 @@ class PersonnelController extends Controller
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $personnel->user_id,
+            'password' => 'nullable|string|min:6',
+            'role' => 'nullable|string|exists:roles,name',
             'poste' => 'required|string|max:255',
             'telephone' => 'nullable|string|max:20',
             'adresse' => 'nullable|string|max:255',
             'sexe' => 'required|in:M,F',
             'date_embauche' => 'nullable|date',
             'date_naissance' => 'nullable|date',
-            'salaire_base' => 'nullable|numeric|min:0', // Optionnel en update
+            'salaire_base' => 'nullable|numeric|min:0',
             'type_contrat' => 'nullable|string|in:CDI,CDD,Vacataire,Stage',
         ]);
 
         DB::transaction(function () use ($validated, $personnel) {
-            $personnel->user->update([
+            $userUpdates = [
                 'nom' => $validated['nom'],
                 'prenom' => $validated['prenom'],
                 'email' => $validated['email'],
-            ]);
+            ];
+
+            if (!empty($validated['password'])) {
+                $userUpdates['password'] = Hash::make($validated['password']);
+            }
+
+            $personnel->user->update($userUpdates);
+
+            if (!empty($validated['role'])) {
+                $personnel->user->syncRoles([$validated['role']]);
+            }
 
             $personnel->update([
                 'poste' => $validated['poste'],
@@ -142,12 +166,11 @@ class PersonnelController extends Controller
             }
         });
 
-        return redirect()->back()->with('success', 'Personnel mis à jour.');
+        return redirect()->back()->with('success', 'Dossier et accès de l\'employé mis à jour avec succès.');
     }
 
     public function destroy(Personnel $personnel)
     {
-        // Supprimer l'utilisateur lié (cascade delete du personnel)
         $personnel->user->delete();
         return redirect()->back()->with('success', 'Personnel supprimé.');
     }

@@ -97,11 +97,26 @@ class AbsenceController extends Controller
             ->get()
             ->keyBy('inscription_id');
 
+        // Vérifier si l'appel a été clôturé et verrouillé pour cette date
+        $appel = \App\Models\Appel::with('user')
+            ->where('classe_id', $classe->id)
+            ->where('date', $date)
+            ->first();
+
+        $isLocked = $appel ? (bool)$appel->verrouille : false;
+        $lockedBy = $appel && $appel->user ? ($appel->user->prenom . ' ' . $appel->user->nom) : null;
+        $lockedAt = $appel ? $appel->updated_at->format('d/m/Y à H:i') : null;
+        $canUnlock = $request->user()->hasRole(['super-admin', 'directeur', 'personnel']);
+
         return \Inertia\Inertia::render('Absences/Saisie', [
             'classe' => $classe,
             'inscriptions' => $inscriptions,
             'absences' => $absences,
-            'date' => $date
+            'date' => $date,
+            'isLocked' => $isLocked,
+            'lockedBy' => $lockedBy,
+            'lockedAt' => $lockedAt,
+            'canUnlock' => $canUnlock,
         ]);
     }
 
@@ -229,9 +244,18 @@ class AbsenceController extends Controller
 
         $date = $request->input('date');
         $donnees = $request->input('absences', []); // [inscription_id => {type, justifiee, motif...}]
+        $user = $request->user();
+
+        // 🔒 Sécurité : Vérifier si l'appel est déjà verrouillé pour cette date
+        $existingAppel = \App\Models\Appel::where('classe_id', $classe->id)
+            ->where('date', $date)
+            ->first();
+
+        if ($existingAppel && $existingAppel->verrouille && $this->isTeacher()) {
+            return back()->with('error', "🔒 L'appel pour le {$date} a déjà été validé et verrouillé. Toute modification ultérieure doit être effectuée par la Direction.");
+        }
 
         // 🛡️ Sécurité : Récupérer les IDs valides pour cette classe
-        // On ne veut pas qu'on puisse modifier l'absence d'un élève d'une autre classe
         $currentYear = \App\Models\AnneeScolaire::where('en_cours', true)->first();
         if (!$currentYear) return back()->with('error', __('Année scolaire introuvable'));
 
@@ -250,10 +274,10 @@ class AbsenceController extends Controller
 
                 // Si data est vide ou marked=false, supprimer l'absence si elle existe
                 if (empty($data['marked']) || $data['marked'] === false) {
-                        \App\Models\Absence::where('inscription_id', $inscriptionId)
+                    \App\Models\Absence::where('inscription_id', $inscriptionId)
                         ->where('date', $date)
                         ->delete();
-                        continue;
+                    continue;
                 }
 
                 \App\Models\Absence::updateOrCreate(
@@ -269,14 +293,9 @@ class AbsenceController extends Controller
                 );
 
                 // 🔔 NOTIFICATION PARENTS
-                // On notifie seulement si c'est une création ou une mise à jour pertinente (optionnel : vérifier wasRecentlyCreated)
-                // Pour simplifier, on notifie à chaque saisie/correction pour l'instant, ou mieux : on vérifie si l'absence vient d'être créée.
-                // Ici, comme c'est un updateOrCreate, c'est difficile de savoir si c'est nouveau sans plus de logique.
-                // On va supposer que l'action de "marquer" justifie une notif.
-                
                 $inscription = \App\Models\Inscription::find($inscriptionId);
                 if ($inscription && $inscription->eleve) {
-                    $parents = $inscription->eleve->parents; // Relation définie dans Eleve.php
+                    $parents = $inscription->eleve->parents;
                     foreach ($parents as $parent) {
                         if ($parent->user) {
                             $parent->user->notify(new \App\Notifications\AbsenceNotification(
@@ -291,7 +310,60 @@ class AbsenceController extends Controller
             }
         });
 
-        return back()->with('success', __('Absences enregistrées ✅'));
+        // 🔒 Clôturer et verrouiller l'appel pour cette date
+        \App\Models\Appel::updateOrCreate(
+            [
+                'classe_id' => $classe->id,
+                'date' => $date,
+            ],
+            [
+                'annee_scolaire_id' => $currentYear->id,
+                'user_id' => $user->id,
+                'verrouille' => true,
+                'statut' => 'cloture',
+            ]
+        );
+
+        return back()->with('success', "✅ Appel du jour validé et verrouillé avec succès.");
+    }
+
+    /**
+     * Déverrouiller ou reverrouiller un appel (Direction / Personnel)
+     */
+    public function toggleLock(\App\Models\Classe $classe, \Illuminate\Http\Request $request)
+    {
+        $user = $request->user();
+        if (!$user->hasRole(['super-admin', 'directeur', 'personnel'])) {
+            abort(403, "Cette action est réservée à la Direction.");
+        }
+
+        $date = $request->input('date', now()->format('Y-m-d'));
+        $currentYear = \App\Models\AnneeScolaire::where('en_cours', true)->first();
+        if (!$currentYear) return back()->with('error', __('Aucune année scolaire active.'));
+
+        $appel = \App\Models\Appel::where('classe_id', $classe->id)
+            ->where('date', $date)
+            ->first();
+
+        if ($appel) {
+            $appel->verrouille = !$appel->verrouille;
+            $appel->save();
+            $msg = $appel->verrouille 
+                ? "🔒 L'appel du {$date} a été verrouillé." 
+                : "🔓 L'appel du {$date} a été déverrouillé avec succès. La modification est désormais possible.";
+        } else {
+            \App\Models\Appel::create([
+                'classe_id' => $classe->id,
+                'annee_scolaire_id' => $currentYear->id,
+                'user_id' => $user->id,
+                'date' => $date,
+                'verrouille' => false,
+                'statut' => 'ouvert',
+            ]);
+            $msg = "🔓 L'appel du {$date} est désormais ouvert.";
+        }
+
+        return back()->with('success', $msg);
     }
 
     /**

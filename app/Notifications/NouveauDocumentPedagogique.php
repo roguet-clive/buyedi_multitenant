@@ -36,12 +36,33 @@ class NouveauDocumentPedagogique extends Notification
      */
     public function toArray(object $notifiable): array
     {
+        $matiereNom = $this->document->matiere->nom ?? 'Matière';
+        $classeNom = $this->document->classe->nom ?? 'Classe';
+        $enseignantNom = $this->document->enseignant->user->full_name ?? 'L\'enseignant';
+        
+        $typeLabel = match($this->document->type) {
+            'cours' => 'un nouveau cours',
+            'exercice' => 'un nouvel exercice',
+            'devoir' => 'un devoir à rendre',
+            default => 'un nouveau document pédagogique',
+        };
+
+        $message = "{$enseignantNom} a publié {$typeLabel} en {$matiereNom} pour la classe {$classeNom}.";
+        if (!empty($this->document->date_limite)) {
+            $message .= " Date limite : " . \Carbon\Carbon::parse($this->document->date_limite)->format('d/m/Y') . ".";
+        }
+
         return [
-            'title' => 'Nouveau document : ' . $this->document->titre,
-            'message' => 'Un nouveau ' . $this->document->type . ' a été publié en ' . $this->document->matiere->nom . '.',
+            'title' => '📚 ' . ucfirst($this->document->type) . ' : ' . $this->document->titre,
+            'message' => $message,
             'action_url' => route('documents.index'),
+            'download_url' => route('documents.download', $this->document->id),
             'type' => 'document_pedagogique',
             'document_id' => $this->document->id,
+            'document_type' => $this->document->type,
+            'matiere' => $matiereNom,
+            'classe' => $classeNom,
+            'enseignant' => $enseignantNom,
         ];
     }
 }

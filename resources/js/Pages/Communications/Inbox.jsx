@@ -4,7 +4,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Mail, Send, Inbox as InboxIcon, Star, Trash2, Search } from 'lucide-react';
 import useTranslation from "@/Hooks/useTranslation";
 
-export default function Inbox({ messages }) {
+export default function Inbox({ messages, canCreate = true, userRole = 'user' }) {
     const { t } = useTranslation();
 
     return (
@@ -28,6 +28,7 @@ export default function Inbox({ messages }) {
                         <p className="text-slate-400 font-medium flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                             {messages.data.filter(m => !m.read_at).length} message(s) non lu(s)
+                            {!canCreate && <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full ml-2">Mode Consultation</span>}
                         </p>
                     </div>
                 </div>
@@ -47,13 +48,15 @@ export default function Inbox({ messages }) {
 
                 {/* Sidebar locale Messagerie */}
                 <div className="w-72 flex-shrink-0 border-r border-slate-100 dark:border-slate-800 p-6 hidden md:block bg-slate-50/50 dark:bg-slate-900/50">
-                    <Link
-                        href={route('communications.create')}
-                        className="flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white w-full py-4 rounded-2xl font-bold shadow-lg shadow-emerald-500/30 transition-all mb-8 active:scale-95 group"
-                    >
-                        <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                        {t("communications_create", "Nouveau Message")}
-                    </Link>
+                    {canCreate && (
+                        <Link
+                            href={route('communications.create')}
+                            className="flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white w-full py-4 rounded-2xl font-bold shadow-lg shadow-emerald-500/30 transition-all mb-8 active:scale-95 group"
+                        >
+                            <Send className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            {t("communications_create", "Nouveau Message")}
+                        </Link>
+                    )}
 
                     <nav className="space-y-2">
                         <Link href={route('communications.inbox')} className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl font-bold shadow-sm border border-slate-200 dark:border-slate-700">
@@ -70,12 +73,14 @@ export default function Inbox({ messages }) {
                             )}
                         </Link>
 
-                        <Link href={route('communications.index')} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-2xl font-semibold transition-all group">
-                            <div className="p-2 rounded-xl text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
-                                <Send className="w-5 h-5" />
-                            </div>
-                            {t("communications_sent", "Messages envoyés")}
-                        </Link>
+                        {canCreate && (
+                            <Link href={route('communications.index')} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-2xl font-semibold transition-all group">
+                                <div className="p-2 rounded-xl text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                                    <Send className="w-5 h-5" />
+                                </div>
+                                {t("communications_sent", "Messages envoyés")}
+                            </Link>
+                        )}
                     </nav>
                 </div>
 

@@ -40,11 +40,6 @@ export default function Index({ classes, enseignants, matieres, periodes = [], e
     const matiereColorMap = {};
     matieres.forEach((m, i) => { matiereColorMap[m.id] = COURSE_COLORS[i % COURSE_COLORS.length]; });
 
-    useEffect(() => {
-        if (flash?.success) toast.success(flash.success);
-        if (flash?.error) toast.error(flash.error);
-    }, [flash]);
-
     const handleClasseChange = (e) => {
         const id = e.target.value;
         setClasseId(id);

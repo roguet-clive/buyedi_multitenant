@@ -190,16 +190,14 @@ export default function Index({ filters, classes }) {
 
                   {/* Statut Scolaire */}
                   <td className="px-6 py-4">
-                    {eleve.classe ? (
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50">
-                          <CheckCircleIcon className="w-3.5 h-3.5" />
-                          {eleve.classe}
-                        </span>
-                      </div>
+                    {eleve.is_inscrit ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 shadow-sm">
+                        <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        Inscrit : {eleve.classe_annee}
+                      </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                        Non affecté
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 shadow-sm">
+                        Non inscrit cette année
                       </span>
                     )}
                   </td>
@@ -246,11 +244,11 @@ export default function Index({ filters, classes }) {
                         </Link>
                       )}
 
-                      {can('ajouter_inscriptions') && (
+                      {can('ajouter_inscriptions') && !eleve.is_inscrit && (
                         <Link
                           href={route("inscriptions.create.eleve", eleve.id)}
                           className="p-2.5 bg-green-50 hover:bg-green-100 text-green-600 dark:bg-green-500/10 dark:hover:bg-green-500/20 dark:text-green-500 rounded-xl transition-all shadow-sm"
-                          title={t("inscribe", "Inscrire Cet Élève")}
+                          title={t("inscribe", "Inscrire cet élève pour l'année en cours")}
                         >
                           <UserPlusIcon className="w-4 h-4" />
                         </Link>

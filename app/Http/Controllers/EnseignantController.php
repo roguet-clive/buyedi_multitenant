@@ -44,69 +44,158 @@ class EnseignantController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email', // Email required for user creation
+            'email' => 'nullable|email|unique:users,email',
+            'password' => 'nullable|string|min:6',
             'sexe' => 'nullable|in:M,F',
             'telephone' => 'nullable|string|max:20',
             'adresse' => 'nullable|string|max:255',
             'specialite' => 'nullable|string|max:255',
-            'cv' => 'nullable|file|mimes:pdf,doc,docx,jpg,png|max:2048',
+            'cv' => 'nullable|file|mimes:pdf,doc,docx,jpg,png|max:4096',
+        ], [
+            'nom.required' => 'Le nom de famille est obligatoire.',
+            'prenom.required' => 'Le prénom est obligatoire.',
+            'email.email' => 'L\'adresse email saisie est invalide.',
+            'email.unique' => 'Cette adresse email est déjà utilisée par un autre compte.',
+            'password.min' => 'Le mot de passe doit comporter au moins 6 caractères.',
+            'cv.mimes' => 'Le CV doit être au format PDF, DOC, DOCX ou image.',
+            'cv.max' => 'Le fichier CV ne doit pas dépasser 4 Mo.',
         ]);
 
-        // 1. Create User
-        $user = User::create([
-            'nom' => $request->nom,
-            'prenom' => $request->prenom,
-            'email' => $request->email,
-            'password' => bcrypt('password'), // Default password
-        ]);
-        
-        $user->assignRole('enseignant');
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $validated) {
+            // Auto-génération d'un email si non fourni
+            $email = $validated['email'] ?? null;
+            if (empty($email)) {
+                $baseSlug = \Illuminate\Support\Str::slug($validated['prenom'] . '.' . $validated['nom']);
+                if (empty($baseSlug)) {
+                    $baseSlug = 'prof';
+                }
+                $email = strtolower($baseSlug . '.' . rand(100, 999) . '@buyedi.ga');
+                while (User::where('email', $email)->exists()) {
+                    $email = strtolower($baseSlug . '.' . rand(1000, 9999) . '@buyedi.ga');
+                }
+            }
 
-        // 2. Prepare Enseignant Data
-        $data = $request->except(['cv', 'email']); // Remove email from enseignant data
-        $data['user_id'] = $user->id; // Link to new user
+            $plainPassword = !empty($validated['password']) ? $validated['password'] : '12345678';
 
-        if ($request->hasFile('cv')) {
-            $path = $request->file('cv')->store('cvs', 'public');
-            $data['cv'] = $path;
-        }
+            // 1. Create User
+            $user = User::create([
+                'nom' => $validated['nom'],
+                'prenom' => $validated['prenom'],
+                'email' => $email,
+                'password' => bcrypt($plainPassword),
+            ]);
+            
+            $user->assignRole('enseignant');
 
-        // 3. Create Enseignant
-        Enseignant::create($data);
+            // 2. Prepare Enseignant Data
+            $matricule = 'ENS-' . date('Y') . '-' . strtoupper(\Illuminate\Support\Str::random(5));
+            while (Enseignant::where('matricule', $matricule)->exists()) {
+                $matricule = 'ENS-' . date('Y') . '-' . strtoupper(\Illuminate\Support\Str::random(5));
+            }
 
-        return Redirect::route('enseignants.index')->with('success', 'Enseignant et compte utilisateur créés avec succès.');
+            $cvPath = null;
+            if ($request->hasFile('cv')) {
+                $cvPath = $request->file('cv')->store('cvs', 'public');
+            }
+
+            // 3. Create Enseignant
+            Enseignant::create([
+                'nom' => $validated['nom'],
+                'prenom' => $validated['prenom'],
+                'sexe' => $validated['sexe'] ?? 'M',
+                'telephone' => $validated['telephone'] ?? null,
+                'adresse' => $validated['adresse'] ?? null,
+                'specialite' => $validated['specialite'] ?? null,
+                'matricule' => $matricule,
+                'cv' => $cvPath,
+                'user_id' => $user->id,
+            ]);
+
+            try {
+                if (!empty($validated['email'])) {
+                    \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\NewUserCredentials($user, $plainPassword));
+                }
+            } catch (\Exception $e) {
+                // Ignorer si mailer non configuré
+            }
+
+            return Redirect::route('enseignants.index')->with('success', "L'enseignant {$validated['nom']} {$validated['prenom']} a été intégré avec succès (Mot de passe initial : {$plainPassword}) ✅");
+        });
     }
 
     public function update(Request $request, Enseignant $enseignant)
     {
-        $request->validate([
+        $userId = $enseignant->user_id;
+
+        $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
+            'email' => "nullable|email|unique:users,email,{$userId}",
+            'password' => 'nullable|string|min:6',
             'sexe' => 'nullable|in:M,F',
             'telephone' => 'nullable|string|max:20',
             'adresse' => 'nullable|string|max:255',
             'specialite' => 'nullable|string|max:255',
-            'cv' => 'nullable|file|mimes:pdf,doc,docx,jpg,png|max:2048',
-            'user_id' => 'nullable|exists:users,id',
+            'cv' => 'nullable|file|mimes:pdf,doc,docx,jpg,png|max:4096',
+        ], [
+            'nom.required' => 'Le nom de famille est obligatoire.',
+            'prenom.required' => 'Le prénom est obligatoire.',
+            'email.email' => 'L\'adresse email saisie est invalide.',
+            'email.unique' => 'Cette adresse email est déjà utilisée.',
+            'password.min' => 'Le mot de passe doit comporter au moins 6 caractères.',
+            'cv.mimes' => 'Le CV doit être au format PDF, DOC, DOCX ou image.',
+            'cv.max' => 'Le fichier CV ne doit pas dépasser 4 Mo.',
         ]);
 
-        $data = $request->except('cv');
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $validated, $enseignant) {
+            // Update associated User
+            if ($enseignant->user) {
+                $userUpdates = [
+                    'nom' => $validated['nom'],
+                    'prenom' => $validated['prenom'],
+                ];
+                if (!empty($validated['email'])) {
+                    $userUpdates['email'] = $validated['email'];
+                }
+                if (!empty($validated['password'])) {
+                    $userUpdates['password'] = bcrypt($validated['password']);
+                }
+                $enseignant->user->update($userUpdates);
+            }
 
-        if ($request->hasFile('cv')) {
-            $path = $request->file('cv')->store('cvs', 'public');
-            $data['cv'] = $path;
-        }
+            // Update Enseignant
+            $enseignantUpdates = [
+                'nom' => $validated['nom'],
+                'prenom' => $validated['prenom'],
+                'sexe' => $validated['sexe'] ?? $enseignant->sexe,
+                'telephone' => $validated['telephone'] ?? null,
+                'adresse' => $validated['adresse'] ?? null,
+                'specialite' => $validated['specialite'] ?? null,
+            ];
 
-        $enseignant->update($data);
+            if ($request->hasFile('cv')) {
+                if ($enseignant->cv) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($enseignant->cv);
+                }
+                $enseignantUpdates['cv'] = $request->file('cv')->store('cvs', 'public');
+            }
 
-        return Redirect::route('enseignants.index')->with('success', 'Enseignant mis à jour avec succès.');
+            $enseignant->update($enseignantUpdates);
+
+            return Redirect::route('enseignants.index')->with('success', "Le dossier de l'enseignant {$validated['nom']} {$validated['prenom']} a été mis à jour ✅");
+        });
     }
 
     public function destroy(Enseignant $enseignant)
     {
+        // Supprimer le CV si existant
+        if ($enseignant->cv) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($enseignant->cv);
+        }
+
         // Supprimer l'utilisateur associé
         if ($enseignant->user) {
             $enseignant->user->delete();
@@ -114,7 +203,7 @@ class EnseignantController extends Controller
         
         $enseignant->delete();
 
-        return Redirect::route('enseignants.index')->with('success', 'Enseignant et compte utilisateur supprimés avec succès.');
+        return Redirect::route('enseignants.index')->with('success', 'Enseignant et compte utilisateur supprimés avec succès ✅');
     }
 
     public function show(Enseignant $enseignant)

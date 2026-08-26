@@ -7,6 +7,7 @@ use App\Models\Eleve;
 use App\Models\Classe;
 use App\Models\AnneeScolaire;
 use App\Models\FraisType;
+use App\Models\FraisClasse;
 use App\Models\Paiement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -97,15 +98,36 @@ class InscriptionController extends Controller
             return redirect()->back()->with('error', 'Aucune année scolaire en cours.');
         }
 
-        // Fetch ONLY fee types for the current year
-        $fraisTypes = FraisType::where('annee_scolaire_id', $annee_en_cours->id)->get();
-
         // Obtenir les IDs des élèves déjà inscrits pour l'année en cours
         $elevesInscritsIds = Inscription::where('annee_scolaire_id', $annee_en_cours->id)
                                         ->pluck('eleve_id')
                                         ->toArray();
 
-        // Ne sélectionner que les élèves non inscrits
+        // Si un élève est spécifié et déjà inscrit, refuser avec redirection
+        if ($eleve && in_array($eleve->id, $elevesInscritsIds)) {
+            $inscriptionExistante = Inscription::where('eleve_id', $eleve->id)
+                ->where('annee_scolaire_id', $annee_en_cours->id)
+                ->with('classe')
+                ->first();
+            $nomClasse = $inscriptionExistante->classe->nom ?? 'sa classe';
+            return redirect()->route('eleves.show', $eleve->id)
+                ->with('error', "Cet élève est déjà inscrit(e) en {$nomClasse} pour l'année scolaire en cours ({$annee_en_cours->nom}).");
+        }
+
+        // Récupérer UNIQUEMENT les frais d'inscription / annexes (exclure la scolarité)
+        $fraisTypes = FraisType::where('is_scolarite', false)
+            ->where(function($q) use ($annee_en_cours) {
+                $q->where('annee_scolaire_id', $annee_en_cours->id)
+                  ->orWhereNull('annee_scolaire_id')
+                  ->orWhere('globale', true);
+            })->get();
+
+        // Récupérer la grille de scolarité pour information
+        $fraisClasses = FraisClasse::where('annee_scolaire_id', $annee_en_cours->id)
+            ->with('fraisType')
+            ->get();
+
+        // Ne sélectionner que les élèves non encore inscrits pour cette année
         $eleves = $eleve 
             ? [] 
             : Eleve::with('user')->whereNotIn('id', $elevesInscritsIds)->get();
@@ -113,9 +135,10 @@ class InscriptionController extends Controller
         return Inertia::render('Inscriptions/Create', [
             'eleve' => $eleve?->load('user'),
             'eleves' => $eleves,
-            'classes' => Classe::all(),
+            'classes' => Classe::orderBy('nom')->get(),
             'annee_en_cours' => $annee_en_cours,
             'fraisTypes' => $fraisTypes,
+            'fraisClasses' => $fraisClasses,
         ]);
     }
 
@@ -124,10 +147,36 @@ class InscriptionController extends Controller
     public function createForEleve(Eleve $eleve)
     {
         $annee_en_cours = AnneeScolaire::enCours()->first();
+        if (!$annee_en_cours) {
+            return redirect()->back()->with('error', 'Aucune année scolaire en cours.');
+        }
+
+        // Vérifier formellement si l'élève est déjà inscrit pour l'année scolaire en cours
+        $inscriptionExistante = Inscription::where('eleve_id', $eleve->id)
+            ->where('annee_scolaire_id', $annee_en_cours->id)
+            ->with('classe')
+            ->first();
+
+        if ($inscriptionExistante) {
+            $nomClasse = $inscriptionExistante->classe->nom ?? 'sa classe';
+            $nomEleve = ($eleve->user->nom ?? '') . ' ' . ($eleve->user->prenom ?? '');
+            return redirect()->route('eleves.show', $eleve->id)
+                ->with('error', "Impossible d'inscrire : {$nomEleve} est déjà inscrit(e) en {$nomClasse} pour l'année scolaire en cours ({$annee_en_cours->nom}).");
+        }
+
         $classes = Classe::orderBy('nom')->get();
         
-        // Fetch ONLY fee types for the current year
-        $fraisTypes = FraisType::where('annee_scolaire_id', $annee_en_cours->id)->get();
+        // Récupérer UNIQUEMENT les frais d'inscription / annexes (exclure la scolarité)
+        $fraisTypes = FraisType::where('is_scolarite', false)
+            ->where(function($q) use ($annee_en_cours) {
+                $q->where('annee_scolaire_id', $annee_en_cours->id)
+                  ->orWhereNull('annee_scolaire_id')
+                  ->orWhere('globale', true);
+            })->get();
+
+        $fraisClasses = FraisClasse::where('annee_scolaire_id', $annee_en_cours->id)
+            ->with('fraisType')
+            ->get();
 
         return Inertia::render('Inscriptions/Create', [
             'elevePreSelectionne' => $eleve->load('user'),
@@ -135,6 +184,7 @@ class InscriptionController extends Controller
             'classes' => $classes,
             'annee_en_cours' => $annee_en_cours,
             'fraisTypes' => $fraisTypes,
+            'fraisClasses' => $fraisClasses,
         ]);
     }
 
@@ -208,8 +258,7 @@ class InscriptionController extends Controller
                             'user_id' => auth()->id(),
                             'montant' => $montant,
                             'date_paiement' => $validated['date_inscription'] ?? now(),
-                            'mode_paiement' => 'especes', // Default for now
-                            'reference' => 'INS-' . $inscription->id . '-' . $fraisTypeId,
+                            'mode_paiement' => 'especes',
                         ]);
                         $totalPaye += $montant;
                     }
@@ -240,19 +289,34 @@ class InscriptionController extends Controller
     // Formulaire d'édition
     public function edit(Inscription $inscription)
     {
-        $inscription->load('eleve.user', 'classe', 'anneeScolaire');
+        $inscription->load('eleve.user', 'classe', 'anneeScolaire', 'paiements.fraisType');
         $eleves = Eleve::with('user')->get();
-        $classes = Classe::all();
-        $annee_en_cours = AnneeScolaire::enCours()->first();
+        $classes = Classe::orderBy('nom')->get();
+        $annee_en_cours = $inscription->anneeScolaire ?: AnneeScolaire::enCours()->first();
 
-        // Fetch ALL fee types
-        $fraisTypes = FraisType::all();
+        // Récupérer UNIQUEMENT les frais d'inscription / annexes (exclure la scolarité)
+        $fraisTypes = FraisType::where('is_scolarite', false)
+            ->where(function($q) use ($annee_en_cours) {
+                $q->where('annee_scolaire_id', $annee_en_cours->id)
+                  ->orWhereNull('annee_scolaire_id')
+                  ->orWhere('globale', true);
+            })->get();
+
+        $fraisClasses = FraisClasse::where('annee_scolaire_id', $annee_en_cours->id)
+            ->with('fraisType')
+            ->get();
 
         $elevePreSelectionne = $inscription->eleve;
 
-        return Inertia::render('Inscriptions/Create', compact(
-            'inscription', 'eleves', 'classes', 'fraisTypes', 'annee_en_cours', 'elevePreSelectionne'
-        ));
+        return Inertia::render('Inscriptions/Create', [
+            'inscription' => $inscription,
+            'elevePreSelectionne' => $elevePreSelectionne?->load('user'),
+            'eleves' => $eleves,
+            'classes' => $classes,
+            'fraisTypes' => $fraisTypes,
+            'fraisClasses' => $fraisClasses,
+            'annee_en_cours' => $annee_en_cours,
+        ]);
     }
 
     // Mise à jour d'une inscription (Validation de préinscription)
@@ -277,10 +341,7 @@ class InscriptionController extends Controller
                 'statut' => $validated['statut'],
             ]);
 
-            // HANDLE PAYMENTS for Validation (only if now Validated)
-            // Logic: we create payments for selected fees ONLY if they don't already exist or if we want to add more.
-            // Simplified: If status became 'validee' from something else, or simply is 'validee', we process new payments.
-            
+            // GESTION DES PAIEMENTS DES FRAIS D'INSCRIPTION
             if ($validated['statut'] === 'validee') {
                 $fraisInput = $request->input('frais', []);
                 $user = auth()->user();
@@ -290,9 +351,6 @@ class InscriptionController extends Controller
                     if (!empty($data['selected']) && $data['selected'] == true) {
                         $montant = $data['montant'] ?? 0;
                         
-                        // Check if payment already exists for this fee type on this inscription
-                        // To allow partial payments or multiple payments for same fee, we might need more complex logic.
-                        // But for "Initial Inscription Payment", we usually check if it's already paid.
                         $alreadyPaid = Paiement::where('inscription_id', $inscription->id)
                             ->where('frais_type_id', $fraisTypeId)
                             ->exists();
@@ -305,7 +363,6 @@ class InscriptionController extends Controller
                                 'montant' => $montant,
                                 'date_paiement' => $validated['date_inscription'] ?? now(),
                                 'mode_paiement' => 'especes',
-                                'reference' => 'INS-' . $inscription->id . '-' . $fraisTypeId,
                             ]);
                             $totalAjoute += $montant;
                         }

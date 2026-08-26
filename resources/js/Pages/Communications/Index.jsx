@@ -4,32 +4,34 @@ import { Head, Link } from '@inertiajs/react';
 import { Send, Mail, Check, Filter } from 'lucide-react';
 import { motion } from "framer-motion";
 
-export default function Index({ communications }) {
+export default function Index({ communications, canCreate = true }) {
 
     return (
         <DashboardLayout title="Communications">
             <Head title="Communications" />
 
             {/* Header */}
-            <div className="mb-8 flex justify-between items-center">
+            <div className="mb-8 flex justify-between items-center flex-wrap gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                        <Mail className="w-8 h-8 text-blue-600" />
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+                        <Mail className="w-8 h-8 text-indigo-600" />
                         Communications
                     </h1>
-                    <p className="text-gray-500 text-sm mt-1">
-                        Historique des messages envoyés aux parents et personnels.
+                    <p className="text-slate-500 text-sm mt-1">
+                        Historique des messages et annonces envoyés.
                     </p>
                 </div>
-                <div>
-                    <Link
-                        href={route('communications.create')}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none transition-all"
-                    >
-                        <Send className="w-4 h-4" />
-                        Nouveau Message
-                    </Link>
-                </div>
+                {canCreate && (
+                    <div>
+                        <Link
+                            href={route('communications.create')}
+                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+                        >
+                            <Send className="w-4 h-4" />
+                            Nouveau Message
+                        </Link>
+                    </div>
+                )}
             </div>
 
             {/* List */}

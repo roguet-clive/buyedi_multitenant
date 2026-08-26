@@ -30,7 +30,6 @@ class Eleve extends Model
 
     protected $casts = [
         'date_naissance' => 'date',
-        'sexe' => 'boolean',
     ];
 
     // Relation avec User pour l'authentification

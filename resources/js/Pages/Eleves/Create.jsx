@@ -89,31 +89,33 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    const formData = new FormData();
-    Object.keys(data).forEach(key => {
-      if (data[key] !== null && data[key] !== undefined) {
-        formData.append(key, data[key]);
-      }
-    });
-
     if (mode === 'create') {
       post(route('eleves.store'), {
-        data: formData,
+        forceFormData: true,
         onSuccess: () => {
+          toast.success("Dossier élève créé avec succès !");
           reset();
           setPreviewUrl(null);
         },
-        onError: () => toast.error(t('error_occurred', 'Veuillez vérifier les champs en rouge.')),
+        onError: (errs) => {
+          const firstErr = Object.values(errs)[0];
+          toast.error(firstErr || t('error_occurred', 'Veuillez vérifier les champs en rouge.'));
+        },
       });
     } else {
-      // Form method spoofing pour Laravel API
-      formData.append('_method', 'PUT');
       post(route('eleves.update', eleveInitial?.id), {
-        data: formData,
-        onSuccess: () => {
-          // Géré par middleware
+        data: {
+          ...data,
+          _method: 'PUT',
         },
-        onError: () => toast.error(t('error_occurred', 'Veuillez vérifier les champs en rouge.')),
+        forceFormData: true,
+        onSuccess: () => {
+          toast.success("Dossier élève mis à jour avec succès !");
+        },
+        onError: (errs) => {
+          const firstErr = Object.values(errs)[0];
+          toast.error(firstErr || t('error_occurred', 'Veuillez vérifier les champs en rouge.'));
+        },
       });
     }
   };
@@ -141,6 +143,21 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
           </div>
         </div>
       </div>
+
+      {/* BANNIÈRE D'ERREURS VISIBLE */}
+      {errors && Object.keys(errors).length > 0 && (
+        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200 flex items-start gap-3 shadow-sm animate-pulse">
+          <ExclamationTriangleIcon className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-bold mb-1">Veuillez corriger les informations suivantes :</p>
+            <ul className="list-disc list-inside space-y-0.5 text-xs">
+              {Object.entries(errors).map(([key, msg]) => (
+                <li key={key}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-8" encType="multipart/form-data">
 
@@ -255,14 +272,15 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Contact / Email <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    Email de connexion <span className="text-slate-400 font-normal text-xs">(Optionnel • Auto-généré si vide)</span>
+                  </label>
                   <input
                     type="email"
                     value={data.email}
                     onChange={(e) => setData('email', e.target.value)}
-                    placeholder="mail@exemple.com"
+                    placeholder="mail@exemple.com (facultatif)"
                     className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors sm:text-sm font-medium"
-                    required
                   />
                   {errors?.email && <p className="text-red-500 text-xs font-semibold">{errors.email}</p>}
                 </div>

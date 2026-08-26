@@ -34,7 +34,6 @@ export default function Classe({ classe, cours, evaluations, periodes }) {
             onSuccess: () => {
                 setShowModal(false);
                 reset('titre');
-                toast.success('Évaluation créée !');
             }
         });
     };

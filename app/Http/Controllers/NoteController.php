@@ -72,14 +72,15 @@ class NoteController extends Controller
         // Si Enseignant connecté, filtrer ses cours
         if ($this->isTeacher()) {
             $teacher = $this->getTeacher();
-            // L'enseignant ne doit voir QUE les cours qu'il dispense dans cette classe
-            // Sauf s'il est titulaire ? (A définir, pour l'instant on restreint strict)
-             $cours->where('enseignant_id', $teacher->id);
+            if ($teacher) {
+                // L'enseignant ne doit voir QUE les cours qu'il dispense dans cette classe
+                $cours = $cours->where('enseignant_id', $teacher->id)->values();
+            }
              
-             // Vérification que l'enseignant a bien le droit d'accéder à CETTE classe
-             if (!in_array($classe->id, $this->getTeacherClassIds())) {
-                 abort(403, 'Accès non autorisé à cette classe.');
-             }
+            // Vérification que l'enseignant a bien le droit d'accéder à CETTE classe
+            if (!in_array($classe->id, $this->getTeacherClassIds())) {
+                abort(403, 'Accès non autorisé à cette classe.');
+            }
         }
         
         // Récupérer les évaluations liées à ces cours

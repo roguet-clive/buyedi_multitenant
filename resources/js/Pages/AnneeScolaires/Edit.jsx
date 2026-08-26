@@ -20,20 +20,13 @@ export default function Edit({ annee }) {
     nom: annee.nom || periods[0],
   });
 
-  useEffect(() => {
-    if (flash?.success) toast.success(flash.success);
-    if (flash?.error) toast.error(flash.error);
-  }, [flash]);
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!can('modifier_annee_scolaire')) {
       toast.error(t('no_permission', '❌ Permission refusée'));
       return;
     }
-    form.put(route('annee_scolaires.update', annee.id), {
-      onSuccess: () => toast.success(t('annee_scolaire_updated', 'Année scolaire mise à jour ✅')),
-    });
+    form.put(route('annee_scolaires.update', annee.id));
   };
 
   return (

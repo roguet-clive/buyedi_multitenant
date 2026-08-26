@@ -52,13 +52,19 @@ export default function Sidebar() {
         { icon: <LayoutDashboard className="w-5 h-5" />, label: t("dashboard"), href: route("dashboard"), routeName: "dashboard" },
         // Eleve specific
         ...(isStudent ? [
+          { icon: <IdCard className="w-5 h-5" />, label: "Mon Dossier Scolaire", href: route("eleves.mon-dossier"), routeName: "eleves.mon-dossier" },
           { icon: <Users className="w-5 h-5" />, label: "Mes Inscriptions", href: route("inscriptions.index"), routeName: "inscriptions.index" },
           { icon: <CalendarDays className="w-5 h-5" />, label: "Mon Emploi du temps", href: route("emploi_du_temps.index"), routeName: "emploi_du_temps.index" },
           { icon: <FileText className="w-5 h-5" />, label: "Mes Notes", href: route("notes.index"), routeName: "notes.index" },
           { icon: <BookOpen className="w-5 h-5" />, label: "Mes Cours & Devoirs", href: route("documents.index"), routeName: "documents.index" },
+          { icon: <FileText className="w-5 h-5" />, label: "Demandes de Documents", href: route("demandes-documents.index"), routeName: "demandes-documents.index" },
           { icon: <FileText className="w-5 h-5" />, label: "Mes Bulletins", href: route("bulletins.index"), routeName: "bulletins.index" },
           { icon: <ShieldCheck className="w-5 h-5" />, label: "Mes Absences", href: route("absences.index"), routeName: "absences.index" },
           { icon: <CreditCard className="w-5 h-5" />, label: "Mes Paiements", href: route("paiements.index"), routeName: "paiements.index" },
+        ] : []),
+        ...(isParent ? [
+          { icon: <IdCard className="w-5 h-5" />, label: "Dossier de l'Élève", href: route("eleves.mon-dossier"), routeName: "eleves.mon-dossier" },
+          { icon: <FileText className="w-5 h-5" />, label: "Demandes de Documents", href: route("demandes-documents.index"), routeName: "demandes-documents.index" },
         ] : []),
         // Common
         { icon: <Mail className="w-5 h-5" />, label: "Mes Messages", href: route("communications.index"), routeName: "communications.index" },
@@ -80,15 +86,14 @@ export default function Sidebar() {
         {
           icon: <BookOpen className="w-5 h-5" />,
           label: "Mes Cours",
-          href: route("notes.index"), // Redirection vers Notes car c'est là qu'ils gèrent leurs classes/cours
-          routeName: "notes.index"
+          href: route("cours.mes-cours"),
+          routeName: "cours.mes-cours"
         },
         { icon: <CalendarDays className="w-5 h-5" />, label: "Mon Emploi du temps", href: route("emploi_du_temps.index"), routeName: "emploi_du_temps.index" },
-        { icon: <UploadCloud className="w-5 h-5" />, label: "Partage Documents", href: route("documents.index"), routeName: "documents.index" }, // 🆕
+        { icon: <UploadCloud className="w-5 h-5" />, label: "Partage Documents", href: route("documents.index"), routeName: "documents.index" },
         { icon: <ShieldCheck className="w-5 h-5" />, label: "Saisie Absences", href: route("absences.index"), routeName: "absences.index" },
         { icon: <FileText className="w-5 h-5" />, label: "Saisie Notes", href: route("notes.index"), routeName: "notes.index" },
-        // { icon: <FileText className="w-5 h-5" />, label: "Bulletins", href: route("bulletins.index"), routeName: "bulletins.index" }, 
-        // Pas forcément utile pour chaque prof de voir tous les bulletins ?
+        { icon: <Users className="w-5 h-5" />, label: "Contacts Parents", href: route("parents.index"), routeName: "parents.index" },
         { icon: <Mail className="w-5 h-5" />, label: t("communications"), href: route("communications.index"), routeName: "communications.index" },
         {
           icon: <Bell className="w-5 h-5" />,
@@ -116,7 +121,8 @@ export default function Sidebar() {
           { icon: <BookOpen className="w-4 h-4" />, label: "Affectations (Cours)", href: route("cours.index"), can: "voir_cours", routeName: "cours.index" },
           { icon: <CalendarDays className="w-4 h-4" />, label: t("emploi_du_temps"), href: route("emploi_du_temps.index"), can: "voir_emplois_du_temps", routeName: "emploi_du_temps.index" },
           { icon: <FileText className="w-4 h-4" />, label: t("notes"), href: route("notes.index"), can: "voir_notes", routeName: "notes.index" },
-          { icon: <UploadCloud className="w-4 h-4" />, label: t("documents_pedagogiques", "Documents Pédagogiques"), href: route("documents.index"), can: "voir_documents", routeName: "documents.index" }, // 🆕
+          { icon: <UploadCloud className="w-4 h-4" />, label: t("documents_pedagogiques", "Documents Pédagogiques"), href: route("documents.index"), can: "voir_documents", routeName: "documents.index" },
+          { icon: <FileText className="w-4 h-4 text-emerald-400" />, label: "Demandes Documents", href: route("demandes-documents.index"), can: "voir_documents", routeName: "demandes-documents.index" },
           { icon: <FileText className="w-4 h-4" />, label: t("bulletins"), href: route("bulletins.index"), can: "voir_bulletins", routeName: "bulletins.index" },
           { icon: <FileText className="w-4 h-4" />, label: t("absences"), href: route("absences.index"), can: "voir_absences", routeName: "absences.index" },
         ],
@@ -300,22 +306,28 @@ export default function Sidebar() {
       animate={{ width: open ? 260 : 80 }}
       className="bg-[#0B1A2D] text-slate-300 shadow-xl flex-shrink-0 sticky top-0 h-screen overflow-y-auto border-r border-[#1e293b] scrollbar-hide z-50 transition-colors"
     >
-      <div className="flex items-center justify-between p-5 border-b border-[#1e293b] mb-2">
-        {open && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-3">
-            {etablissement?.logo ? (
-              <img src={`/storage/${etablissement.logo}`} alt="Logo" className="w-9 h-9 rounded-xl object-contain bg-white p-0.5 shadow-sm border border-[#1e293b]" />
-            ) : (
-              <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center font-extrabold text-[#0B1A2D] shadow-inner border border-green-300/30">
-                {etablissement?.sigle ? etablissement.sigle.charAt(0) : "B"}
-              </div>
-            )}
-            <span className="text-xl font-bold tracking-tight text-white truncate max-w-[150px]">
-              {etablissement?.sigle || etablissement?.nom || "Buyedi"}
-            </span>
-          </motion.div>
-        )}
-        <button onClick={() => setOpen(!open)} className="text-slate-400 hover:text-green-400 transition-colors p-1.5 rounded-lg hover:bg-white/5">
+      <div className="flex items-center justify-between p-4 border-b border-[#1e293b] mb-2">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <img
+            src={etablissement?.logo ? `/storage/${etablissement.logo}` : "/images/icone.png"}
+            alt="Logo"
+            className="w-10 h-10 rounded-xl object-contain bg-white p-1 shadow-sm border border-[#1e293b] flex-shrink-0"
+            onError={(e) => {
+              e.target.src = "/images/icone.png";
+            }}
+          />
+          {open && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col truncate">
+              <span className="text-base font-bold tracking-tight text-white truncate max-w-[140px]">
+                {etablissement?.sigle || etablissement?.nom || "Buyedi"}
+              </span>
+              <span className="text-[10px] text-green-400 font-semibold tracking-wider uppercase">
+                {etablissement?.sigle ? "Etablissement" : "ERP Scolaire"}
+              </span>
+            </motion.div>
+          )}
+        </div>
+        <button onClick={() => setOpen(!open)} className="text-slate-400 hover:text-green-400 transition-colors p-1.5 rounded-lg hover:bg-white/5 ml-auto">
           {open ? <ChevronDown className="w-5 h-5 rotate-90" /> : <ChevronDown className="w-5 h-5 -rotate-90" />}
         </button>
       </div>

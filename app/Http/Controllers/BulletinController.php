@@ -84,47 +84,47 @@ class BulletinController extends Controller
         ]);
     }
 
+    private function getEtablissementData()
+    {
+        $etablissement = \App\Models\Etablissement::first();
+        $logoPath = null;
+        if ($etablissement && $etablissement->logo && file_exists(public_path('storage/' . $etablissement->logo))) {
+            $logoPath = public_path('storage/' . $etablissement->logo);
+        } elseif (file_exists(public_path('images/logo.png'))) {
+            $logoPath = public_path('images/logo.png');
+        }
+
+        return [
+            'nom' => $etablissement->nom ?? config('app.name', 'Buyedi'),
+            'sigle' => $etablissement->sigle ?? 'BUYEDI',
+            'adresse' => $etablissement->adresse ?? 'Libreville, Gabon',
+            'telephone' => $etablissement->telephone ?? '',
+            'email' => $etablissement->email ?? '',
+            'logo' => $logoPath,
+        ];
+    }
+
     public function pv(Request $request)
     {
         $classeId = $request->input('classe_id');
         $periodeId = $request->input('periode_id');
 
         if (!$classeId || !$periodeId) {
-            abort(404, 'Classe et Période requises pour générer le Procès Verbal.');
+            return back()->with('error', 'Veuillez sélectionner une classe et une période.');
         }
 
-        $classe = Classe::findOrFail($classeId);
+        $classe = Classe::with(['eleves.user'])->findOrFail($classeId);
         $periode = Periode::findOrFail($periodeId);
 
-        $bulletins = $this->bulletinService->calculerClasseComplet($classeId, $periodeId);
-
-        // Extraire la liste unique des matières pour l'en-tête du tableau PV
-        $matieres = collect([]);
-        foreach ($bulletins as $b) {
-            foreach ($b['lignes'] as $ligne) {
-                if (!$matieres->contains('cours_id', $ligne['cours_id'])) {
-                    $matieres->push([
-                        'cours_id' => $ligne['cours_id'],
-                        'nom' => $ligne['matiere'],
-                        'coeff' => $ligne['coefficient']
-                    ]);
-                }
-            }
-        }
-        
-        $matieres = $matieres->sortBy('nom')->values();
+        $matieres = $this->bulletinService->getMatieresForClasse($classe);
+        $bulletins = $this->bulletinService->calculerMoyennesClasse($classe, $periode);
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.pv', [
             'classe' => $classe,
             'periode' => $periode,
             'bulletins' => $bulletins,
             'matieres' => $matieres,
-            'etablissement' => [
-                'nom' => 'CS ROCHER DES ÂGES',
-                'adresse' => 'Libreville, Gabon',
-                'telephone' => '+241 01 02 03 04',
-                'logo' => public_path('images/logo.png')
-            ]
+            'etablissement' => $this->getEtablissementData(),
         ])->setPaper('a4', 'landscape');
 
         return $pdf->stream('PV_' . str_replace(' ', '_', $classe->nom) . '.pdf');
@@ -143,9 +143,6 @@ class BulletinController extends Controller
             }
         }
 
-        // Période active par défaut si non spécifiée ? 
-        // Pour un bulletin, il faut absolument une période.
-        // On va supposer qu'on passe period_id en query param ou qu'on prend la période active du moment.
         $periodeId = request('periode_id');
         $periode = Periode::findOrFail($periodeId);
 
@@ -153,12 +150,7 @@ class BulletinController extends Controller
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.bulletin', [
             'bulletin' => $bulletin,
-            'etablissement' => [ // Mock data or fetch from DB settings
-                'nom' => 'CS ROCHER DES ÂGES',
-                'adresse' => 'Libreville, Gabon',
-                'telephone' => '+241 01 02 03 04',
-                'logo' => public_path('images/logo.png') // Ensure logo exists or use empty
-            ]
+            'etablissement' => $this->getEtablissementData(),
         ]);
 
         return $pdf->stream('bulletin_' . $inscription->eleve->matricule . '.pdf');

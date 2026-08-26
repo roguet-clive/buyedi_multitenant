@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('nom'); // nom du document ou description
             $table->string('fichier'); // chemin du fichier dans storage
             $table->string('type')->nullable(); // ex: 'certificat', 'photo', 'attestation'
+            $table->text('description')->nullable();
             $table->date('date_upload')->nullable();
 
             $table->timestamps();

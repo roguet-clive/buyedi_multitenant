@@ -13,7 +13,7 @@ class Paiement extends Model
     public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
     {
         return \Spatie\Activitylog\LogOptions::defaults()
-        ->logOnly(['montant', 'date_paiement', 'reference'])
+        ->logOnly(['montant', 'date_paiement'])
         ->logOnlyDirty()
         ->dontSubmitEmptyLogs();
     }
@@ -25,7 +25,6 @@ class Paiement extends Model
         'montant',
         'date_paiement',
         'mode_paiement',
-        'reference',
         'mois',
         'commentaire'
     ];

@@ -21,8 +21,61 @@ class CoursController extends Controller
         $this->middleware('permission:supprimer_cours')->only(['destroy']);
     }
 
+    /**
+     * Espace "Mes Cours" dédié pour les enseignants
+     */
+    public function mesCours(Request $request)
+    {
+        $user = $request->user();
+        $teacher = $this->getTeacher();
+        
+        if (!$teacher && !$user->hasRole(['super-admin', 'directeur'])) {
+            abort(403, "Accès réservé aux enseignants.");
+        }
+
+        $currentYear = AnneeScolaire::where('en_cours', true)->first();
+        if (!$currentYear) {
+            return back()->with('error', 'Aucune année scolaire active.');
+        }
+
+        $query = Cours::with(['classe.inscriptions' => function($q) use ($currentYear) {
+                $q->where('annee_scolaire_id', $currentYear->id);
+            }, 'matiere', 'periode'])
+            ->where('annee_scolaire_id', $currentYear->id);
+
+        if ($teacher) {
+            $query->where('enseignant_id', $teacher->id);
+        }
+
+        $cours = $query->get()->map(function($c) {
+            return [
+                'id' => $c->id,
+                'classe_id' => $c->classe_id,
+                'classe_nom' => $c->classe ? $c->classe->nom : 'Classe inconnue',
+                'classe_niveau' => $c->classe ? $c->classe->niveau : null,
+                'classe_type' => $c->classe ? $c->classe->type : null,
+                'eleves_count' => $c->classe && $c->classe->inscriptions ? $c->classe->inscriptions->count() : 0,
+                'matiere_nom' => $c->matiere ? $c->matiere->nom : ($c->is_titulaire ? 'Enseignement Général (Titulaire)' : 'Matière générale'),
+                'matiere_code' => $c->matiere ? $c->matiere->code : null,
+                'coefficient' => $c->coefficient,
+                'periode_nom' => $c->periode ? $c->periode->nom : 'Annuel',
+                'is_titulaire' => (bool)$c->is_titulaire,
+            ];
+        });
+
+        return Inertia::render('Cours/MesCours', [
+            'cours' => $cours,
+            'anneeScolaire' => $currentYear->nom,
+        ]);
+    }
+
     public function index(Request $request)
     {
+        // 🔒 Sécurité : La gestion administrative des affectations est réservée à la direction
+        if ($this->isTeacher()) {
+            return redirect()->route('cours.mes-cours');
+        }
+
         $currentYear = AnneeScolaire::where('en_cours', true)->first();
         if (!$currentYear) {
             return redirect()->back()->with('error', 'Aucune année scolaire active.');
@@ -33,12 +86,7 @@ class CoursController extends Controller
         $cours = [];
 
         if ($classeId) {
-            // 🔒 Vérifier accès enseignant
-            if ($this->isTeacher() && !in_array($classeId, $this->getTeacherClassIds())) {
-                 $selectedClasse = null; // Ou abort(403)
-            } else {
-                $selectedClasse = Classe::find($classeId);
-            }
+            $selectedClasse = Classe::find($classeId);
             
             if ($selectedClasse) {
                 // Charger les cours existants pour cette classe et cette année
@@ -49,20 +97,22 @@ class CoursController extends Controller
             }
         }
 
-        // Pour la sélection : liste de tous les enseignants et matières (Seulement ceux avec un compte User valide)
+        // Liste des enseignants avec informations complètes
         $enseignants = Enseignant::with('user')
             ->whereHas('user')
             ->get()
             ->map(function($e) {
                 return [
                     'id' => $e->id,
-                    'nom_complet' => $e->user ? $e->user->nom . ' ' . $e->user->prenom : 'Inconnu',
+                    'nom_complet' => $e->user ? $e->user->nom . ' ' . $e->user->prenom : ($e->nom . ' ' . $e->prenom),
                     'specialite' => $e->specialite,
+                    'telephone' => $e->telephone,
+                    'email' => $e->user?->email,
                 ];
             });
 
-        $matieres = Matiere::all();
-        $classes = Classe::all();
+        $matieres = Matiere::orderBy('nom')->get();
+        $classes = Classe::orderBy('nom')->get();
         $periodes = $currentYear->periodes;
 
         return Inertia::render('Cours/Index', [
@@ -72,7 +122,7 @@ class CoursController extends Controller
             'matieres' => $matieres,
             'periodes' => $periodes,
             'classeActuelle' => $selectedClasse,
-            'filters' => ['classe_id' => $classeId]
+            'filters' => ['classe_id' => $classeId ? (int)$classeId : null]
         ]);
     }
 
@@ -83,13 +133,11 @@ class CoursController extends Controller
             'enseignant_id' => 'required|exists:enseignants,id',
             'matiere_id' => 'nullable|exists:matieres,id',
             'periode_id' => 'nullable|exists:periodes,id',
-            'coefficient' => 'required|numeric|min:1',
+            'coefficient' => 'required|numeric|min:0.5',
         ]);
 
         $currentYear = AnneeScolaire::where('en_cours', true)->first();
         $classe = Classe::findOrFail($request->classe_id);
-
-        // Validation logique selon le cycle
         $isMaternelleOrPrimaire = $classe->isPrimaire();
 
         if ($isMaternelleOrPrimaire && $request->matiere_id) {
@@ -100,87 +148,86 @@ class CoursController extends Controller
             return back()->with('error', 'En secondaire, vous devez spécifier une matière.');
         }
 
-        // Unicité et Mise à jour
-        
-        // Clé d'unicité définie dans la migration : ['annee_scolaire_id', 'classe_id', 'matiere_id', 'periode_id']
-        // Note: pour le primaire/maternelle, matiere_id et periode_id sont NULL.
-
+        // Cycle Maternelle & Primaire : Maître/Maîtresse titulaire unique
         if ($isMaternelleOrPrimaire) {
-             // 1. Vérifier si L'ENSEIGNANT est déjà titulaire ailleurs "Toute l'année" 
-             $alreadyTitulaire = Cours::where('enseignant_id', $request->enseignant_id)
-                ->where('annee_scolaire_id', $currentYear->id)
-                ->where('is_titulaire', true)
-                ->whereNull('periode_id') // Check if they are titulaire for the whole year
-                ->where('classe_id', '!=', $classe->id) // Sauf si on ré-assigne à la même classe
-                ->with('classe')
-                ->first();
+            Cours::updateOrCreate(
+                [
+                    'annee_scolaire_id' => $currentYear->id,
+                    'classe_id' => $classe->id,
+                    'matiere_id' => null,
+                    'periode_id' => null,
+                ],
+                [
+                    'enseignant_id' => $request->enseignant_id,
+                    'is_titulaire' => true,
+                    'coefficient' => $request->coefficient ?? 1
+                ]
+            );
 
-            if ($alreadyTitulaire) {
-                return back()->with('error', "Cet enseignant est déjà titulaire de la classe {$alreadyTitulaire->classe->nom} pour toute l'année. Impossible de l'affecter à plusieurs classes principales.");
-            }
-
-             // 2. Vérifier s'il y a déjà un enseignant titulaire pour cette classe cette année principale
-            $existing = Cours::where('classe_id', $classe->id)
-                ->where('annee_scolaire_id', $currentYear->id)
-                ->whereNull('matiere_id')
-                ->whereNull('periode_id')
-                ->first();
-
-            if ($existing) {
-                // Option : Mettre à jour l'enseignant (changement de titulaire)
-                $existing->update(['enseignant_id' => $request->enseignant_id]);
-                return back()->with('success', 'Enseignant titulaire mis à jour.');
-            }
+            return back()->with('success', 'Enseignant titulaire affecté avec succès ✅');
         }
-        
-        // Secondary specific check: Conflict between Full year and Specific Period assignment
-        if (!$isMaternelleOrPrimaire) {
-            // Un prof différent ne peut pas enseigner la matière X à la classe C sur "Toute l'année" ET un autre sur "Période P"
-            // Let's rely on business logic or simply UI to manage these overlapping assignments.
-            // A basic check: if assigning a period, delete full year? No, keep it flexible.
-            
-            // Check if there is already a full year assignment for this class/matière but different teacher
-            if ($request->periode_id) {
-                 $fullYearAssigned = Cours::where('classe_id', $classe->id)
-                     ->where('annee_scolaire_id', $currentYear->id)
-                     ->where('matiere_id', $request->matiere_id)
-                     ->whereNull('periode_id')
-                     ->first();
-                 if ($fullYearAssigned && $fullYearAssigned->enseignant_id != $request->enseignant_id) {
-                     return back()->with('error', "Un autre enseignant est déjà affecté à cette matière pour toute l'année.");
-                 }
+
+        // Cycle Secondaire :
+        // Un même enseignant PEUT enseigner plusieurs matières dans la même classe (ex: Maths et SVT)
+        if ($request->periode_id) {
+            Cours::updateOrCreate(
+                [
+                    'annee_scolaire_id' => $currentYear->id,
+                    'classe_id' => $classe->id,
+                    'matiere_id' => $request->matiere_id,
+                    'periode_id' => $request->periode_id,
+                ],
+                [
+                    'enseignant_id' => $request->enseignant_id,
+                    'is_titulaire' => false,
+                    'coefficient' => $request->coefficient ?? 1
+                ]
+            );
+        } else {
+            $existingCourses = Cours::where('annee_scolaire_id', $currentYear->id)
+                ->where('classe_id', $classe->id)
+                ->where('matiere_id', $request->matiere_id)
+                ->get();
+
+            if ($existingCourses->count() > 0) {
+                foreach ($existingCourses as $c) {
+                    $c->update([
+                        'enseignant_id' => $request->enseignant_id,
+                        'coefficient' => $request->coefficient ?? $c->coefficient,
+                    ]);
+                }
             } else {
-                 $periodAssigned = Cours::where('classe_id', $classe->id)
-                     ->where('annee_scolaire_id', $currentYear->id)
-                     ->where('matiere_id', $request->matiere_id)
-                     ->whereNotNull('periode_id')
-                     ->first();
-                 if ($periodAssigned) {
-                     return back()->with('error', "Des enseignants sont déjà affectés à des périodes spécifiques pour cette matière. Veuillez désaffecter ou affecter par période.");
-                 }
+                Cours::create([
+                    'annee_scolaire_id' => $currentYear->id,
+                    'classe_id' => $classe->id,
+                    'matiere_id' => $request->matiere_id,
+                    'periode_id' => null,
+                    'enseignant_id' => $request->enseignant_id,
+                    'is_titulaire' => false,
+                    'coefficient' => $request->coefficient ?? 1
+                ]);
             }
         }
 
-        Cours::updateOrCreate(
-            [
-                'annee_scolaire_id' => $currentYear->id,
-                'classe_id' => $request->classe_id,
-                'matiere_id' => $request->matiere_id,
-                'periode_id' => $isMaternelleOrPrimaire ? null : ($request->periode_id ?: null),
-            ],
-            [
-                'enseignant_id' => $request->enseignant_id,
-                'is_titulaire' => $isMaternelleOrPrimaire,
-                'coefficient' => $request->coefficient ?? 1
-            ]
-        );
-
-        return back()->with('success', 'Affectation enregistrée ✅');
+        return back()->with('success', 'Affectation de la matière enregistrée avec succès ✅');
     }
 
-    public function destroy(Cours $cours)
+    public function destroy(Request $request, $id)
     {
-        $cours->delete();
-        return back()->with('success', 'Affectation retirée 🗑️');
+        $cours = Cours::findOrFail($id);
+        $matiereId = $cours->matiere_id;
+        $classeId = $cours->classe_id;
+        $anneeId = $cours->annee_scolaire_id;
+
+        if ($matiereId) {
+            Cours::where('annee_scolaire_id', $anneeId)
+                ->where('classe_id', $classeId)
+                ->where('matiere_id', $matiereId)
+                ->delete();
+        } else {
+            $cours->delete();
+        }
+
+        return back()->with('success', 'Affectation retirée avec succès 🗑️');
     }
 }

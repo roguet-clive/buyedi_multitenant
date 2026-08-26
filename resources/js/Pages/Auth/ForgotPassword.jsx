@@ -79,15 +79,16 @@ export default function ForgotPassword({ status }) {
 
             {/* EMPLACEMENT LOGO CLIENT */}
             <div className="flex justify-center mb-8">
-              {/* Remplacez la source de l'image (src) par le chemin de votre logo : ex '/images/logo.png' */}
-              <div className="flex flex-col items-center justify-center w-24 h-24 rounded-full border-4 border-green-500 p-1 shadow-sm">
+              <div className="flex flex-col items-center justify-center w-24 h-24 rounded-full border-4 border-green-500 p-1 shadow-sm bg-white overflow-hidden">
                 <img
-                  src="/images/logo_placeholder.svg"
+                  src="/images/logo.png"
                   alt="Logo Buyedi"
                   className="w-full h-full object-contain"
                   onError={(e) => {
                     e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
+                    if (e.target.nextSibling) {
+                      e.target.nextSibling.style.display = 'flex';
+                    }
                   }}
                 />
                 <span className="text-sm font-extrabold text-blue-900 hidden text-center leading-tight">VOTRE<br />LOGO</span>

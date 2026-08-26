@@ -100,19 +100,18 @@ export default function Login({ status, canResetPassword }) {
 
             {/* EMPLACEMENT LOGO CLIENT */}
             <div className="flex justify-center mb-10">
-              {/* Remplacez la source de l'image (src) par le chemin de votre logo : ex '/images/logo.png' */}
-              <div className="flex flex-col items-center justify-center w-32 h-32 rounded-full border-4 border-green-500 p-2 shadow-sm">
+              <div className="flex flex-col items-center justify-center w-32 h-32 rounded-full border-4 border-green-500 p-2 shadow-sm bg-white overflow-hidden">
                 <img
-                  src="/images/logo_placeholder.svg"
+                  src="/images/logo.png"
                   alt="Logo Buyedi"
                   className="w-full h-full object-contain"
                   onError={(e) => {
-                    // Si aucune image n'est trouvée, affiche l'espace réservé textuel
                     e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
+                    if (e.target.nextSibling) {
+                      e.target.nextSibling.style.display = 'flex';
+                    }
                   }}
                 />
-                {/* Fallback texte si pas d'image trouvée initialement */}
                 <span className="text-xl font-extrabold text-blue-900 hidden text-center leading-tight">VOTRE<br />LOGO</span>
               </div>
             </div>

@@ -134,11 +134,6 @@ export default function Users({ users, roles, filters }) {
   const [editingUser, setEditingUser] = useState(null);
 
   useEffect(() => {
-    if (flash.success) toast.success(flash.success);
-    if (flash.error) toast.error(flash.error);
-  }, [flash]);
-
-  useEffect(() => {
     const timeout = setTimeout(() => {
       router.get(route("users.index"), { search, role: filterRole }, { preserveState: true, replace: true });
     }, 400);
@@ -152,7 +147,6 @@ export default function Users({ users, roles, filters }) {
     if (!confirm(t("confirm_delete", "⚠️ Supprimer cet utilisateur ?"))) return;
     router.delete(route("users.destroy", id), {
       preserveScroll: true,
-      onSuccess: () => toast.success(t("user_deleted", "Utilisateur supprimé")),
       onError: () => toast.error(t("delete_failed", "❌ Erreur lors de la suppression")),
     });
   };

@@ -19,7 +19,6 @@ return new class extends Migration
             $table->decimal('montant', 10, 2);
             $table->date('date_paiement');
             $table->enum('mode_paiement', ['especes', 'virement', 'mobile', 'cheque'])->default('especes');
-            $table->string('reference')->nullable(); // Référence du paiement (ex: N° bordereau, Transaction ID)
             $table->string('mois')->nullable(); // Pour les frais mensuels (ex: "Octobre")
             $table->text('commentaire')->nullable();
             $table->timestamps();

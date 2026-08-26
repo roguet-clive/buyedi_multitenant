@@ -12,9 +12,10 @@ class Document extends Model
     protected $fillable = [
         'eleve_id',    // Lien avec l'élève
         'nom',         // Nom du document (ex: "Bulletin", "Certificat", "Photo")
-        'chemin',      // Chemin du fichier stocké
+        'fichier',     // Chemin du fichier stocké
         'type',        // Optionnel : type mime ou catégorie
         'description', // Optionnel : description du document
+        'date_upload', // Date de dépôt
     ];
 
     /**
@@ -30,6 +31,6 @@ class Document extends Model
      */
     public function getUrlAttribute(): ?string
     {
-        return $this->chemin ? asset('storage/' . $this->chemin) : null;
+        return $this->fichier ? asset('storage/' . $this->fichier) : null;
     }
 }

@@ -5,6 +5,7 @@ import useTranslation from "@/Hooks/useTranslation";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import Modal from "@/Components/Modal";
 import { PencilSquareIcon, TrashIcon, UserPlusIcon, UsersIcon, CheckCircleIcon, IdentificationIcon, MagnifyingGlassIcon } from "@heroicons/react/24/solid";
+import { PhoneIcon, EnvelopeIcon, ChatBubbleLeftRightIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
 import AsyncSelect from "react-select/async";
 import axios from "axios";
 import { motion, AnimatePresence } from 'framer-motion';
@@ -324,7 +325,9 @@ export default function Index({ parents, filters }) {
     const { t } = useTranslation();
     const { auth } = usePage().props;
     const permissions = auth?.permissions || [];
-    const can = (permission) => permissions.includes(permission);
+    const roles = auth?.roles || [];
+    const isTeacher = roles.some(role => role.toLowerCase() === 'enseignant');
+    const can = (permission) => permissions.includes(permission) || roles.includes('super-admin') || roles.includes('directeur');
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingParent, setEditingParent] = useState(null);
@@ -355,18 +358,21 @@ export default function Index({ parents, filters }) {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                        {t("parents_list", "Dossiers Parents d'Élèves")}
+                        {isTeacher ? "Contacts Parents d'Élèves" : t("parents_list", "Dossiers Parents d'Élèves")}
                         <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 text-sm font-bold shadow-sm border border-orange-200 dark:border-orange-800/50">
-                            {parents.total} Enregistrés
+                            {parents.total} {isTeacher ? "Parents de vos classes" : "Enregistrés"}
                         </span>
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                        Gérez la base de données des parents et les responsables légaux des élèves.
+                        {isTeacher
+                            ? "Coordonnées de contact des responsables légaux des élèves de vos classes pour le suivi pédagogique et urgences."
+                            : "Gérez la base de données des parents et les responsables légaux des élèves."
+                        }
                     </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                    {/* SEARCH BAR (Migrated to header for better layout Flow) */}
+                    {/* SEARCH BAR */}
                     <div className="relative w-full md:w-64">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
@@ -393,6 +399,16 @@ export default function Index({ parents, filters }) {
                     )}
                 </div>
             </div>
+
+            {/* BANNIÈRE D'INFORMATION ENSEIGNANT */}
+            {isTeacher && (
+                <div className="mb-6 p-4 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 flex items-center gap-3 text-indigo-900 dark:text-indigo-200 shadow-sm">
+                    <InformationCircleIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <p className="text-xs sm:text-sm font-medium">
+                        <span className="font-extrabold">Espace Contacts Parents :</span> Vous visualisez les coordonnées des responsables légaux des élèves inscrits dans vos classes. Vous pouvez les joindre directement par téléphone, WhatsApp ou e-mail.
+                    </p>
+                </div>
+            )}
 
             <Modal show={modalOpen} onClose={() => setModalOpen(false)} maxWidth="5xl">
                 <ParentForm
@@ -469,9 +485,45 @@ export default function Index({ parents, filters }) {
                                             </div>
                                         </td>
 
-                                        {/* ACTIONS */}
+                                        {/* ACTIONS & CONTACTS DIRECTS */}
                                         <td className="px-6 py-5 text-center">
-                                            <div className="flex justify-center gap-2 flex-wrap">
+                                            <div className="flex justify-center items-center gap-1.5 flex-wrap">
+                                                {/* 📞 APPEL DIRECT */}
+                                                {parent.telephone && (
+                                                    <a
+                                                        href={`tel:${parent.telephone}`}
+                                                        className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 dark:text-emerald-300 rounded-xl transition-all shadow-sm"
+                                                        title={`Appeler ${parent.telephone}`}
+                                                    >
+                                                        <PhoneIcon className="w-4 h-4" />
+                                                    </a>
+                                                )}
+
+                                                {/* 💬 WHATSAPP */}
+                                                {parent.telephone && (
+                                                    <a
+                                                        href={`https://wa.me/${parent.telephone.replace(/[^0-9]/g, '')}`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="p-2.5 bg-green-50 hover:bg-green-100 text-green-700 dark:bg-green-950/40 dark:hover:bg-green-900/60 dark:text-green-300 rounded-xl transition-all shadow-sm font-bold text-xs"
+                                                        title="Envoyer un message WhatsApp"
+                                                    >
+                                                        <span className="text-[11px]">💬</span>
+                                                    </a>
+                                                )}
+
+                                                {/* ✉️ EMAIL */}
+                                                {parent.user?.email && (
+                                                    <a
+                                                        href={`mailto:${parent.user.email}`}
+                                                        className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 dark:text-blue-300 rounded-xl transition-all shadow-sm"
+                                                        title={`Envoyer un email à ${parent.user.email}`}
+                                                    >
+                                                        <EnvelopeIcon className="w-4 h-4" />
+                                                    </a>
+                                                )}
+
+                                                {/* GESTION ADMIN */}
                                                 {can('modifier_parents') && (
                                                     <button
                                                         onClick={() => openEditModal(parent)}

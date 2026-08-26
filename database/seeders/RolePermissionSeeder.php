@@ -53,7 +53,7 @@ class RolePermissionSeeder extends Seeder
             'absences' => ['voir', 'ajouter', 'modifier', 'supprimer'],
             'depenses' => ['voir', 'ajouter', 'modifier', 'supprimer'],
 
-            // 👉 Gestion des frais (pas de "frais" global)
+            // 👉 Gestion des frais
             'frais_inscription' => ['voir', 'ajouter', 'modifier', 'supprimer'],
             'frais_classes' => ['voir', 'ajouter', 'modifier', 'supprimer'],
             'frais_types' => ['voir', 'ajouter', 'modifier', 'supprimer'],
@@ -62,14 +62,14 @@ class RolePermissionSeeder extends Seeder
             // 👉 Périodes
             'periodes' => ['voir', 'ajouter', 'modifier', 'supprimer'],
 
-            // 👉 Nouveaux modules
+            // 👉 Modules avancés
             'cours' => ['voir', 'ajouter', 'modifier', 'supprimer'],
             'evaluations' => ['voir', 'ajouter', 'modifier', 'supprimer'],
             'communications' => ['voir', 'creer', 'expedier', 'supprimer'], 
             'stats' => ['voir'], 
-            'documents' => ['voir', 'ajouter', 'modifier', 'supprimer', 'telecharger'], // 📚 NEW MODULE
-            'sanctions' => ['voir', 'ajouter', 'modifier', 'supprimer'], // 👮 NEW MODULE
-            'archives' => ['voir'], // 🔍 NEW MODULE (Multi-year)
+            'documents' => ['voir', 'ajouter', 'modifier', 'supprimer', 'telecharger'],
+            'sanctions' => ['voir', 'ajouter', 'modifier', 'supprimer'],
+            'archives' => ['voir'],
         ];
 
         // 4️⃣ Créer toutes les permissions dynamiquement
@@ -85,36 +85,108 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
-        // 5️⃣ Créer le rôle Super Admin et lui assigner toutes les permissions
+        // 5️⃣ RÔLE : SUPER ADMIN (Accès total absolu)
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         $superAdminRole->syncPermissions($allPermissions);
         $admin->assignRole($superAdminRole);
 
-        // 6️⃣ Créer le rôle Directeur et lui assigner toutes les permissions (ou presque)
-        // Pour l'instant, on donne TOUT au directeur aussi
+        // 6️⃣ RÔLE : DIRECTEUR (Pilotage complet de l'établissement)
         $directeurRole = Role::firstOrCreate(['name' => 'directeur', 'guard_name' => 'web']);
         $directeurRole->syncPermissions($allPermissions);
         $directeur->assignRole($directeurRole);
 
-        // 7️⃣ Créer les rôles Élève et Parent avec permissions limitées
+        // 7️⃣ RÔLE : COMPTABLE / ÉCONOME (Gestion Financière & Caisse)
+        $comptableRole = Role::firstOrCreate(['name' => 'comptable', 'guard_name' => 'web']);
+        $comptableRole->syncPermissions([
+            'voir_dashboard',
+            'voir_stats',
+            // Finances & Trésorerie
+            'voir_paiements', 'ajouter_paiements', 'modifier_paiements', 'supprimer_paiements',
+            'voir_depenses', 'ajouter_depenses', 'modifier_depenses', 'supprimer_depenses',
+            'voir_frais_classes', 'ajouter_frais_classes', 'modifier_frais_classes',
+            'voir_frais_types', 'ajouter_frais_types', 'modifier_frais_types',
+            'voir_frais_inscription',
+            // Consultation Scolarité & Effectifs
+            'voir_eleves',
+            'voir_inscriptions',
+            'voir_classes',
+            'voir_parents',
+            // RH & Salaires
+            'voir_personnels',
+            // Communication & Pièces
+            'voir_communications', 'creer_communications', 'expedier_communications',
+            'voir_documents', 'telecharger_documents',
+            'voir_annee_scolaire',
+            'voir_periodes',
+        ]);
+
+        // 8️⃣ RÔLE : PERSONNEL ADMINISTRATIF / SECRÉTARIAT
+        $personnelRole = Role::firstOrCreate(['name' => 'personnel', 'guard_name' => 'web']);
+        $personnelRole->syncPermissions([
+            'voir_dashboard',
+            // Inscriptions & Dossiers Élèves
+            'voir_inscriptions', 'ajouter_inscriptions', 'modifier_inscriptions',
+            'voir_eleves', 'ajouter_eleves', 'modifier_eleves',
+            'voir_parents', 'ajouter_parents', 'modifier_parents',
+            'voir_classes',
+            'voir_matieres',
+            'voir_emplois_du_temps',
+            // Vie scolaire & Absences
+            'voir_absences', 'ajouter_absences', 'modifier_absences',
+            'voir_sanctions', 'ajouter_sanctions', 'modifier_sanctions',
+            // Documents & Certificats
+            'voir_documents', 'ajouter_documents', 'modifier_documents', 'telecharger_documents',
+            // Consultation Caisse (Vérification de solvabilité pour attestations)
+            'voir_paiements',
+            // Annuaire interne
+            'voir_personnels',
+            'voir_enseignants',
+            // Communication
+            'voir_communications', 'creer_communications', 'expedier_communications',
+            'voir_annee_scolaire',
+            'voir_periodes',
+        ]);
+
+        // 9️⃣ RÔLE : ENSEIGNANT
+        $enseignantRole = Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);
+        $enseignantRole->syncPermissions([
+            'voir_dashboard',
+            'voir_emplois_du_temps',
+            'voir_classes',
+            'voir_matieres',
+            'voir_cours',
+            'voir_notes', 'ajouter_notes', 'modifier_notes',
+            'voir_bulletins',
+            'voir_evaluations', 'ajouter_evaluations', 'modifier_evaluations', 'supprimer_evaluations',
+            'voir_absences', 'ajouter_absences', 'modifier_absences',
+            'voir_sanctions', 'ajouter_sanctions',
+            'telecharger_documents', 'voir_documents', 'ajouter_documents', 'supprimer_documents',
+            'voir_communications', 'creer_communications', 'expedier_communications',
+            'voir_periodes',
+            'voir_parents',
+        ]);
+
+        // 🔟 RÔLE : ÉLÈVE
         $eleveRole = Role::firstOrCreate(['name' => 'eleve', 'guard_name' => 'web']);
         $eleveRole->syncPermissions([
             'voir_dashboard',
-            'voir_inscriptions', // ✅ Crucial pour Inscriptions
+            'voir_inscriptions',
             'voir_emplois_du_temps',
             'voir_communications', 
             'voir_notes', 
             'voir_bulletins',
             'voir_absences',
-            'voir_paiements', // ✅ Crucial pour Caisse
-            'voir_documents', // 📚 Accès aux cours
+            'voir_paiements',
+            'voir_documents',
+            'ajouter_documents',
             'telecharger_documents',
         ]);
 
+        // 1️⃣1️⃣ RÔLE : PARENT
         $parentRole = Role::firstOrCreate(['name' => 'parent', 'guard_name' => 'web']);
         $parentRole->syncPermissions([
             'voir_dashboard',
-            'voir_eleves', // Pour voir ses propres enfants
+            'voir_eleves',
             'voir_inscriptions',
             'voir_communications', 
             'creer_communications',
@@ -122,48 +194,12 @@ class RolePermissionSeeder extends Seeder
             'voir_bulletins',
             'voir_absences',
             'voir_paiements',
+            'voir_documents',
+            'ajouter_documents',
             'telecharger_documents',
             'voir_emplois_du_temps',
         ]);
 
-        $personnelRole = Role::firstOrCreate(['name' => 'personnel', 'guard_name' => 'web']);
-        $personnelRole->syncPermissions([
-            'voir_dashboard',
-            'voir_personnels',
-            'telecharger_documents',
-        ]);
-
-        // Création du Rôle Enseignant
-        $enseignantRole = Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);
-        $enseignantRole->syncPermissions([
-            'voir_dashboard',
-            'voir_cours',
-            'voir_emplois_du_temps',
-            'voir_eleves',
-            'voir_classes', // ✅ Ajouté
-            'voir_matieres', // ✅ Ajouté
-            'voir_notes',
-            'ajouter_notes',
-            'modifier_notes',
-            'voir_bulletins',
-            'voir_evaluations',
-            'ajouter_evaluations',
-            'modifier_evaluations',
-            'supprimer_evaluations',
-            'voir_absences',
-            'ajouter_absences',
-            'modifier_absences',
-            'telecharger_documents',
-            'creer_communications', // ✅ Ajouté
-            'expedier_communications', // ✅ Ajouté
-            'voir_communications', // ✅ Ajouté (Manquant précédemment)
-            'voir_periodes', // ✅ Ajouté (Utile pour Evaluations)
-            'voir_documents', // 📚 Ajouté
-            'ajouter_documents', // 📚 Ajouté
-            'supprimer_documents', // 📚 Ajouté
-            'voir_parents', // ✅ Ajouté (Utile pour Contact)
-        ]);
-
-        $this->command->info("✅ Admin (Clive) et Directeur créés avec succès !");
+        $this->command->info("✅ Rôles et matrices de permissions synchronisés avec succès (Super-Admin, Directeur, Comptable, Personnel, Enseignant, Parent, Élève) !");
     }
 }

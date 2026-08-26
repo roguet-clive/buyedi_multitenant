@@ -279,7 +279,24 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
             Accédez en un clic aux fonctions essentielles de gestion.
           </p>
 
-          <div className="space-y-4 relative z-10">
+          <div className="space-y-3.5 relative z-10">
+            {counts?.pending_demandes > 0 && (
+              <Link href={route('demandes-documents.index')} className="w-full flex items-center justify-between p-4 bg-amber-500/20 hover:bg-amber-500/30 rounded-2xl transition-all border border-amber-400/40 group shadow-lg shadow-amber-500/10">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                  </span>
+                  <span className="font-extrabold text-sm text-amber-200 group-hover:text-amber-100 transition-colors">
+                    Demandes Documents ({counts.pending_demandes})
+                  </span>
+                </div>
+                <div className="p-1.5 rounded-full bg-white/10 group-hover:bg-amber-400/20 transition-colors">
+                  <ArrowUpRight className="w-4 h-4 text-amber-300" />
+                </div>
+              </Link>
+            )}
+
             <Link href={route('inscriptions.create')} className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-green-500/20 rounded-2xl transition-all border border-white/10 hover:border-green-400/30 group">
               <span className="font-semibold text-sm group-hover:text-green-300 transition-colors">Nouvelle Inscription</span>
               <div className="p-1.5 rounded-full bg-white/10 group-hover:bg-green-400/20 transition-colors">

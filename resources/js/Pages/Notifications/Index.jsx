@@ -1,11 +1,25 @@
 import React from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { Bell, Check, Trash2, AlertTriangle, Info, CheckCircle } from 'lucide-react';
+import { Bell, Check, Trash2, AlertTriangle, Info, CheckCircle2, BookOpen, FileText, Download, ExternalLink, ShieldCheck, XCircle } from 'lucide-react';
 import useTranslation from "@/Hooks/useTranslation";
 
 export default function Index({ notifications }) {
     const { t } = useTranslation();
+
+    const normalizeUrl = (rawUrl) => {
+        if (!rawUrl) return null;
+        try {
+            // Si c'est déjà une URL relative
+            if (rawUrl.startsWith('/') && !rawUrl.startsWith('//')) {
+                return rawUrl;
+            }
+            const parsed = new URL(rawUrl, window.location.origin);
+            return parsed.pathname + parsed.search + parsed.hash;
+        } catch (e) {
+            return rawUrl;
+        }
+    };
 
     const markAllRead = () => {
         router.post(route('notifications.readAll'));
@@ -16,24 +30,35 @@ export default function Index({ notifications }) {
     };
 
     const handleNotificationClick = (notif) => {
+        const rawUrl = notif.data?.action_url || notif.data?.url || notif.data?.download_url;
+        const targetUrl = normalizeUrl(rawUrl);
         if (!notif.read_at) {
             router.post(route('notifications.read', notif.id), {}, {
                 preserveScroll: true,
                 onSuccess: () => {
-                    if (notif.data?.action_url) {
-                        router.visit(notif.data.action_url);
+                    if (targetUrl) {
+                        router.visit(targetUrl);
                     }
                 }
             });
-        } else if (notif.data?.action_url) {
-            router.visit(notif.data.action_url);
+        } else if (targetUrl) {
+            router.visit(targetUrl);
         }
     };
 
     // Helper icon based on notification type
-    const getIcon = (type) => {
+    const getIcon = (type, notifData) => {
+        const isDemandeDoc = type.includes('DemandeDocument') || notifData?.type === 'demande_document' || notifData?.type === 'demande_document_traitee';
+        if (isDemandeDoc) {
+            if (notifData?.statut === 'rejete') return <XCircle className="w-5 h-5 text-red-500" />;
+            if (notifData?.statut === 'approuve') return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
+            return <FileText className="w-5 h-5 text-indigo-500" />;
+        }
+        if (type.includes('DocumentPedagogique') || notifData?.type === 'document_pedagogique') {
+            return <BookOpen className="w-5 h-5 text-indigo-500" />;
+        }
         if (type.includes('Alert')) return <AlertTriangle className="w-5 h-5 text-red-500" />;
-        if (type.includes('Success')) return <CheckCircle className="w-5 h-5 text-green-500" />;
+        if (type.includes('Success')) return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
         return <Info className="w-5 h-5 text-blue-500" />;
     };
 
@@ -44,9 +69,8 @@ export default function Index({ notifications }) {
             <div className="max-w-5xl mx-auto">
                 {/* HERO BANNER */}
                 <div className="bg-[#0B1A2D] rounded-3xl p-8 mb-8 relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 shadow-2xl">
-                    {/* Effets de fond */}
-                    <div className="absolute top-0 right-0 -m-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl"></div>
-                    <div className="absolute bottom-0 left-0 -m-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
+                    <div className="absolute top-0 right-0 -m-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div className="absolute bottom-0 left-0 -m-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
                     <div className="relative z-10 flex items-center gap-6">
                         <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-inner">
@@ -79,11 +103,27 @@ export default function Index({ notifications }) {
                     {notifications.data.length > 0 ? (
                         <div className="divide-y divide-slate-50 dark:divide-slate-800/50">
                             {notifications.data.map((notif) => {
-                                // Dynamic styling based on type
+                                const isDocPedago = notif.type.includes('DocumentPedagogique') || notif.data?.type === 'document_pedagogique';
+                                const isDemandeDoc = notif.type.includes('DemandeDocument') || notif.data?.type === 'demande_document' || notif.data?.type === 'demande_document_traitee';
+
                                 let iconBgColor = "bg-blue-100 dark:bg-blue-900/30";
                                 let iconColor = "text-blue-600 dark:text-blue-400";
 
-                                if (notif.type.includes('Alert')) {
+                                if (isDemandeDoc) {
+                                    if (notif.data?.statut === 'rejete') {
+                                        iconBgColor = "bg-red-100 dark:bg-red-900/30";
+                                        iconColor = "text-red-600 dark:text-red-400";
+                                    } else if (notif.data?.statut === 'approuve') {
+                                        iconBgColor = "bg-emerald-100 dark:bg-emerald-900/30";
+                                        iconColor = "text-emerald-600 dark:text-emerald-400";
+                                    } else {
+                                        iconBgColor = "bg-indigo-100 dark:bg-indigo-900/40";
+                                        iconColor = "text-indigo-600 dark:text-indigo-400";
+                                    }
+                                } else if (isDocPedago) {
+                                    iconBgColor = "bg-indigo-100 dark:bg-indigo-900/40";
+                                    iconColor = "text-indigo-600 dark:text-indigo-400";
+                                } else if (notif.type.includes('Alert')) {
                                     iconBgColor = "bg-red-100 dark:bg-red-900/30";
                                     iconColor = "text-red-600 dark:text-red-400";
                                 } else if (notif.type.includes('Success')) {
@@ -91,13 +131,19 @@ export default function Index({ notifications }) {
                                     iconColor = "text-emerald-600 dark:text-emerald-400";
                                 }
 
+                                const rawDownloadUrl = notif.data?.download_url || (notif.data?.document_id ? route('documents.download', notif.data.document_id) : null);
+                                const downloadUrl = normalizeUrl(rawDownloadUrl);
+
+                                const rawActionUrl = notif.data?.action_url || notif.data?.url || (isDocPedago ? route('documents.index') : isDemandeDoc ? route('demandes-documents.index') : null);
+                                const actionUrl = normalizeUrl(rawActionUrl);
+
+                                const actionLabel = notif.data?.action_label || (isDemandeDoc ? 'Gérer les demandes' : isDocPedago ? 'Consulter les cours' : 'Voir les détails');
+
                                 return (
                                     <div
                                         key={notif.id}
-                                        className={`p-6 transition-all duration-300 flex items-start flex-col md:flex-row gap-6 group hover:bg-slate-50 dark:hover:bg-slate-800/50 ${!notif.read_at ? 'bg-indigo-50/30 dark:bg-indigo-900/10 relative overflow-hidden' : ''
-                                            }`}
+                                        className={`p-6 transition-all duration-300 flex items-start flex-col md:flex-row gap-6 group hover:bg-slate-50 dark:hover:bg-slate-800/50 ${!notif.read_at ? 'bg-indigo-50/30 dark:bg-indigo-900/10 relative overflow-hidden' : ''}`}
                                     >
-                                        {/* Liseré indicateur non lu */}
                                         {!notif.read_at && (
                                             <div className="hidden md:block absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
                                         )}
@@ -105,16 +151,16 @@ export default function Index({ notifications }) {
                                         <div className="flex gap-4 w-full">
                                             <div className={`mt-1 flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${iconBgColor}`}>
                                                 <div className={iconColor}>
-                                                    {getIcon(notif.type)}
+                                                    {getIcon(notif.type, notif.data)}
                                                 </div>
                                             </div>
 
                                             <div
-                                                className={`flex-1 ${notif.data?.action_url ? 'cursor-pointer' : ''}`}
+                                                className={`flex-1 ${actionUrl ? 'cursor-pointer' : ''}`}
                                                 onClick={() => handleNotificationClick(notif)}
                                             >
                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1">
-                                                    <h4 className={`text-lg font-bold pr-8 sm:pr-0 ${!notif.read_at ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'} ${notif.data?.action_url ? 'group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors' : ''}`}>
+                                                    <h4 className={`text-lg font-bold pr-8 sm:pr-0 ${!notif.read_at ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'} ${actionUrl ? 'group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors' : ''}`}>
                                                         {notif.data?.title || 'Notification système'}
                                                     </h4>
                                                     <span className="text-xs font-bold text-slate-400 flex-shrink-0 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
@@ -127,15 +173,42 @@ export default function Index({ notifications }) {
                                                 <p className="text-base text-slate-600 dark:text-slate-400 mt-1 leading-relaxed max-w-3xl">
                                                     {notif.data?.message || 'Contenu de la notification absent.'}
                                                 </p>
+
+                                                {/* BOUTONS D'ACTION DIRECTS */}
+                                                <div className="flex items-center gap-3 mt-3.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                                                    {downloadUrl && (
+                                                        <a
+                                                            href={downloadUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            onClick={() => { if (!notif.read_at) markRead(notif.id); }}
+                                                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 hover:scale-105 active:scale-95 transition-all"
+                                                        >
+                                                            <Download className="w-3.5 h-3.5" />
+                                                            <span>{notif.data?.download_label || 'Télécharger le document'}</span>
+                                                        </a>
+                                                    )}
+
+                                                    {actionUrl && (
+                                                        <Link
+                                                            href={actionUrl}
+                                                            onClick={() => { if (!notif.read_at) markRead(notif.id); }}
+                                                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white dark:bg-indigo-600 dark:hover:bg-indigo-500 rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 hover:scale-105 active:scale-95 transition-all"
+                                                        >
+                                                            <ExternalLink className="w-3.5 h-3.5" />
+                                                            <span>{actionLabel}</span>
+                                                        </Link>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="flex items-start pl-2">
                                                 {!notif.read_at ? (
                                                     <button
                                                         onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            markRead(notif.id);
-                                                        }}
+                                                             e.stopPropagation();
+                                                             markRead(notif.id);
+                                                         }}
                                                         className="p-2 -mr-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
                                                         title="Marquer comme lu"
                                                     >
@@ -143,7 +216,7 @@ export default function Index({ notifications }) {
                                                     </button>
                                                 ) : (
                                                     <div className="p-2 -mr-2 text-slate-300 dark:text-slate-600">
-                                                        {React.createElement(CheckCircle, { className: "w-5 h-5", "aria-hidden": "true" })}
+                                                        <CheckCircle2 className="w-5 h-5" />
                                                     </div>
                                                 )}
                                             </div>
