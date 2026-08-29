@@ -1,10 +1,31 @@
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, Link, useForm, router } from "@inertiajs/react";
 import { useState, useEffect } from "react";
-import { ChevronLeft, Save, Calendar, ClipboardCheck, CheckCircle2, XCircle, Clock, History, Users, Lock, Unlock, ShieldAlert, AlertCircle } from "lucide-react";
+import { ChevronLeft, Save, Calendar, ClipboardCheck, CheckCircle2, XCircle, Clock, History, Users, Lock, Unlock, ShieldAlert, AlertCircle, Sparkles, BookOpen, AlertTriangle, Info } from "lucide-react";
 import toast from "react-hot-toast";
 
-export default function Saisie({ classe, inscriptions, absences: existingAbsences, date, isLocked = false, lockedBy = null, lockedAt = null, canUnlock = false }) {
+export default function Saisie({
+    classe,
+    inscriptions,
+    absences: existingAbsences,
+    date,
+    isLocked = false,
+    lockedBy = null,
+    lockedAt = null,
+    canUnlock = false,
+    scheduleStatus = {}
+}) {
+    const {
+        hasScheduleConfigured = false,
+        hasCoursesToday = false,
+        dayName = '',
+        coursesToday = [],
+        canTakeAttendance = true,
+        warningMessage = null,
+        blockReason = null,
+        isTeacher = false,
+        isAdmin = false
+    } = scheduleStatus || {};
 
     const [entries, setEntries] = useState({});
 
@@ -30,18 +51,20 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
         router.visit(route('absences.saisie', { classe: classe.id, date: newDate }));
     };
 
+    const isReadOnly = (isLocked && !canUnlock) || !canTakeAttendance;
+
     const updateEntry = (id, field, value) => {
-        if (isLocked && !canUnlock) return;
+        if (isReadOnly) return;
         setEntries(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
     };
 
     const toggleAbsent = (id) => {
-        if (isLocked && !canUnlock) return;
+        if (isReadOnly) return;
         setEntries(prev => ({ ...prev, [id]: { ...prev[id], marked: !prev[id].marked } }));
     };
 
     const markAllPresent = () => {
-        if (isLocked && !canUnlock) return;
+        if (isReadOnly) return;
         const next = {};
         Object.keys(entries).forEach(k => { next[k] = { ...entries[k], marked: false }; });
         setEntries(next);
@@ -49,6 +72,10 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (!canTakeAttendance && !canUnlock) {
+            toast.error("La saisie de l'appel n'est pas autorisée pour ce jour.");
+            return;
+        }
         post(route('absences.storeBulk', classe.id), {
             preserveScroll: true,
         });
@@ -63,8 +90,6 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
     const absentCount = Object.values(entries).filter(e => e.marked && e.type === 'absence').length;
     const retardCount = Object.values(entries).filter(e => e.marked && e.type === 'retard').length;
     const presentCount = inscriptions.length - absentCount - retardCount;
-
-    const isReadOnly = isLocked && !canUnlock;
 
     return (
         <DashboardLayout title={`Appel — ${classe.nom}`}>
@@ -90,7 +115,7 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
                         <div>
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-red-200 text-xs font-medium mb-2 border border-white/10">
                                 <Calendar className="w-3.5 h-3.5" />
-                                <span>{isLocked ? 'Appel Clôturé' : 'Appel du jour'}</span>
+                                <span>{isLocked ? 'Appel Clôturé' : `Appel du ${dayName || 'jour'}`}</span>
                             </div>
                             <h1 className="text-2xl md:text-3xl font-black mb-1 flex items-center gap-3">
                                 Classe : {classe.nom}
@@ -123,6 +148,64 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
                 </div>
             </div>
 
+            {/* 📅 BANDEAU PROGRAMME DU JOUR (EMPLOI DU TEMPS) */}
+            {hasScheduleConfigured && hasCoursesToday && (
+                <div className="mb-6 p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 shadow-sm">
+                    <div className="flex items-center justify-between gap-3 mb-2.5">
+                        <div className="flex items-center gap-2 text-indigo-950 dark:text-indigo-200 font-bold text-sm">
+                            <Clock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                            <span>Programme du jour ({dayName})</span>
+                        </div>
+                        <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-100 dark:bg-indigo-900/50 px-2.5 py-0.5 rounded-full">
+                            {coursesToday.length} cours prévu(s)
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {coursesToday.map(c => (
+                            <div key={c.id} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-indigo-100 dark:border-indigo-900 px-3 py-1.5 rounded-xl text-xs shadow-sm">
+                                <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
+                                    {c.heure_debut?.slice(0, 5)} - {c.heure_fin?.slice(0, 5)}
+                                </span>
+                                <span className="font-bold text-slate-800 dark:text-white">{c.matiere?.nom}</span>
+                                {(c.enseignant?.user?.nom || c.enseignant?.nom) && (
+                                    <span className="text-slate-500 dark:text-slate-400">
+                                        • {c.enseignant.user ? `${c.enseignant.user.prenom} ${c.enseignant.user.nom}` : `${c.enseignant.prenom} ${c.enseignant.nom}`}
+                                    </span>
+                                )}
+                                {c.salle && <span className="text-slate-400 font-medium">({c.salle})</span>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ⛔ ALERTE BLOCAGE (ENSEIGNANT SANS COURS CE JOUR) */}
+            {blockReason && (
+                <div className="mb-6 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 flex items-center gap-3 text-rose-900 dark:text-rose-200 shadow-sm">
+                    <XCircle className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0" />
+                    <div>
+                        <p className="text-sm font-bold">⛔ Saisie non autorisée</p>
+                        <p className="text-xs text-rose-800 dark:text-rose-300 mt-0.5">{blockReason}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* ⚠️ AVERTISSEMENT ADMIN OU INFO EMPLOI DU TEMPS */}
+            {warningMessage && !blockReason && (
+                <div className={`mb-6 p-4 rounded-2xl flex items-center gap-3 shadow-sm ${
+                    hasScheduleConfigured
+                        ? 'bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
+                        : 'bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 text-blue-900 dark:text-blue-200'
+                }`}>
+                    {hasScheduleConfigured ? (
+                        <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                    ) : (
+                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    )}
+                    <p className="text-xs sm:text-sm font-medium">{warningMessage}</p>
+                </div>
+            )}
+
             {/* BANNIÈRE DE VERROUILLAGE / SÉCURITÉ */}
             {isLocked ? (
                 <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -154,14 +237,16 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
                     )}
                 </div>
             ) : (
-                <div className="mb-6 p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 flex items-center justify-between gap-3 text-blue-900 dark:text-blue-200">
-                    <div className="flex items-center gap-3">
-                        <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
-                        <p className="text-xs sm:text-sm font-medium">
-                            <span className="font-bold">Saisie de l'appel :</span> Une fois l'appel enregistré, la feuille sera automatiquement <span className="font-bold underline">verrouillée</span> pour éviter toute modification ultérieure.
-                        </p>
+                !blockReason && (
+                    <div className="mb-6 p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 flex items-center justify-between gap-3 text-blue-900 dark:text-blue-200">
+                        <div className="flex items-center gap-3">
+                            <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+                            <p className="text-xs sm:text-sm font-medium">
+                                <span className="font-bold">Saisie de l'appel :</span> Une fois l'appel enregistré, la feuille sera automatiquement <span className="font-bold underline">verrouillée</span> pour éviter toute modification ultérieure.
+                            </p>
+                        </div>
                     </div>
-                </div>
+                )
             )}
 
             {/* TOOLBAR */}
@@ -170,8 +255,13 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
                     <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2.5 shadow-sm">
                         <Calendar className="w-5 h-5 text-slate-400" />
                         <input type="date" value={date} onChange={(e) => handleDateChange(e.target.value)}
-                            className="border-none bg-transparent focus:ring-0 text-slate-700 dark:text-slate-200 font-semibold text-sm" />
+                            className="border-none bg-transparent focus:ring-0 text-slate-700 dark:text-slate-200 font-semibold text-sm cursor-pointer" />
                     </div>
+                    {dayName && (
+                        <span className="text-xs font-bold px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-700">
+                            {dayName}
+                        </span>
+                    )}
                 </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                     {!isReadOnly && (
@@ -203,7 +293,7 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {inscriptions.length > 0 ? (
-                                    inscriptions.map((insc, i) => {
+                                    inscriptions.map((insc) => {
                                         const entry = entries[insc.id] || { marked: false, type: 'absence', justifiee: false, motif: '' };
                                         const isMarked = entry.marked;
                                         const isRetard = isMarked && entry.type === 'retard';
@@ -308,17 +398,24 @@ export default function Saisie({ classe, inscriptions, absences: existingAbsence
                             {Object.values(entries).filter(e => e.marked).length} absence(s)/retard(s) sur {inscriptions.length} élèves
                         </p>
 
-                        {isReadOnly ? (
+                        {isLocked ? (
                             <div className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-bold text-sm border border-amber-200 dark:border-amber-800/50">
                                 <Lock className="w-4 h-4" />
                                 <span>Appel validé & verrouillé (Lecture seule)</span>
                             </div>
                         ) : (
-                            <button type="submit" disabled={processing}
-                                className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-red-500/30 transition-all active:scale-95 disabled:opacity-70">
-                                <Save className="w-5 h-5" />
-                                <span>{processing ? 'Validation en cours...' : (isLocked ? 'Mettre à jour l\'appel (Admin)' : 'Valider & Clôturer l\'Appel')}</span>
-                            </button>
+                            !canTakeAttendance ? (
+                                <div className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-sm border border-slate-300 dark:border-slate-700 select-none">
+                                    <Lock className="w-4 h-4" />
+                                    <span>Saisie non autorisée (Jour/Horaire hors créneau)</span>
+                                </div>
+                            ) : (
+                                <button type="submit" disabled={processing}
+                                    className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-red-500/30 transition-all active:scale-95 disabled:opacity-70">
+                                    <Save className="w-5 h-5" />
+                                    <span>{processing ? 'Validation en cours...' : (isLocked ? 'Mettre à jour l\'appel (Admin)' : 'Valider & Clôturer l\'Appel')}</span>
+                                </button>
+                            )
                         )}
                     </div>
                 </div>

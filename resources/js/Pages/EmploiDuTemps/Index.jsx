@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { router, usePage } from "@inertiajs/react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import useTranslation from "@/Hooks/useTranslation";
-import { Calendar, Plus, Trash2, MapPin, User, BookOpen, Clock, ChevronDown, GraduationCap, Save, X } from "lucide-react";
+import { Calendar, Plus, Trash2, MapPin, User, BookOpen, Clock, ChevronDown, GraduationCap, Save, X, Send, Download, Bell } from "lucide-react";
 import Modal from "@/Components/Modal";
 import toast from "react-hot-toast";
 
@@ -18,12 +18,13 @@ const COURSE_COLORS = [
     { bg: 'bg-teal-100 dark:bg-teal-900/50', border: 'border-l-teal-500', text: 'text-teal-800 dark:text-teal-200', time: 'text-teal-600 dark:text-teal-400' },
 ];
 
-export default function Index({ classes, enseignants, matieres, periodes = [], emplois = [], selectedClasse }) {
+export default function Index({ classes, enseignants, matieres, periodes = [], emplois = [], selectedClasse, affectations = [] }) {
     const { t } = useTranslation();
     const { flash } = usePage().props;
 
     const [classeId, setClasseId] = useState(selectedClasse?.id || "");
     const [modalOpen, setModalOpen] = useState(false);
+    const [publishing, setPublishing] = useState(false);
 
     const [matiereId, setMatiereId] = useState("");
     const [enseignantId, setEnseignantId] = useState("");
@@ -46,6 +47,16 @@ export default function Index({ classes, enseignants, matieres, periodes = [], e
         if (id) router.get(route("emploi_du_temps.index"), { classe_id: id }, { preserveState: true });
     };
 
+    const handleMatiereChange = (id) => {
+        setMatiereId(id);
+        if (id && classeId) {
+            const aff = affectations.find(a => a.classe_id == classeId && a.matiere_id == id);
+            if (aff && aff.enseignant_id) {
+                setEnseignantId(aff.enseignant_id);
+            }
+        }
+    };
+
     const openAddModal = (day = "Lundi", hour = 8) => {
         if (!classeId) { toast.error("Veuillez d'abord sélectionner une classe."); return; }
         setJour(day);
@@ -61,6 +72,17 @@ export default function Index({ classes, enseignants, matieres, periodes = [], e
             classe_id: classeId, matiere_id: matiereId, enseignant_id: enseignantId,
             periode_id: periodeId || null, jour, heure_debut: heureDebut, heure_fin: heureFin, salle,
         }, { onSuccess: () => { setModalOpen(false); setMatiereId(""); }, preserveScroll: true });
+    };
+
+    const handlePublier = () => {
+        if (!classeId) return;
+        if (!confirm(`Voulez-vous diffuser cet emploi du temps aux enseignants, élèves et parents de la classe ${selectedClasse?.nom || ''} ?`)) return;
+
+        setPublishing(true);
+        router.post(route("emploi_du_temps.publier", classeId), {}, {
+            preserveScroll: true,
+            onFinish: () => setPublishing(false),
+        });
     };
 
     const deleteSlot = (id) => {
@@ -116,9 +138,9 @@ export default function Index({ classes, enseignants, matieres, periodes = [], e
                 </div>
             </div>
 
-            {/* SÉLECTEUR CLASSE */}
-            <div className="flex items-center gap-4 mb-6">
-                <div className="relative flex-1 max-w-sm">
+            {/* SÉLECTEUR CLASSE & ACTIONS */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div className="relative flex-1 min-w-[260px] max-w-sm">
                     <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <select value={classeId} onChange={handleClasseChange}
                         className="w-full pl-12 pr-10 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-semibold text-slate-700 dark:text-slate-200 shadow-sm focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer">
@@ -131,11 +153,39 @@ export default function Index({ classes, enseignants, matieres, periodes = [], e
                 </div>
 
                 {classeId && (
-                    <button onClick={() => openAddModal()}
-                        className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-500/30 transition-all active:scale-95">
-                        <Plus className="w-5 h-5" />
-                        Ajouter un cours
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Bouton Télécharger PDF */}
+                        <a
+                            href={route("emploi_du_temps.download", { classe_id: classeId })}
+                            className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl font-bold shadow-sm transition-all active:scale-95 text-sm"
+                            title="Télécharger l'emploi du temps officiel en PDF"
+                        >
+                            <Download className="w-4 h-4 text-indigo-500" />
+                            <span>Télécharger PDF</span>
+                        </a>
+
+                        {/* Bouton Publier & Notifier */}
+                        <button
+                            type="button"
+                            onClick={handlePublier}
+                            disabled={publishing || emplois.length === 0}
+                            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20 transition-all active:scale-95 text-sm"
+                            title="Diffuser l'emploi du temps aux enseignants, élèves et parents"
+                        >
+                            <Send className="w-4 h-4" />
+                            <span>{publishing ? "Diffusion en cours..." : "Publier & Notifier"}</span>
+                        </button>
+
+                        {/* Bouton Ajouter un cours */}
+                        <button
+                            type="button"
+                            onClick={() => openAddModal()}
+                            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-500/30 transition-all active:scale-95 text-sm"
+                        >
+                            <Plus className="w-5 h-5" />
+                            <span>Ajouter un cours</span>
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -287,7 +337,7 @@ export default function Index({ classes, enseignants, matieres, periodes = [], e
 
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Matière <span className="text-red-400">*</span></label>
-                            <select value={matiereId} onChange={e => setMatiereId(e.target.value)} required
+                            <select value={matiereId} onChange={e => handleMatiereChange(e.target.value)} required
                                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 transition-all">
                                 <option value="">— Choisir une matière —</option>
                                 {matieres.map(m => <option key={m.id} value={m.id}>{m.nom} ({m.code})</option>)}

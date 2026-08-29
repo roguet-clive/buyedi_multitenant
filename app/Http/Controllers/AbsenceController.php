@@ -108,6 +108,80 @@ class AbsenceController extends Controller
         $lockedAt = $appel ? $appel->updated_at->format('d/m/Y à H:i') : null;
         $canUnlock = $request->user()->hasRole(['super-admin', 'directeur', 'personnel']);
 
+        // 📅 Analyse de l'Emploi du Temps pour cette date
+        $carbon = \Carbon\Carbon::parse($date);
+        $daysMap = [0 => 'Dimanche', 1 => 'Lundi', 2 => 'Mardi', 3 => 'Mercredi', 4 => 'Jeudi', 5 => 'Vendredi', 6 => 'Samedi'];
+        $jourNom = $daysMap[$carbon->dayOfWeek];
+
+        $totalSlotsForClass = \App\Models\EmploiDuTemps::where('classe_id', $classe->id)
+            ->where('annee_scolaire_id', $currentYear->id)
+            ->count();
+
+        $coursesToday = \App\Models\EmploiDuTemps::with(['matiere', 'enseignant.user'])
+            ->where('classe_id', $classe->id)
+            ->where('annee_scolaire_id', $currentYear->id)
+            ->whereRaw('LOWER(jour) = ?', [strtolower($jourNom)])
+            ->orderBy('heure_debut')
+            ->get();
+
+        $hasScheduleConfigured = $totalSlotsForClass > 0;
+        $hasCoursesToday = $coursesToday->count() > 0;
+
+        $user = $request->user();
+        $isTeacher = $this->isTeacher();
+        $isAdmin = $user->hasRole(['super-admin', 'directeur', 'personnel', 'admin']);
+
+        $teacherHasCourseToday = false;
+        if ($isTeacher) {
+            $enseignant = \App\Models\Enseignant::where('user_id', $user->id)->first();
+            if ($enseignant) {
+                $directSlot = $coursesToday->first(function ($slot) use ($enseignant) {
+                    return $slot->enseignant_id == $enseignant->id || $slot->enseignant?->user_id == $enseignant->user_id;
+                });
+
+                $assignedSubjectIds = \App\Models\Cours::where('classe_id', $classe->id)
+                    ->where('enseignant_id', $enseignant->id)
+                    ->where('annee_scolaire_id', $currentYear->id)
+                    ->pluck('matiere_id')
+                    ->toArray();
+
+                $subjectSlot = $coursesToday->first(function ($slot) use ($assignedSubjectIds) {
+                    return in_array($slot->matiere_id, $assignedSubjectIds);
+                });
+
+                $teacherHasCourseToday = ($directSlot !== null) || ($subjectSlot !== null);
+            }
+        }
+
+        $scheduleStatus = [
+            'hasScheduleConfigured' => $hasScheduleConfigured,
+            'hasCoursesToday' => $hasCoursesToday,
+            'dayName' => $jourNom,
+            'coursesToday' => $coursesToday,
+            'teacherHasCourseToday' => $teacherHasCourseToday,
+            'isTeacher' => $isTeacher,
+            'isAdmin' => $isAdmin,
+            'canTakeAttendance' => true,
+            'warningMessage' => null,
+            'blockReason' => null,
+        ];
+
+        if ($hasScheduleConfigured) {
+            if (!$hasCoursesToday) {
+                if ($isTeacher) {
+                    $scheduleStatus['canTakeAttendance'] = false;
+                    $scheduleStatus['blockReason'] = "Aucun cours n'est programmé pour la classe de {$classe->nom} le {$jourNom}.";
+                } else {
+                    $scheduleStatus['warningMessage'] = "Attention : Aucun cours régulier n'est programmé pour cette classe le {$jourNom}. En tant qu'administrateur, vous pouvez effectuer une saisie exceptionnelle.";
+                }
+            } elseif ($isTeacher && !$teacherHasCourseToday) {
+                $scheduleStatus['canTakeAttendance'] = false;
+                $scheduleStatus['blockReason'] = "Vous n'avez aucun cours programmé avec la classe de {$classe->nom} le {$jourNom}.";
+            }
+        } else {
+            $scheduleStatus['warningMessage'] = "L'emploi du temps de cette classe n'a pas encore été configuré. La saisie libre est autorisée.";
+        }
+
         return \Inertia\Inertia::render('Absences/Saisie', [
             'classe' => $classe,
             'inscriptions' => $inscriptions,
@@ -117,6 +191,7 @@ class AbsenceController extends Controller
             'lockedBy' => $lockedBy,
             'lockedAt' => $lockedAt,
             'canUnlock' => $canUnlock,
+            'scheduleStatus' => $scheduleStatus,
         ]);
     }
 
@@ -124,8 +199,13 @@ class AbsenceController extends Controller
     {
         if ($this->isStudent()) abort(403);
 
+        // 🔒 Vérification Enseignant
+        if ($this->isTeacher() && !in_array($classe->id, $this->getTeacherClassIds())) {
+            abort(403, 'Accès non autorisé à cette classe.');
+        }
+
         $type = $request->input('type', 'week'); // week, month, year
-        $refDate = \Carbon\Carbon::parse($request->input('date', now()));
+        $refDate = \Carbon\Carbon::parse($request->input('date', now()->format('Y-m-d')));
 
         $currentYear = \App\Models\AnneeScolaire::where('en_cours', true)->first();
         if (!$currentYear) return back()->with('error', __('Aucune année scolaire active.'));
@@ -138,17 +218,14 @@ class AbsenceController extends Controller
             $prevDate = $start->copy()->subMonth()->format('Y-m-d');
             $nextDate = $start->copy()->addMonth()->format('Y-m-d');
         } elseif ($type === 'year') {
-            // Pour l'année scolaire, on pourrait utiliser les dates de début/fin de l'année scolaire
-            // Mais pour simplifier, disons l'année civile ou une plage large
             $start = \Carbon\Carbon::parse($currentYear->date_debut ?? now()->startOfYear());
             $end = \Carbon\Carbon::parse($currentYear->date_fin ?? now()->endOfYear());
             $periodLabel = "Année Scolaire " . $currentYear->nom;
-            // Pas de navigation simple pour l'année scolaire ici sans changer d'ID
             $prevDate = null; 
             $nextDate = null;
         } else { // week
-            $start = $refDate->copy()->startOfWeek();
-            $end = $refDate->copy()->endOfWeek(); // Vendredi ou Dimanche ? Disons Dimanche pour couvrir tout.
+            $start = $refDate->copy()->startOfWeek(\Carbon\Carbon::MONDAY);
+            $end = $refDate->copy()->endOfWeek(\Carbon\Carbon::SUNDAY);
             $periodLabel = "Semaine du " . $start->format('d/m') . " au " . $end->format('d/m');
             $prevDate = $start->copy()->subWeek()->format('Y-m-d');
             $nextDate = $start->copy()->addWeek()->format('Y-m-d');
@@ -159,7 +236,6 @@ class AbsenceController extends Controller
         if ($type !== 'year') {
             $curr = $start->copy();
             while ($curr <= $end) {
-                // On exclut le dimanche par défaut ? Gardons Lundi-Samedi
                 if ($curr->dayOfWeek !== \Carbon\Carbon::SUNDAY) {
                     $dates[] = [
                         'date' => $curr->format('Y-m-d'),
@@ -171,26 +247,29 @@ class AbsenceController extends Controller
             }
         }
 
-        // 3. Récupérer les élèves
+        // 3. Récupérer les élèves triés par nom
         $inscriptions = \App\Models\Inscription::where('classe_id', $classe->id)
             ->where('annee_scolaire_id', $currentYear->id)
             ->with(['eleve.user'])
-            ->orderBy('id') // Ou par nom
-            ->get();
+            ->get()
+            ->sortBy(function ($insc) {
+                return ($insc->eleve?->user?->nom ?? '') . ' ' . ($insc->eleve?->user?->prenom ?? '');
+            })
+            ->values();
 
         // 4. Récupérer les absences
         $absences = \App\Models\Absence::whereIn('inscription_id', $inscriptions->pluck('id'))
             ->whereBetween('date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
             ->get();
 
-        // 5. Mapper les données
+        // 5. Mapper les données avec comparaison de date au format Y-m-d
         $students = $inscriptions->map(function ($insc) use ($absences, $type, $dates) {
             $studentAbsences = $absences->where('inscription_id', $insc->id);
             
             $data = [
                 'id' => $insc->id,
-                'name' => $insc->eleve->user->nom . ' ' . $insc->eleve->user->prenom,
-                'matricule' => $insc->eleve->matricule,
+                'name' => ($insc->eleve?->user?->prenom ?? '') . ' ' . ($insc->eleve?->user?->nom ?? ''),
+                'matricule' => $insc->eleve?->matricule ?? '',
             ];
 
             if ($type === 'year') {
@@ -198,13 +277,16 @@ class AbsenceController extends Controller
                 $data['stats'] = [
                     'absences' => $studentAbsences->where('type', 'absence')->count(),
                     'retards' => $studentAbsences->where('type', 'retard')->count(),
-                    'justified' => $studentAbsences->where('justifiee', true)->count(),
+                    'justified' => $studentAbsences->filter(fn($a) => (bool)$a->justifiee)->count(),
                 ];
             } else {
                 // Vue Grille
                 $attendance = [];
                 foreach ($dates as $d) {
-                    $abs = $studentAbsences->firstWhere('date', $d['date']);
+                    $abs = $studentAbsences->first(function ($a) use ($d) {
+                        return $a->date?->format('Y-m-d') === $d['date'];
+                    });
+
                     $attendance[$d['date']] = $abs ? [
                         'type' => $abs->type,
                         'justifiee' => (bool)$abs->justifiee,
@@ -212,7 +294,7 @@ class AbsenceController extends Controller
                     ] : null; // Présent
                 }
                 $data['attendance'] = $attendance;
-                // Petites stats pour la ligne aussi
+                // Stats pour la période affichée
                 $data['stats'] = [
                     'absences' => $studentAbsences->where('type', 'absence')->count(),
                     'retards' => $studentAbsences->where('type', 'retard')->count(),
@@ -255,10 +337,48 @@ class AbsenceController extends Controller
             return back()->with('error', "🔒 L'appel pour le {$date} a déjà été validé et verrouillé. Toute modification ultérieure doit être effectuée par la Direction.");
         }
 
-        // 🛡️ Sécurité : Récupérer les IDs valides pour cette classe
+        // 📅 Sécurité : Contrôle de l'Emploi du Temps pour les Enseignants
         $currentYear = \App\Models\AnneeScolaire::where('en_cours', true)->first();
         if (!$currentYear) return back()->with('error', __('Année scolaire introuvable'));
 
+        if ($this->isTeacher()) {
+            $carbon = \Carbon\Carbon::parse($date);
+            $daysMap = [0 => 'Dimanche', 1 => 'Lundi', 2 => 'Mardi', 3 => 'Mercredi', 4 => 'Jeudi', 5 => 'Vendredi', 6 => 'Samedi'];
+            $jourNom = $daysMap[$carbon->dayOfWeek];
+
+            $totalSlotsForClass = \App\Models\EmploiDuTemps::where('classe_id', $classe->id)
+                ->where('annee_scolaire_id', $currentYear->id)
+                ->count();
+
+            // Si l'emploi du temps est configuré pour cette classe, on applique le contrôle strict pour l'enseignant
+            if ($totalSlotsForClass > 0) {
+                $coursesToday = \App\Models\EmploiDuTemps::where('classe_id', $classe->id)
+                    ->where('annee_scolaire_id', $currentYear->id)
+                    ->whereRaw('LOWER(jour) = ?', [strtolower($jourNom)])
+                    ->get();
+
+                if ($coursesToday->count() === 0) {
+                    return back()->with('error', "⛔ Impossible d'enregistrer l'appel : aucun cours n'est programmé pour la classe de {$classe->nom} le {$jourNom}.");
+                }
+
+                $enseignant = \App\Models\Enseignant::where('user_id', $user->id)->first();
+                if ($enseignant) {
+                    $hasDirect = $coursesToday->contains(fn($c) => $c->enseignant_id == $enseignant->id);
+                    $assignedSubjects = \App\Models\Cours::where('classe_id', $classe->id)
+                        ->where('enseignant_id', $enseignant->id)
+                        ->where('annee_scolaire_id', $currentYear->id)
+                        ->pluck('matiere_id')
+                        ->toArray();
+                    $hasSubject = $coursesToday->contains(fn($c) => in_array($c->matiere_id, $assignedSubjects));
+
+                    if (!$hasDirect && !$hasSubject) {
+                        return back()->with('error', "⛔ Vous n'avez aucun cours programmé avec la classe de {$classe->nom} le {$jourNom}.");
+                    }
+                }
+            }
+        }
+
+        // 🛡️ Sécurité : Récupérer les IDs valides pour cette classe
         $validInscriptionIds = \App\Models\Inscription::where('classe_id', $classe->id)
             ->where('annee_scolaire_id', $currentYear->id)
             ->pluck('id')

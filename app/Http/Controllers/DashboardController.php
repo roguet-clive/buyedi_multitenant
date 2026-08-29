@@ -122,43 +122,28 @@ class DashboardController extends Controller
                 return Inertia::render('Dashboard', ['error' => 'Profil enseignant non trouvé ou année non configurée.']);
             }
 
-            // 1. Emploi du temps (Aujourd'hui)
-            $today = strtolower(now()->locale('fr')->dayName);
-            $schedule = \App\Models\EmploiDuTemps::where('enseignant_id', $enseignant->id)
-                ->where('jour', $today)
-                ->where('annee_scolaire_id', $anneeId)
-                ->with(['matiere', 'classe'])
-                ->orderBy('heure_debut')
-                ->get()
-                ->map(function($edt) {
-                    return [
-                        'id' => $edt->id,
-                        'heure' => substr($edt->heure_debut, 0, 5) . ' - ' . substr($edt->heure_fin, 0, 5),
-                        'matiere' => $edt->matiere->nom,
-                        'classe' => $edt->classe->nom,
-                        'salle' => $edt->salle ?? 'N/A',
-                        // Status could be derived (e.g., past, current, upcoming)
-                    ];
-                });
+            // 1. Détection du jour actuel
+            $daysMap = [0 => 'dimanche', 1 => 'lundi', 2 => 'mardi', 3 => 'mercredi', 4 => 'jeudi', 5 => 'vendredi', 6 => 'samedi'];
+            $today = $daysMap[now()->dayOfWeek];
 
-            // 2. Mes Classes (celles où il enseigne)
-            // On combine les classes de l'emploi du temps ET les cours assignés directement
+            // 2. Mes Affectations de Cours & Classes
+            $coursAffectes = \App\Models\Cours::where('enseignant_id', $enseignant->id)
+                ->where('annee_scolaire_id', $anneeId)
+                ->with(['classe', 'matiere'])
+                ->get();
+
             $timetableClassIds = \App\Models\EmploiDuTemps::where('enseignant_id', $enseignant->id)
                 ->where('annee_scolaire_id', $anneeId)
                 ->pluck('classe_id')
                 ->toArray();
             
-            $courseClassIds = \App\Models\Cours::where('enseignant_id', $enseignant->id)
-                ->where('annee_scolaire_id', $anneeId)
-                ->pluck('classe_id')
-                ->toArray();
+            $courseClassIds = $coursAffectes->pluck('classe_id')->toArray();
+            $allClassIds = array_values(array_unique(array_merge($timetableClassIds, $courseClassIds)));
 
-            $allClassIds = array_unique(array_merge($timetableClassIds, $courseClassIds));
-            
             $myClasses = \App\Models\Classe::whereIn('id', $allClassIds)
                 ->orderBy('nom')
                 ->get()
-                ->map(function($c) use ($anneeId) {
+                ->map(function ($c) use ($anneeId) {
                     return [
                         'id' => $c->id,
                         'nom' => $c->nom,
@@ -169,7 +154,71 @@ class DashboardController extends Controller
                     ];
                 });
 
-            // 3. Données Profil (Pour l'onglet "Mon Profil")
+            // 3. Emploi du temps du jour avec statut de l'appel
+            $schedule = \App\Models\EmploiDuTemps::where('annee_scolaire_id', $anneeId)
+                ->whereRaw('LOWER(jour) = ?', [$today])
+                ->where(function ($q) use ($enseignant, $coursAffectes) {
+                    $q->where('enseignant_id', $enseignant->id);
+                    foreach ($coursAffectes as $ca) {
+                        $q->orWhere(function ($sub) use ($ca) {
+                            $sub->where('classe_id', $ca->classe_id)
+                                ->where('matiere_id', $ca->matiere_id);
+                        });
+                    }
+                })
+                ->with(['matiere', 'classe'])
+                ->orderBy('heure_debut')
+                ->get()
+                ->map(function ($edt) {
+                    $isAttendanceDone = \App\Models\Appel::where('classe_id', $edt->classe_id)
+                        ->where('date', now()->format('Y-m-d'))
+                        ->where('verrouille', true)
+                        ->exists();
+
+                    return [
+                        'id' => $edt->id,
+                        'classe_id' => $edt->classe_id,
+                        'classe' => $edt->classe?->nom ?? 'Classe',
+                        'matiere' => $edt->matiere?->nom ?? 'Matière',
+                        'salle' => $edt->salle ?? 'N/A',
+                        'heure' => substr($edt->heure_debut, 0, 5) . ' - ' . substr($edt->heure_fin, 0, 5),
+                        'heure_debut' => substr($edt->heure_debut, 0, 5),
+                        'heure_fin' => substr($edt->heure_fin, 0, 5),
+                        'is_attendance_done' => $isAttendanceDone,
+                    ];
+                });
+
+            // 4. Calcul des KPIs pour le tableau de bord
+            $totalStudents = \App\Models\Inscription::whereIn('classe_id', $allClassIds)
+                ->where('annee_scolaire_id', $anneeId)
+                ->distinct('eleve_id')
+                ->count('eleve_id');
+
+            $allTeacherSlots = \App\Models\EmploiDuTemps::where('annee_scolaire_id', $anneeId)
+                ->where(function ($q) use ($enseignant, $coursAffectes) {
+                    $q->where('enseignant_id', $enseignant->id);
+                    foreach ($coursAffectes as $ca) {
+                        $q->orWhere(function ($sub) use ($ca) {
+                            $sub->where('classe_id', $ca->classe_id)
+                                ->where('matiere_id', $ca->matiere_id);
+                        });
+                    }
+                })
+                ->get();
+
+            $totalMinutes = $allTeacherSlots->reduce(function ($carry, $slot) {
+                if ($slot->heure_debut && $slot->heure_fin) {
+                    $start = \Carbon\Carbon::parse($slot->heure_debut);
+                    $end = \Carbon\Carbon::parse($slot->heure_fin);
+                    return $carry + $end->diffInMinutes($start);
+                }
+                return $carry;
+            }, 0);
+            $weeklyHours = round($totalMinutes / 60, 1);
+
+            $evaluationsCount = \App\Models\Evaluation::whereIn('cours_id', $coursAffectes->pluck('id'))->count();
+
+            // 5. Données Profil (Pour l'onglet "Mon Profil")
             $enseignant->load([
                 'user',
                 'cours.matiere',
@@ -180,9 +229,15 @@ class DashboardController extends Controller
             return Inertia::render('Dashboard/Teacher', [
                 'schedule' => $schedule,
                 'myClasses' => $myClasses,
+                'kpis' => [
+                    'total_classes' => count($allClassIds),
+                    'total_students' => $totalStudents,
+                    'weekly_hours' => $weeklyHours,
+                    'evaluations_count' => $evaluationsCount,
+                ],
                 'todayDate' => now()->locale('fr')->isoFormat('LL'),
-                'teacherProfile' => $enseignant, // Profil complet
-                'teacherCourses' => $enseignant->cours, // Cours pour l'onglet profil
+                'teacherProfile' => $enseignant,
+                'teacherCourses' => $enseignant->cours,
             ]);
         }
 

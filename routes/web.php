@@ -261,6 +261,10 @@ Route::middleware([SetLocale::class])->group(function () {
         // ...
 
         // Gestion de l'Emploi du Temps
+        Route::get('emploi_du_temps/download', [\App\Http\Controllers\EmploiDuTempsController::class, 'downloadPdf'])
+             ->name('emploi_du_temps.download');
+        Route::post('emploi_du_temps/{classe}/publier', [\App\Http\Controllers\EmploiDuTempsController::class, 'publier'])
+             ->name('emploi_du_temps.publier');
         Route::resource('emploi_du_temps', \App\Http\Controllers\EmploiDuTempsController::class)
              ->only(['index', 'store', 'destroy']);
 
