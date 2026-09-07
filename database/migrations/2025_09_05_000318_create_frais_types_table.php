@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('frais_types', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->nullable()->unique(); // Code unique pour identification (ex: 'inscription', 'tenue')
+            $table->string('code')->nullable(); // Code pour identification/mapping (ex: 'inscription', 'tenue', 'divers')
             $table->string('nom')->unique();
             $table->decimal('montant', 15, 2)->default(0);
             $table->foreignId('annee_scolaire_id')->nullable()->constrained()->onDelete('set null');

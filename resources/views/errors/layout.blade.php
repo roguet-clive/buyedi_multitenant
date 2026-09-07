@@ -10,7 +10,7 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.jsx'])
+        @vite(['resources/js/app.jsx'])
     </head>
     <body class="h-full font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-200">
         <div class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">

@@ -138,9 +138,13 @@ Route::middleware([SetLocale::class])->group(function () {
         Route::resource('frais_types', FraisTypeController::class);
 
         // Frais par classe
+        Route::post('frais_classes/appliquer-bareme-officiel', [FraisClasseController::class, 'appliquerBaremeOfficiel'])
+            ->name('frais_classes.appliquerBaremeOfficiel')
+            ->middleware('permission:ajouter_frais_classes');
+
         Route::post('frais_classes/bulk', [FraisClasseController::class, 'storeBulk'])
             ->name('frais_classes.storeBulk')
-            ->middleware('permission:ajouter_frais_classes'); // Or modifier? Let's say ajouter/modifier covers it.
+            ->middleware('permission:ajouter_frais_classes');
 
         Route::resource('frais_classes', FraisClasseController::class);
         // web.php
@@ -153,6 +157,28 @@ Route::middleware([SetLocale::class])->group(function () {
         // Gestion des paiements (Caisse)
         Route::get('/paiements/{paiement}/recu', [PaiementController::class, 'recu'])->name('paiements.recu');
         Route::resource('paiements', PaiementController::class);
+
+        // 💰 Gestion des Arriérés de scolarité antérieurs (Dettes Pré-Installation)
+        Route::get('/arrieres', [\App\Http\Controllers\ArriereController::class, 'index'])
+            ->name('arrieres.index')
+            ->middleware('permission:voir_arrieres');
+        Route::post('/arrieres', [\App\Http\Controllers\ArriereController::class, 'store'])
+            ->name('arrieres.store')
+            ->middleware('permission:ajouter_arrieres');
+        Route::put('/arrieres/{arriere}', [\App\Http\Controllers\ArriereController::class, 'update'])
+            ->name('arrieres.update')
+            ->middleware('permission:modifier_arrieres');
+        Route::delete('/arrieres/{arriere}', [\App\Http\Controllers\ArriereController::class, 'destroy'])
+            ->name('arrieres.destroy')
+            ->middleware('permission:supprimer_arrieres');
+        Route::post('/arrieres/{arriere}/payer', [\App\Http\Controllers\ArriereController::class, 'payer'])
+            ->name('arrieres.payer')
+            ->middleware('permission:encaisser_arrieres');
+        Route::get('/arrieres/search-eleves', [\App\Http\Controllers\ArriereController::class, 'searchEleves'])
+            ->name('arrieres.search-eleves')
+            ->middleware('permission:voir_arrieres|ajouter_arrieres');
+        Route::get('/arrieres/paiements/{arrierePaiement}/recu', [\App\Http\Controllers\ArriereController::class, 'recu'])
+            ->name('arrieres.recu');
 
         Route::resource('depenses', \App\Http\Controllers\DepenseController::class)
              ->only(['index', 'store', 'destroy']);
@@ -248,17 +274,6 @@ Route::middleware([SetLocale::class])->group(function () {
             ->name('conseil.store')
             ->middleware('permission:modifier_bulletins');
 
-        // Gestion des personnels
-        Route::resource('personnels', \App\Http\Controllers\PersonnelController::class);
-
-        // ...
-
-        // Gestion des affectations (Cours)
-        Route::resource('cours', \App\Http\Controllers\CoursController::class)
-             ->only(['index', 'store', 'destroy'])
-             ->parameters(['cours' => 'cours']);
-
-        // ...
 
         // Gestion de l'Emploi du Temps
         Route::get('emploi_du_temps/download', [\App\Http\Controllers\EmploiDuTempsController::class, 'downloadPdf'])
@@ -303,16 +318,21 @@ Route::middleware([SetLocale::class])->group(function () {
         Route::get('/archives', [App\Http\Controllers\ArchiveController::class, 'index'])
             ->name('archives.index')
             ->middleware('permission:voir_archives');
+
+        // 💾 SAUVEGARDES DE LA BASE DE DONNÉES (Super-Admin)
+        Route::middleware(['role:super-admin'])->group(function () {
+            Route::get('/backups', [\App\Http\Controllers\BackupController::class, 'index'])->name('backups.index');
+            Route::post('/backups', [\App\Http\Controllers\BackupController::class, 'store'])->name('backups.store');
+            Route::get('/backups/{filename}/download', [\App\Http\Controllers\BackupController::class, 'download'])->name('backups.download');
+            Route::delete('/backups/{filename}', [\App\Http\Controllers\BackupController::class, 'destroy'])->name('backups.destroy');
+            Route::post('/backups/{filename}/restore', [\App\Http\Controllers\BackupController::class, 'restore'])->name('backups.restore');
+            Route::post('/backups/upload', [\App\Http\Controllers\BackupController::class, 'upload'])->name('backups.upload');
+        });
     });
-    
+
     // Vérification de reçu (Public ou semi-public)
     Route::get('/verify/inscription/{code}', [InscriptionController::class, 'verify'])
         ->name('inscriptions.verify');
 });
 
-
-
-
-
-        // Gestion des rôles
 require __DIR__.'/auth.php';

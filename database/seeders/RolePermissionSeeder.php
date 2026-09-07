@@ -7,32 +7,26 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolePermissionSeeder extends Seeder
 {
     public function run()
     {
+        // 0️⃣ Réinitialiser le cache des permissions Spatie
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
         // 1️⃣ Créer ou récupérer l'utilisateur Super Admin
         $admin = User::firstOrCreate(
-            ['email' => 'admin@gmail.com'],
+            ['email' => 'superadmin@buyedi.com'],
             [
-                'nom' => 'ROGUET DE NDONG',
-                'prenom' => 'Clive Lybeyrt',
+                'nom' => 'BUYEDI',
+                'prenom' => 'Solutions',
                 'password' => Hash::make('12345678'),
             ]
         );
 
-        // 2️⃣ Créer l'utilisateur Directeur
-        $directeur = User::firstOrCreate(
-            ['email' => 'directeur@buyedi.com'],
-            [
-                'nom' => 'Directeur',
-                'prenom' => 'General',
-                'password' => Hash::make('12345678'),
-            ]
-        );
-
-        // 3️⃣ Modules et actions dynamiques
+        // 2️⃣ Modules et actions dynamiques
         $modules = [
             'dashboard' => ['voir'],
             'logs' => ['voir', 'exporter'],
@@ -70,9 +64,11 @@ class RolePermissionSeeder extends Seeder
             'documents' => ['voir', 'ajouter', 'modifier', 'supprimer', 'telecharger'],
             'sanctions' => ['voir', 'ajouter', 'modifier', 'supprimer'],
             'archives' => ['voir'],
+            'sauvegardes' => ['voir', 'ajouter', 'supprimer', 'telecharger', 'restaurer'],
+            'arrieres' => ['voir', 'ajouter', 'modifier', 'supprimer', 'encaisser'],
         ];
 
-        // 4️⃣ Créer toutes les permissions dynamiquement
+        // 3️⃣ Créer toutes les permissions dynamiquement
         $allPermissions = [];
         foreach ($modules as $module => $actions) {
             foreach ($actions as $action) {
@@ -85,69 +81,59 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
-        // 5️⃣ RÔLE : SUPER ADMIN (Accès total absolu)
+        // 4️⃣ RÔLE : SUPER ADMIN (Accès total absolu avec toutes les permissions)
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         $superAdminRole->syncPermissions($allPermissions);
         $admin->assignRole($superAdminRole);
 
-        // 6️⃣ RÔLE : DIRECTEUR (Pilotage complet de l'établissement)
+        // 5️⃣ RÔLE : DIRECTEUR (Direction de l'établissement - aucun utilisateur factice créé)
         $directeurRole = Role::firstOrCreate(['name' => 'directeur', 'guard_name' => 'web']);
         $directeurRole->syncPermissions($allPermissions);
-        $directeur->assignRole($directeurRole);
 
-        // 7️⃣ RÔLE : COMPTABLE / ÉCONOME (Gestion Financière & Caisse)
+        // 6️⃣ RÔLE : COMPTABLE / ÉCONOME (Gestion Financière & Caisse)
         $comptableRole = Role::firstOrCreate(['name' => 'comptable', 'guard_name' => 'web']);
         $comptableRole->syncPermissions([
             'voir_dashboard',
             'voir_stats',
-            // Finances & Trésorerie
             'voir_paiements', 'ajouter_paiements', 'modifier_paiements', 'supprimer_paiements',
+            'voir_arrieres', 'ajouter_arrieres', 'modifier_arrieres', 'supprimer_arrieres', 'encaisser_arrieres',
             'voir_depenses', 'ajouter_depenses', 'modifier_depenses', 'supprimer_depenses',
             'voir_frais_classes', 'ajouter_frais_classes', 'modifier_frais_classes',
             'voir_frais_types', 'ajouter_frais_types', 'modifier_frais_types',
             'voir_frais_inscription',
-            // Consultation Scolarité & Effectifs
             'voir_eleves',
             'voir_inscriptions',
             'voir_classes',
             'voir_parents',
-            // RH & Salaires
             'voir_personnels',
-            // Communication & Pièces
             'voir_communications', 'creer_communications', 'expedier_communications',
             'voir_documents', 'telecharger_documents',
             'voir_annee_scolaire',
             'voir_periodes',
         ]);
 
-        // 8️⃣ RÔLE : PERSONNEL ADMINISTRATIF / SECRÉTARIAT
+        // 7️⃣ RÔLE : PERSONNEL ADMINISTRATIF / SECRÉTARIAT
         $personnelRole = Role::firstOrCreate(['name' => 'personnel', 'guard_name' => 'web']);
         $personnelRole->syncPermissions([
             'voir_dashboard',
-            // Inscriptions & Dossiers Élèves
             'voir_inscriptions', 'ajouter_inscriptions', 'modifier_inscriptions',
             'voir_eleves', 'ajouter_eleves', 'modifier_eleves',
             'voir_parents', 'ajouter_parents', 'modifier_parents',
             'voir_classes',
             'voir_matieres',
             'voir_emplois_du_temps',
-            // Vie scolaire & Absences
             'voir_absences', 'ajouter_absences', 'modifier_absences',
             'voir_sanctions', 'ajouter_sanctions', 'modifier_sanctions',
-            // Documents & Certificats
             'voir_documents', 'ajouter_documents', 'modifier_documents', 'telecharger_documents',
-            // Consultation Caisse (Vérification de solvabilité pour attestations)
             'voir_paiements',
-            // Annuaire interne
             'voir_personnels',
             'voir_enseignants',
-            // Communication
             'voir_communications', 'creer_communications', 'expedier_communications',
             'voir_annee_scolaire',
             'voir_periodes',
         ]);
 
-        // 9️⃣ RÔLE : ENSEIGNANT
+        // 8️⃣ RÔLE : ENSEIGNANT
         $enseignantRole = Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);
         $enseignantRole->syncPermissions([
             'voir_dashboard',
@@ -166,7 +152,7 @@ class RolePermissionSeeder extends Seeder
             'voir_parents',
         ]);
 
-        // 🔟 RÔLE : ÉLÈVE
+        // 9️⃣ RÔLE : ÉLÈVE
         $eleveRole = Role::firstOrCreate(['name' => 'eleve', 'guard_name' => 'web']);
         $eleveRole->syncPermissions([
             'voir_dashboard',
@@ -182,7 +168,7 @@ class RolePermissionSeeder extends Seeder
             'telecharger_documents',
         ]);
 
-        // 1️⃣1️⃣ RÔLE : PARENT
+        // 🔟 RÔLE : PARENT
         $parentRole = Role::firstOrCreate(['name' => 'parent', 'guard_name' => 'web']);
         $parentRole->syncPermissions([
             'voir_dashboard',
@@ -200,6 +186,6 @@ class RolePermissionSeeder extends Seeder
             'voir_emplois_du_temps',
         ]);
 
-        $this->command->info("✅ Rôles et matrices de permissions synchronisés avec succès (Super-Admin, Directeur, Comptable, Personnel, Enseignant, Parent, Élève) !");
+        $this->command->info("✅ Super-Admin (superadmin@buyedi.com), rôles système et permissions initialisés avec succès !");
     }
 }

@@ -13,9 +13,10 @@ class Paiement extends Model
     public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
     {
         return \Spatie\Activitylog\LogOptions::defaults()
-        ->logOnly(['montant', 'date_paiement'])
-        ->logOnlyDirty()
-        ->dontSubmitEmptyLogs();
+            ->logOnly(['inscription_id', 'frais_type_id', 'montant', 'date_paiement', 'mode_paiement', 'mois', 'commentaire'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn(string $eventName) => "Paiement {$eventName}");
     }
 
     protected $fillable = [
@@ -26,7 +27,8 @@ class Paiement extends Model
         'date_paiement',
         'mode_paiement',
         'mois',
-        'commentaire'
+        'commentaire',
+        'arriere_paiement_id',
     ];
 
     protected $casts = [
@@ -35,6 +37,11 @@ class Paiement extends Model
     ];
 
     // Relations
+    public function arrierePaiement()
+    {
+        return $this->belongsTo(ArrierePaiement::class, 'arriere_paiement_id');
+    }
+
     public function inscription()
     {
         return $this->belongsTo(Inscription::class);

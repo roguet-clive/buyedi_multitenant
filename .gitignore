@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+*.zip
+*.sql
+!database/mise_a_jour_production.sql

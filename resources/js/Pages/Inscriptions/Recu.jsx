@@ -165,11 +165,18 @@ function ReceiptVoucher({ inscription, etablissement, url_verification, copyLabe
                     </div>
 
                     {/* Bloc Montant Total */}
-                    <div className="bg-slate-900 text-white px-3 py-1.5 rounded-lg flex items-baseline gap-2 border border-slate-900">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Total Versé :</span>
-                        <span className="text-sm font-black font-mono text-amber-300">
-                            {totalPaye.toLocaleString('fr-FR')} FCFA
-                        </span>
+                    <div className="bg-slate-900 text-white px-3 py-1.5 rounded-lg flex flex-col items-end border border-slate-900">
+                        {inscription.has_remise && (
+                            <span className="text-[8px] font-bold uppercase tracking-wider text-emerald-300">
+                                Remise {Number(inscription.remise_pourcentage || 50)}% incluse (-{Number(inscription.remise_montant || 0).toLocaleString('fr-FR')} F)
+                            </span>
+                        )}
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">Total Versé :</span>
+                            <span className="text-sm font-black font-mono text-amber-300">
+                                {totalPaye.toLocaleString('fr-FR')} FCFA
+                            </span>
+                        </div>
                     </div>
 
                     {/* Zones Signatures */}

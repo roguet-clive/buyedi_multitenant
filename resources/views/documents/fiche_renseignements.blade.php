@@ -550,7 +550,7 @@
     $schoolEmail = $etablissement['email'] ?? '';
     $schoolYear = $inscription->anneeScolaire->nom ?? date('Y') . '-' . (date('Y')+1);
     $className = $inscription->classe->nom ?? 'Non assignée';
-    $matricule = $eleve->matricule ?? 'MAT-' . str_pad($eleve->id, 5, '0', STR_PAD_LEFT);
+    $matricule = $eleve->matricule ?? ('CSPBO-' . date('Y') . '-' . str_pad($eleve->id ?? 1, 4, '0', STR_PAD_LEFT));
     $dateNaissance = $eleve->date_naissance ? $eleve->date_naissance->format('d/m/Y') : 'Non renseignée';
     $lieuNaissance = $eleve->lieu_naissance ?? 'Libreville';
     $sexe = $eleve->sexe === 'M' ? 'Masculin' : ($eleve->sexe === 'F' ? 'Féminin' : 'Non spécifié');

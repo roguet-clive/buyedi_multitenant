@@ -45,10 +45,24 @@ class PaieController extends Controller
                         'actif' => $user->contrat->actif
                     ] : null,
                     'last_payment' => $user->paiementsSalaires->first() ? [
+                        'id' => $user->paiementsSalaires->first()->id,
                         'mois' => $user->paiementsSalaires->first()->mois,
                         'annee' => $user->paiementsSalaires->first()->annee,
                         'net' => $user->paiementsSalaires->first()->net_a_payer,
-                    ] : null
+                        'date' => $user->paiementsSalaires->first()->date_paiement ? $user->paiementsSalaires->first()->date_paiement->format('d/m/Y') : null,
+                    ] : null,
+                    'all_payments' => $user->paiementsSalaires->map(function($p) {
+                        return [
+                            'id' => $p->id,
+                            'mois' => $p->mois,
+                            'annee' => $p->annee,
+                            'salaire_brut' => $p->salaire_brut,
+                            'primes' => $p->primes,
+                            'retenues' => $p->retenues,
+                            'net' => $p->net_a_payer,
+                            'date' => $p->date_paiement ? $p->date_paiement->format('d/m/Y') : $p->created_at->format('d/m/Y'),
+                        ];
+                    })
                 ];
             });
 
@@ -138,15 +152,41 @@ class PaieController extends Controller
 
     public function bulletin(PaiementSalaire $paiement)
     {
-        // Check access
-        if (auth()->id() !== $paiement->user_id && !auth()->user()->hasRole(['directeur', 'super-admin'])) {
-            abort(403);
+        $currentUser = auth()->user();
+        $canAccess = $currentUser->id === $paiement->user_id 
+            || $currentUser->hasRole(['directeur', 'super-admin', 'admin']) 
+            || $currentUser->can('gerer_paie')
+            || $currentUser->can('voir_paiements');
+
+        if (!$canAccess) {
+            abort(403, 'Accès réservé au bulletin de paie.');
         }
 
+        $paiement->load(['user.contrat', 'user.personnel', 'auteur']);
+        $user = $paiement->user;
+        $contrat = $user->contrat;
+        $etablissement = \App\Models\Etablissement::first();
+
+        $moisNoms = [
+            1 => 'Janvier', 2 => 'Février', 3 => 'Mars', 4 => 'Avril',
+            5 => 'Mai', 6 => 'Juin', 7 => 'Juillet', 8 => 'Août',
+            9 => 'Septembre', 10 => 'Octobre', 11 => 'Novembre', 12 => 'Décembre'
+        ];
+        $moisNom = $moisNoms[$paiement->mois] ?? 'Mois ' . $paiement->mois;
+        $datePaiement = $paiement->date_paiement ? \Carbon\Carbon::parse($paiement->date_paiement)->format('d/m/Y') : now()->format('d/m/Y');
+        $dateEmbauche = $contrat && $contrat->date_debut ? \Carbon\Carbon::parse($contrat->date_debut)->format('d/m/Y') : 'Non renseignée';
+        $poste = $user->personnel?->poste ?? ($user->hasRole('enseignant') ? 'Enseignant' : 'Personnel');
+
         $pdf = Pdf::loadView('pdf.fiches_paie', [
-            'paiement' => $paiement->load('user'),
+            'paiement' => $paiement,
+            'contrat' => $contrat,
+            'etablissement' => $etablissement,
+            'moisNom' => $moisNom,
+            'datePaiement' => $datePaiement,
+            'dateEmbauche' => $dateEmbauche,
+            'poste' => $poste
         ]);
 
-        return $pdf->download('Fiche_Paie_' . $paiement->mois . '_' . $paiement->annee . '.pdf');
+        return $pdf->stream('Bulletin_Paie_' . ($user->nom ?? 'Employe') . '_' . $moisNom . '_' . $paiement->annee . '.pdf');
     }
 }

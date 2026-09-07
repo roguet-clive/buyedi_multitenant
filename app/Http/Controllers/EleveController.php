@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 use App\Mail\NewUserCredentials;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use App\Http\Requests\StoreEleveRequest;
 
 class EleveController extends Controller
 {
@@ -141,26 +143,9 @@ class EleveController extends Controller
         return Inertia::render('Eleves/Create');
     }
 
-    public function store(Request $request)
+    public function store(StoreEleveRequest $request)
     {
-        $validated = $request->validate([
-            'nom' => 'required|string|max:255',
-            'prenom' => 'nullable|string|max:255',
-            'email' => 'nullable|email|unique:users,email',
-            'sexe' => 'required|in:M,F',
-            'date_naissance' => 'nullable|date',
-            'lieu_naissance' => 'nullable|string|max:255',
-            'probleme_particulier' => 'nullable|string',
-            'photo' => 'nullable|image|max:2048',
-        ], [
-            'nom.required' => 'Le nom de famille de l\'élève est obligatoire.',
-            'sexe.required' => 'Veuillez sélectionner le genre de l\'élève.',
-            'email.email' => 'L\'adresse email saisie n\'est pas valide.',
-            'email.unique' => 'Cette adresse email est déjà attribuée à un autre compte.',
-            'photo.image' => 'Le fichier photo doit être une image valide (JPG, PNG).',
-            'photo.max' => 'La photo ne doit pas dépasser 2 Mo.',
-        ]);
-
+        $validated = $request->validated();
         $defaultPassword = Str::random(10);
 
         // Auto-génération d'un email système si non fourni
@@ -176,43 +161,53 @@ class EleveController extends Controller
             }
         }
 
-        $user = User::create([
-            'nom' => $validated['nom'],
-            'prenom' => $validated['prenom'] ?? null,
-            'email' => $email,
-            'password' => bcrypt($defaultPassword),
-        ]);
-        $user->assignRole('eleve');
-
         $path = $request->hasFile('photo')
             ? $request->file('photo')->store('eleves', 'public')
             : null;
 
-        $matricule = 'EL-' . date('Y') . '-' . strtoupper(Str::random(5));
-        while (Eleve::where('matricule', $matricule)->exists()) {
-            $matricule = 'EL-' . date('Y') . '-' . strtoupper(Str::random(5));
-        }
+        $matricule = Eleve::generateMatricule();
 
-        $eleve = Eleve::create([
-            'user_id' => $user->id,
-            'sexe' => $validated['sexe'],
-            'date_naissance' => $validated['date_naissance'] ?? null,
-            'lieu_naissance' => $validated['lieu_naissance'] ?? null,
-            'probleme_particulier' => $validated['probleme_particulier'] ?? null,
-            'matricule' => $matricule,
-            'photo' => $path,
-        ]);
-
+        DB::beginTransaction();
         try {
-            if (!empty($validated['email'])) {
-                Mail::to($user->email)->send(new NewUserCredentials($user, $defaultPassword));
-            }
-        } catch (\Exception $e) {
-            // Ignorer si mailer non configuré
-        }
+            $user = User::create([
+                'nom' => $validated['nom'],
+                'prenom' => $validated['prenom'] ?? null,
+                'email' => $email,
+                'password' => bcrypt($defaultPassword),
+            ]);
+            $user->assignRole('eleve');
 
-        return redirect()->route('inscriptions.create.eleve', $eleve->id)
-            ->with('success', "Dossier de l'élève {$user->nom} {$user->prenom} créé avec succès ✅ Vous pouvez maintenant choisir sa classe et finaliser son inscription.");
+            $eleve = Eleve::create([
+                'user_id' => $user->id,
+                'sexe' => $validated['sexe'],
+                'date_naissance' => $validated['date_naissance'] ?? null,
+                'lieu_naissance' => $validated['lieu_naissance'] ?? null,
+                'probleme_particulier' => $validated['probleme_particulier'] ?? null,
+                'matricule' => $matricule,
+                'photo' => $path,
+            ]);
+
+            DB::commit();
+
+            try {
+                if (!empty($validated['email'])) {
+                    Mail::to($user->email)->queue(new NewUserCredentials($user, $defaultPassword));
+                }
+            } catch (\Exception $e) {
+                // Si la file d'attente ou mailer échoue, on ne bloque pas l'utilisateur
+            }
+
+            return redirect()->route('inscriptions.create.eleve', $eleve->id)
+                ->with('success', "Dossier de l'élève {$user->nom} {$user->prenom} créé avec succès ✅ Vous pouvez maintenant choisir sa classe et finaliser son inscription.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            if ($path && Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+            return redirect()->back()
+                ->withInput()
+                ->with('error', "Une erreur est survenue lors de la création de l'élève : " . $e->getMessage());
+        }
     }
 
     /**

@@ -30,6 +30,9 @@ return new class extends Migration
 
             $table->date('date_inscription')->nullable();
             $table->boolean('reinscription')->default(false);
+            $table->boolean('has_remise')->default(false);
+            $table->decimal('remise_pourcentage', 5, 2)->default(0);
+            $table->decimal('remise_montant', 10, 2)->default(0);
             // Statut: brouillon, en_attente (préinscription), validee (inscription), rejete, abandon
             $table->string('statut')->default('validee');
 

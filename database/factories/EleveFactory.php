@@ -16,7 +16,7 @@ class EleveFactory extends Factory
         
         return [
             'user_id' => User::factory(),
-            'matricule' => fake()->unique()->bothify('ELV-####-????'),
+            'matricule' => Eleve::generateMatricule(),
             'sexe' => $sexe,
             'date_naissance' => fake()->dateTimeBetween('-18 years', '-5 years'),
             'lieu_naissance' => fake()->city(),

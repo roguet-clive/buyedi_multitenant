@@ -64,10 +64,17 @@ function StandardPaymentForm({ paiement, inscriptions, fraisTypes, onClose }) {
         if (form.data.frais_type_id) {
             const feeType = otherFees.find(ft => ft.id == form.data.frais_type_id);
             if (feeType) {
-                form.setData("montant", feeType.montant);
+                const isTenue = feeType.code === 'tenue' || feeType.nom?.toLowerCase().includes('tenue');
+                if (isTenue && form.data.inscription_id) {
+                    const selectedInsc = inscriptions.find(i => String(i.id) === String(form.data.inscription_id));
+                    const tenueMontant = selectedInsc?.montant_tenue_exigible || (selectedInsc?.is_secondaire ? 15000 : 10000);
+                    form.setData("montant", tenueMontant);
+                } else {
+                    form.setData("montant", feeType.montant);
+                }
             }
         }
-    }, [form.data.frais_type_id]);
+    }, [form.data.frais_type_id, form.data.inscription_id]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -116,6 +123,55 @@ function StandardPaymentForm({ paiement, inscriptions, fraisTypes, onClose }) {
                             classNamePrefix="react-select"
                         />
                         {form.errors.inscription_id && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.inscription_id}</p>}
+
+                        {/* ALERTE / SUGGESTION TENUE SCOLAIRE NON RÉGLÉE */}
+                        {(() => {
+                            const selectedInsc = inscriptions.find(i => String(i.id) === String(form.data.inscription_id));
+                            if (!selectedInsc || selectedInsc.tenue_payee) return null;
+                            const tenueFee = otherFees.find(ft => ft.code === 'tenue' || ft.nom?.toLowerCase().includes('tenue'));
+                            const isSecondaire = selectedInsc.is_secondaire || selectedInsc.classe_type === 'secondaire';
+                            const montantTenue = selectedInsc.montant_tenue_exigible || (isSecondaire ? 15000 : 10000);
+
+                            return (
+                                <div className="mt-3 p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="text-xl">👕</span>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                                                    Tenue Scolaire non encore réglée
+                                                </p>
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isSecondaire ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
+                                                    {isSecondaire ? 'Secondaire' : 'Maternelle / Primaire'}
+                                                </span>
+                                            </div>
+                                            <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                                                Tarif exigible : <strong>{montantTenue.toLocaleString('fr-FR')} FCFA</strong>. Le parent peut la régler dès maintenant.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {tenueFee && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                form.setData(prev => ({
+                                                    ...prev,
+                                                    frais_type_id: tenueFee.id,
+                                                    montant: montantTenue,
+                                                    commentaire: `Règlement Tenue Scolaire (${isSecondaire ? 'Secondaire' : 'Mat/Prim'})`
+                                                }));
+                                            }}
+                                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-black shrink-0 transition-colors shadow-sm flex items-center gap-1.5"
+                                        >
+                                            <span>Régler la Tenue</span>
+                                            <span className="bg-amber-700 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                                {montantTenue.toLocaleString('fr-FR')} F
+                                            </span>
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     <div>
@@ -193,7 +249,6 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
     const { t } = useTranslation();
     const [selectedClasse, setSelectedClasse] = useState("");
     const [paymentPlanMode, setPaymentPlanMode] = useState("mensuel"); // "mensuel", "tranche", "total", "libre"
-    const [monthlyPeriod, setMonthlyPeriod] = useState(10); // 8: Sept-Avril, 9: Sept-Mai, 10: Sept-Juin
     const [selectedMonths, setSelectedMonths] = useState([]);
 
     const form = useForm({
@@ -208,16 +263,37 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
     });
 
     const tuitionFees = fraisTypes.filter(ft => ft.is_scolarite);
-    
-    // Mois de l'année scolaire gabonaise selon la base choisie (8, 9 ou 10 mois)
-    const allSchoolMonths = [
-        "Septembre", "Octobre", "Novembre", "Décembre",
-        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"
-    ];
-    const schoolMonths = allSchoolMonths.slice(0, monthlyPeriod);
 
-    // Trouver l'inscription active
+    // 9 mois scolaires officiels (Maternelle & Primaire)
+    const schoolMonths = [
+        "Septembre", "Octobre", "Novembre", "Décembre",
+        "Janvier", "Février", "Mars", "Avril", "Mai"
+    ];
+
+    // Trouver l'inscription active et sa classe
     const selectedStudent = inscriptions.find(i => String(i.id) === String(form.data.inscription_id));
+    const studentClasse = selectedStudent ? classes.find(c => String(c.id) === String(selectedStudent.classe_id)) : null;
+    const isMaternelle = studentClasse ? (studentClasse.type === 'maternelle') : false;
+    const isPrimaire = studentClasse ? (studentClasse.type === 'primaire') : false;
+    const isCinquiemePrimaire = isPrimaire && (
+        studentClasse?.isCinquiemeAnneePrimaire ||
+        ['5', 'cinquieme', 'cinquième', 'cm2'].some(k => studentClasse?.nom?.toLowerCase()?.includes(k))
+    );
+    const isMaternelleOrPrimaire = isMaternelle || isPrimaire;
+    const isSecondaire = studentClasse ? (studentClasse.type === 'secondaire') : false;
+    const isExamen = studentClasse ? (studentClasse.is_examen || ['3e', 'tle'].includes(studentClasse.nom?.toLowerCase()?.trim())) : false;
+
+    // Basculer automatiquement le mode selon le cycle de l'élève
+    useEffect(() => {
+        if (selectedStudent && studentClasse) {
+            if (isSecondaire) {
+                setPaymentPlanMode("tranche");
+                setSelectedMonths([]);
+            } else {
+                setPaymentPlanMode("mensuel");
+            }
+        }
+    }, [form.data.inscription_id]);
 
     // Calculs financiers de scolarité
     const studentFinancials = (() => {
@@ -227,11 +303,45 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
         const override = fraisClasses?.find(fc => String(fc.classe_id) === String(classeId));
         const feeType = tuitionFees.find(ft => String(ft.id) === String(form.data.frais_type_id)) || tuitionFees[0];
         
-        const montantAnnuel = override ? parseFloat(override.montant) : (feeType ? parseFloat(feeType.montant) : 0);
+        const defaultMontant = isMaternelle
+            ? 117000
+            : (isCinquiemePrimaire
+                ? 135000
+                : (isPrimaire
+                    ? 121500
+                    : (isExamen ? 145000 : 135000)));
+
+        const montantAnnuel = override ? parseFloat(override.montant) : (feeType ? parseFloat(feeType.montant) : defaultMontant);
         const totalDejaPaye = parseFloat(selectedStudent.total_scolarite_payee) || 0;
         const resteAPayer = Math.max(0, montantAnnuel - totalDejaPaye);
-        const montantMensuel = montantAnnuel > 0 ? Math.round(montantAnnuel / monthlyPeriod) : 0;
-        const montantTrimestriel = montantAnnuel > 0 ? Math.round(montantAnnuel / 3) : 0;
+        
+        // Mensualité : 13 000 F (Maternelle), 13 500 F (Primaire 1-4), 15 000 F (Primaire 5)
+        const defaultMensuel = isMaternelle ? 13000 : (isCinquiemePrimaire ? 15000 : (isPrimaire ? 13500 : 13000));
+        const montantMensuel = isMaternelleOrPrimaire ? (montantAnnuel > 0 ? Math.round(montantAnnuel / 9) : defaultMensuel) : Math.round(montantAnnuel / 9);
+
+        // Tranches officielles
+        const echeancesFromDb = override?.echeances || [];
+        let tranches = [];
+        if (echeancesFromDb.length === 3 && echeancesFromDb[0].type === 'tranche') {
+            tranches = echeancesFromDb.map((e, idx) => ({
+                id: e.id,
+                num: idx + 1,
+                nom: e.nom,
+                montant: parseFloat(e.montant),
+                date_limite: e.date_limite ? new Date(e.date_limite).toLocaleDateString('fr-FR') : (idx === 0 ? "Septembre" : idx === 1 ? "Fin Novembre" : "Fin Janvier")
+            }));
+        } else {
+            const t1Amount = 70000;
+            const t2Amount = isExamen ? 37500 : 32500;
+            const t3Amount = isExamen ? 37500 : 32500;
+            tranches = [
+                { num: 1, nom: "1ère Tranche", montant: t1Amount, date_limite: "Septembre" },
+                { num: 2, nom: "2ème Tranche", montant: t2Amount, date_limite: "Fin Novembre" },
+                { num: 3, nom: "3ème Tranche", montant: t3Amount, date_limite: "Fin Janvier" },
+            ];
+        }
+
+        const montantTrimestriel = tranches[0]?.montant || 70000;
         const pourcentage = montantAnnuel > 0 ? Math.min(100, Math.round((totalDejaPaye / montantAnnuel) * 100)) : 0;
 
         return {
@@ -240,6 +350,7 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
             resteAPayer,
             montantMensuel,
             montantTrimestriel,
+            tranches,
             pourcentage,
             moisRegles: selectedStudent.mois_regles || []
         };
@@ -266,14 +377,12 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
         }
     };
 
-    const handleSelectTranche = (numTranche) => {
-        if (!studentFinancials) return;
-        const label = numTranche === 1 ? "1ère Tranche" : numTranche === 2 ? "2ème Tranche" : "3ème Tranche";
+    const handleSelectTranche = (tranche) => {
         form.setData({
             ...form.data,
-            montant: studentFinancials.montantTrimestriel,
-            mois: `Trimestre ${numTranche}`,
-            commentaire: `Règlement ${label} Scolarité`
+            montant: tranche.montant,
+            mois: tranche.nom,
+            commentaire: `Règlement ${tranche.nom} Scolarité (Échéance ${tranche.date_limite})`
         });
     };
 
@@ -291,8 +400,8 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
         setPaymentPlanMode(mode);
         if (mode === "total") {
             handleSelectTotal();
-        } else if (mode === "tranche") {
-            handleSelectTranche(1);
+        } else if (mode === "tranche" && studentFinancials?.tranches?.length > 0) {
+            handleSelectTranche(studentFinancials.tranches[0]);
         } else if (mode === "libre") {
             form.setData({
                 ...form.data,
@@ -428,14 +537,33 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
                                 <span className="text-[10px] uppercase font-bold text-emerald-400 block">Déjà Réglé</span>
                                 <span className="text-sm font-black font-mono text-emerald-400">{studentFinancials.totalDejaPaye.toLocaleString('fr-FR')} F</span>
                             </div>
-                            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-                                <span className="text-[10px] uppercase font-bold text-blue-400 block">Mensualité Ref.</span>
-                                <span className="text-sm font-black font-mono text-blue-300">{studentFinancials.montantMensuel.toLocaleString('fr-FR')} F</span>
-                            </div>
-                            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-                                <span className="text-[10px] uppercase font-bold text-purple-400 block">Tranche Ref.</span>
-                                <span className="text-sm font-black font-mono text-purple-300">{studentFinancials.montantTrimestriel.toLocaleString('fr-FR')} F</span>
-                            </div>
+                            {isMaternelleOrPrimaire ? (
+                                <>
+                                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                                        <span className="text-[10px] uppercase font-bold text-blue-400 block">Tarif Mensuel</span>
+                                        <span className="text-sm font-black font-mono text-blue-300">
+                                            {studentFinancials.montantMensuel.toLocaleString('fr-FR')} F / mois
+                                        </span>
+                                    </div>
+                                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                                        <span className="text-[10px] uppercase font-bold text-teal-400 block">Période</span>
+                                        <span className="text-sm font-black text-teal-300">9 mois (Sept-Mai)</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                                        <span className="text-[10px] uppercase font-bold text-purple-400 block">Tranche 1 (Sept.)</span>
+                                        <span className="text-sm font-black font-mono text-purple-300">70 000 F</span>
+                                    </div>
+                                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                                        <span className="text-[10px] uppercase font-bold text-purple-400 block">Tranches 2 & 3</span>
+                                        <span className="text-sm font-black font-mono text-purple-300">
+                                            {isExamen ? "37 500 F" : "32 500 F"}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* JAUGE DE PROGRESSION VISUELLE */}
@@ -462,33 +590,37 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
                         <label className="block mb-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                             Choisir l'Option de Règlement du Parent :
                         </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                            <button
-                                type="button"
-                                onClick={() => handleSelectMode("mensuel")}
-                                className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
-                                    paymentPlanMode === "mensuel"
-                                        ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20 ring-2 ring-emerald-400/30"
-                                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400"
-                                }`}
-                            >
-                                <span className="flex items-center gap-1"><CalendarRange className="w-4 h-4" /> Par Mois</span>
-                                <span className="font-mono text-[11px] opacity-90">{studentFinancials.montantMensuel.toLocaleString('fr-FR')} F/mois</span>
-                            </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {/* Option 1: Mensuel (pour Maternelle/Primaire) OU Tranche (pour Secondaire) */}
+                            {isMaternelleOrPrimaire ? (
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode("mensuel")}
+                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
+                                        paymentPlanMode === "mensuel"
+                                            ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20 ring-2 ring-emerald-400/30"
+                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1"><CalendarRange className="w-4 h-4" /> Par Mensualité</span>
+                                    <span className="font-mono text-[11px] opacity-90">{studentFinancials.montantMensuel.toLocaleString('fr-FR')} FCFA / mois (9 mois)</span>
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode("tranche")}
+                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
+                                        paymentPlanMode === "tranche"
+                                            ? "bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20 ring-2 ring-purple-400/30"
+                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-purple-400"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1"><Layers className="w-4 h-4" /> Par Tranche</span>
+                                    <span className="font-mono text-[11px] opacity-90">3 Tranches Officielles</span>
+                                </button>
+                            )}
 
-                            <button
-                                type="button"
-                                onClick={() => handleSelectMode("tranche")}
-                                className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
-                                    paymentPlanMode === "tranche"
-                                        ? "bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20 ring-2 ring-purple-400/30"
-                                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-purple-400"
-                                }`}
-                            >
-                                <span className="flex items-center gap-1"><Layers className="w-4 h-4" /> Par Tranche</span>
-                                <span className="font-mono text-[11px] opacity-90">{studentFinancials.montantTrimestriel.toLocaleString('fr-FR')} F/trim</span>
-                            </button>
-
+                            {/* Option 2: Solde Total */}
                             <button
                                 type="button"
                                 onClick={() => handleSelectMode("total")}
@@ -496,12 +628,13 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
                                     paymentPlanMode === "total"
                                         ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 ring-2 ring-blue-400/30"
                                         : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400"
-                                }`}
+                                    }`}
                             >
-                                <span className="flex items-center gap-1"><Wallet className="w-4 h-4" /> Solde Total</span>
+                                <span className="flex items-center gap-1"><Wallet className="w-4 h-4" /> Solde Tout Compte</span>
                                 <span className="font-mono text-[11px] opacity-90">{studentFinancials.resteAPayer.toLocaleString('fr-FR')} FCFA</span>
                             </button>
 
+                            {/* Option 3: Montant Libre */}
                             <button
                                 type="button"
                                 onClick={() => handleSelectMode("libre")}
@@ -509,65 +642,31 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
                                     paymentPlanMode === "libre"
                                         ? "bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20 ring-2 ring-amber-400/30"
                                         : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400"
-                                }`}
+                                    }`}
                             >
-                                <span className="flex items-center gap-1"><Calculator className="w-4 h-4" /> Montant Libre</span>
-                                <span className="font-mono text-[11px] opacity-90">Acompte</span>
+                                <span className="flex items-center gap-1"><Calculator className="w-4 h-4" /> Acompte Libre</span>
+                                <span className="font-mono text-[11px] opacity-90">Saisie personnalisée</span>
                             </button>
                         </div>
 
-                        {/* DETAIL DU MODE MENSUALITES : GRILLE DES MOIS (8, 9 ou 10 mois) */}
-                        {paymentPlanMode === "mensuel" && (
+                        {/* DETAIL DU MODE MENSUALITES (MATERNELLE & PRIMAIRE : 9 MOIS) */}
+                        {paymentPlanMode === "mensuel" && isMaternelleOrPrimaire && (
                             <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                                
-                                {/* Sélecteur de période scolaire */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-200 dark:border-slate-700/60">
+                                <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-200 dark:border-slate-700/60">
                                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                         <CalendarRange className="w-4 h-4 text-emerald-600" />
-                                        Base de l'année scolaire :
+                                        Maternelle & Primaire : Calendrier des 9 Mensualités
                                     </span>
-                                    <div className="flex flex-wrap items-center gap-1.5 bg-slate-200/70 dark:bg-slate-900/60 p-1 rounded-xl">
-                                        <button
-                                            type="button"
-                                            onClick={() => { setMonthlyPeriod(8); setSelectedMonths([]); }}
-                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                                                monthlyPeriod === 8
-                                                    ? 'bg-emerald-600 text-white shadow-sm'
-                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                                            }`}
-                                        >
-                                            Sept. à Avril (8 mois)
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setMonthlyPeriod(9); setSelectedMonths([]); }}
-                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                                                monthlyPeriod === 9
-                                                    ? 'bg-emerald-600 text-white shadow-sm'
-                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                                            }`}
-                                        >
-                                            Sept. à Mai (9 mois)
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setMonthlyPeriod(10); setSelectedMonths([]); }}
-                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                                                monthlyPeriod === 10
-                                                    ? 'bg-emerald-600 text-white shadow-sm'
-                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                                            }`}
-                                        >
-                                            Sept. à Juin (10 mois)
-                                        </button>
-                                    </div>
+                                    <span className="text-xs font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/40">
+                                        {studentFinancials.montantMensuel.toLocaleString('fr-FR')} FCFA / mois
+                                    </span>
                                 </div>
 
                                 <span className="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-2.5">
-                                    Cochez le ou les mois réglés aujourd'hui ({studentFinancials.montantMensuel.toLocaleString('fr-FR')} FCFA / mois) :
+                                    Cochez le ou les mois réglés aujourd'hui :
                                 </span>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
-                                    {schoolMonths.map(m => {
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                                    {schoolMonths.map((m) => {
                                         const isAlreadyPaid = studentFinancials.moisRegles.some(mr => mr.toLowerCase().includes(m.toLowerCase()));
                                         const isSelected = selectedMonths.includes(m);
 
@@ -598,28 +697,49 @@ function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fra
                             </div>
                         )}
 
-                        {/* DETAIL DU MODE TRANCHES */}
-                        {paymentPlanMode === "tranche" && (
+                        {/* DETAIL DU MODE TRANCHES (SECONDAIRE : 3 TRANCHES OFFICIELLES) */}
+                        {paymentPlanMode === "tranche" && isSecondaire && (
                             <div className="mt-4 p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/40">
-                                <span className="text-xs font-bold text-purple-900 dark:text-purple-300 block mb-2.5">
-                                    Sélectionnez la tranche trimestrielle à encaisser ({studentFinancials.montantTrimestriel.toLocaleString('fr-FR')} FCFA) :
-                                </span>
+                                <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-purple-200/60 dark:border-purple-800/40">
+                                    <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                                        <Layers className="w-4 h-4 text-purple-600" />
+                                        Secondaire : Sélectionnez la tranche à encaisser
+                                    </span>
+                                    <span className="text-xs font-black text-purple-700 bg-purple-100 dark:bg-purple-900/40 px-2.5 py-1 rounded-lg">
+                                        {isExamen ? "Barème Examen (145 000 F)" : "Barème Général (135 000 F)"}
+                                    </span>
+                                </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    {[1, 2, 3].map(num => (
-                                        <button
-                                            key={num}
-                                            type="button"
-                                            onClick={() => handleSelectTranche(num)}
-                                            className={`p-3 rounded-xl border font-bold text-xs flex flex-col gap-1 text-center transition-all ${
-                                                form.data.mois === `Trimestre ${num}`
-                                                    ? "bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-600/30"
-                                                    : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-purple-200 dark:border-purple-800 hover:border-purple-400"
-                                            }`}
-                                        >
-                                            <span className="text-sm font-black">{num === 1 ? "1ère Tranche" : num === 2 ? "2ème Tranche" : "3ème Tranche"}</span>
-                                            <span className="font-mono text-xs opacity-90">{studentFinancials.montantTrimestriel.toLocaleString('fr-FR')} FCFA</span>
-                                        </button>
-                                    ))}
+                                    {studentFinancials.tranches.map((tranche) => {
+                                        const isSelected = form.data.mois === tranche.nom;
+                                        const isAlreadyPaid = studentFinancials.moisRegles.some(mr => mr.toLowerCase().includes(tranche.nom.toLowerCase()));
+
+                                        return (
+                                            <button
+                                                key={tranche.nom}
+                                                type="button"
+                                                onClick={() => handleSelectTranche(tranche)}
+                                                className={`p-3.5 rounded-xl border font-bold text-xs flex flex-col gap-1.5 text-left transition-all ${
+                                                    isSelected
+                                                        ? "bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-600/30 ring-2 ring-purple-400"
+                                                        : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-purple-200 dark:border-purple-800 hover:border-purple-400"
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-black">{tranche.nom}</span>
+                                                    {isAlreadyPaid && (
+                                                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Soldée</span>
+                                                    )}
+                                                </div>
+                                                <span className={`font-mono text-base font-black ${isSelected ? 'text-white' : 'text-purple-600 dark:text-purple-400'}`}>
+                                                    {tranche.montant.toLocaleString('fr-FR')} FCFA
+                                                </span>
+                                                <span className={`text-[11px] ${isSelected ? 'text-purple-200' : 'text-slate-400'}`}>
+                                                    Échéance : {tranche.date_limite}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         )}

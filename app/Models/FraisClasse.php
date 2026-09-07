@@ -8,6 +8,16 @@ use Illuminate\Database\Eloquent\Model;
 class FraisClasse extends Model
 {
     use HasFactory;
+    use \Spatie\Activitylog\Traits\LogsActivity;
+
+    public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
+    {
+        return \Spatie\Activitylog\LogOptions::defaults()
+            ->logOnly(['classe_id', 'annee_scolaire_id', 'frais_type_id', 'montant'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn(string $eventName) => "Frais de Classe {$eventName}");
+    }
 
     protected $fillable = [
         'classe_id',
@@ -32,5 +42,11 @@ class FraisClasse extends Model
     public function fraisType()
     {
         return $this->belongsTo(FraisType::class);
+    }
+
+    // Échéances associées à ce frais de classe
+    public function echeances()
+    {
+        return $this->hasMany(FraisEcheance::class)->orderBy('ordre');
     }
 }

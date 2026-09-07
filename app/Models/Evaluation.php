@@ -6,6 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class Evaluation extends Model
 {
+    use \Spatie\Activitylog\Traits\LogsActivity;
+
+    public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
+    {
+        return \Spatie\Activitylog\LogOptions::defaults()
+            ->logOnly(['cours_id', 'titre', 'type', 'coefficient', 'note_max', 'date_evaluation', 'periode_id'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn(string $eventName) => "Évaluation {$eventName}");
+    }
+
     protected $fillable = [
         'cours_id',
         'titre',

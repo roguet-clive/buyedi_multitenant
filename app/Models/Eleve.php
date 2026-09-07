@@ -32,6 +32,45 @@ class Eleve extends Model
         'date_naissance' => 'date',
     ];
 
+    /**
+     * Auto-génération du matricule officiel selon la nomenclature : CSPBO-{YEAR}-{NUM:04d}
+     * Exemple : CSPBO-2026-0001
+     */
+    public static function generateMatricule(?int $year = null): string
+    {
+        $year = $year ?? (int) date('Y');
+        $prefix = "CSPBO-{$year}-";
+
+        // Récupérer le dernier matricule pour l'année
+        $latest = self::where('matricule', 'like', "{$prefix}%")
+            ->orderBy('matricule', 'desc')
+            ->value('matricule');
+
+        $nextNumber = 1;
+        if ($latest && preg_match('/^CSPBO-\d{4}-(\d+)$/', $latest, $matches)) {
+            $nextNumber = ((int) $matches[1]) + 1;
+        }
+
+        $matricule = $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+
+        // Garantie stricte d'unicité
+        while (self::where('matricule', $matricule)->exists()) {
+            $nextNumber++;
+            $matricule = $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        }
+
+        return $matricule;
+    }
+
+    protected static function booted()
+    {
+        static::creating(function ($eleve) {
+            if (empty($eleve->matricule)) {
+                $eleve->matricule = self::generateMatricule();
+            }
+        });
+    }
+
     // Relation avec User pour l'authentification
     public function user()
     {

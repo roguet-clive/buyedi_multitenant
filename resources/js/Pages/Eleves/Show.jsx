@@ -129,7 +129,8 @@ export default function ShowEleve({ eleve, financeStats, inscriptions, paiements
               <div className="flex flex-wrap justify-center md:justify-start items-center gap-3">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-sm font-semibold">
                   <IdentificationIcon className="w-4 h-4 text-slate-400" />
-                  MAT- <span className="font-mono font-bold text-slate-700 dark:text-slate-200">{eleve.matricule}</span>
+                  <span className="text-slate-400 font-medium text-xs">Matr.</span>
+                  <span className="font-mono font-bold text-slate-700 dark:text-slate-200">{eleve.matricule}</span>
                 </div>
 
                 {eleve.classe ? (

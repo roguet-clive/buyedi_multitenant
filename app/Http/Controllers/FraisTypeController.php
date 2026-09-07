@@ -55,7 +55,7 @@ class FraisTypeController extends Controller
     {
         $validated = $request->validate([
             'nom' => 'required|string|unique:frais_types,nom',
-            'code' => 'nullable|string|in:inscription,tenue,carte,divers',
+            'code' => 'nullable|string|max:50',
             'montant' => 'required|numeric|min:0',
             'annee_scolaire_id' => 'nullable|exists:annee_scolaires,id',
             'globale' => 'required|boolean',
@@ -87,7 +87,7 @@ class FraisTypeController extends Controller
     {
         $validated = $request->validate([
             'nom' => 'required|string|unique:frais_types,nom,' . $fraisType->id,
-            'code' => 'nullable|string|in:inscription,tenue,carte,divers',
+            'code' => 'nullable|string|max:50',
             'montant' => 'required|numeric|min:0',
             'annee_scolaire_id' => 'nullable|exists:annee_scolaires,id',
             'globale' => 'required|boolean',

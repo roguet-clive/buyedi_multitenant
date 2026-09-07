@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, useForm, usePage, Link } from '@inertiajs/react';
 import { Transition } from '@headlessui/react';
-import { Building2, Save, MapPin, Mail, Phone, Settings, Image as ImageIcon, FileText, CheckCircle2 } from 'lucide-react';
+import { Building2, Save, MapPin, Mail, Phone, Settings, Image as ImageIcon, FileText, CheckCircle2, Database } from 'lucide-react';
 import useTranslation from "@/Hooks/useTranslation";
 
 export default function Edit({ etablissement }) {
     const { t } = useTranslation();
+    const { auth } = usePage().props;
+    const isSuperAdmin = auth?.roles?.some(role => role.toLowerCase() === 'super-admin' || role.toLowerCase() === 'superadmin');
     const { data, setData, post, processing, errors, recentlySuccessful } = useForm({
         nom: etablissement.nom || '',
         sigle: etablissement.sigle || '',
@@ -207,6 +209,37 @@ export default function Edit({ etablissement }) {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Module Sauvegarde Base de Données (Super-Admin uniquement) */}
+                        {isSuperAdmin && (
+                            <div className="bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-3xl shadow-xl border border-slate-800 p-8">
+                                <div className="flex items-start justify-between gap-4 mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-2xl border border-emerald-500/30">
+                                            <Database className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                                                {t("superadmin_privilege", "Privilège Super-Admin")}
+                                            </span>
+                                            <h3 className="text-xl font-bold text-white">
+                                                {t("database_backup_title", "Sauvegarde de la Base de Données")}
+                                            </h3>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-sm text-slate-300 mb-6 leading-relaxed">
+                                    {t("database_backup_card_desc", "Créez et gérez des instantanés complets de la base de données SQL pour sécuriser les données scolaires, élèves, notes et écritures financières.")}
+                                </p>
+                                <Link
+                                    href={route('backups.index')}
+                                    className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl shadow-lg shadow-emerald-500/25 transition-all active:scale-95 text-sm"
+                                >
+                                    <Database className="w-4 h-4" />
+                                    <span>{t("manage_backups_btn", "Accéder au Centre de Sauvegardes BD")}</span>
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     {/* COLONNE DROITE = Coordonnées */}

@@ -251,6 +251,18 @@ export default function Student({
                                                             Scolarité Principale
                                                         </span>
                                                     )}
+                                                    {item.is_scolarite && item.echeances && item.echeances.length > 0 && (
+                                                        <div className="mt-2 flex flex-wrap gap-1.5 max-w-md">
+                                                            {item.echeances.map((ech) => (
+                                                                <span
+                                                                    key={ech.id}
+                                                                    className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                                                                >
+                                                                    {ech.nom}: <strong>{Number(ech.montant).toLocaleString('fr-FR')} F</strong>
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4.5 text-right font-semibold text-slate-600 dark:text-slate-300">
                                                     {formatAmount(item.du)}

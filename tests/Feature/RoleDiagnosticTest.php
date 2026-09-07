@@ -99,14 +99,17 @@ class RoleDiagnosticTest extends TestCase
     {
         $user = User::factory()->create(['nom' => 'Enseignant', 'prenom' => 'Test']);
         $user->assignRole('enseignant');
+        \App\Models\Enseignant::create([
+            'user_id' => $user->id,
+            'nom' => 'Enseignant',
+            'prenom' => 'Test',
+            'sexe' => 'M',
+            'matricule' => 'ENS-2026-0001',
+            'specialite' => 'Mathématiques',
+        ]);
 
         $this->actingAs($user)->get('/dashboard')->assertStatus(200);
-        $this->actingAs($user)->get('/cours')->assertStatus(200);
-        // Accessing notes might require a course or just the index if it exists and is protected by `voir_notes`
-        // Route::resource('notes') usually creates /notes index.
-        // If NoteController construct uses middleware or if we can access it:
-        // Let's assume /notes index is available or check a safer one like bulletins or evaluations if needed.
-        // web.php: Route::resource('notes', ...)
-        // We will try /cours which is definitely 'voir_cours'
+        $this->actingAs($user)->get('/cours')->assertRedirect(route('cours.mes-cours'));
+        $this->actingAs($user)->get('/mes-cours')->assertStatus(200);
     }
 }

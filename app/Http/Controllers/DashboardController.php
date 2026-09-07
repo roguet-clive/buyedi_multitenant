@@ -281,7 +281,7 @@ class DashboardController extends Controller
 
         $totalEnseignants = Enseignant::count();
         $totalClasses = Classe::count();
-        $totalParents = User::role('parent')->count();
+        $totalParents = \App\Models\ParentModel::count();
 
         // 2. Derni?res Inscriptions
         $recentRegistrations = [];

@@ -23,6 +23,9 @@ import {
   UploadCloud,
   TrendingUp,
   Archive,
+  Database,
+  Clock,
+  Wallet,
 } from "lucide-react";
 import useTranslation from "@/Hooks/useTranslation";
 
@@ -32,6 +35,7 @@ export default function Sidebar() {
   const unreadCount = auth?.unreadCount || 0;
   const permissions = auth?.permissions || [];
   const can = (permission) => permissions.includes(permission);
+  const isSuperAdmin = auth?.roles?.some(role => role.toLowerCase() === 'super-admin' || role.toLowerCase() === 'superadmin') || can('voir_sauvegardes');
 
   // Fonction pour vérifier si un lien est actif
   const isActive = (link) => {
@@ -116,7 +120,7 @@ export default function Sidebar() {
         children: [
           { icon: <Users className="w-4 h-4" />, label: t("inscriptions"), href: route("inscriptions.index"), can: "voir_inscriptions", routeName: "inscriptions.index" },
           { icon: <School className="w-4 h-4" />, label: t("classes"), href: route("classes.index"), can: "voir_classes", routeName: "classes.index" },
-          { icon: <GraduationCap className="w-4 h-4" />, label: t("eleves"), href: route("eleves.index"), can: "voir_eleves", routeName: "eleves.index" },
+          { icon: <GraduationCap className="w-4 h-4" />, label: t("enregistrement_eleve", "Enregistrement élève"), href: route("eleves.index"), can: "voir_eleves", routeName: "eleves.index" },
           { icon: <Users className="w-4 h-4" />, label: t("parents"), href: route("parents.index"), can: "voir_parents", routeName: "parents.index" },
           { icon: <BookOpen className="w-4 h-4" />, label: "Affectations (Cours)", href: route("cours.index"), can: "voir_cours", routeName: "cours.index" },
           { icon: <CalendarDays className="w-4 h-4" />, label: t("emploi_du_temps"), href: route("emploi_du_temps.index"), can: "voir_emplois_du_temps", routeName: "emploi_du_temps.index" },
@@ -135,6 +139,7 @@ export default function Sidebar() {
         children: [
           { icon: <TrendingUp className="w-4 h-4" />, label: "Vue Globale", href: route("finances.index"), can: "voir_stats", routeName: "finances.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("caisse"), href: route("paiements.index"), can: "voir_paiements", routeName: "paiements.index" },
+          { icon: <Clock className="w-4 h-4 text-amber-400" />, label: t("previous_arrears", "Arriérés Antérieurs"), href: route("arrieres.index"), can: "voir_arrieres", routeName: "arrieres.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("depenses"), href: route("depenses.index"), can: "voir_depenses", routeName: "depenses.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("frais_classes"), href: route("frais_classes.index"), can: "voir_frais_classes", routeName: "frais_classes.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("types_de_frais"), href: route("frais_types.index"), can: "voir_frais_types", routeName: "frais_types.index" },
@@ -178,6 +183,7 @@ export default function Sidebar() {
           { icon: <UserCog className="w-4 h-4" />, label: t("utilisateurs"), href: route("users.index"), can: "voir_users", routeName: "users.index" },
           { icon: <ShieldCheck className="w-4 h-4" />, label: t("roles_permissions"), href: route("roles.index"), can: "voir_roles", routeName: "roles.index" },
           { icon: <Archive className="w-4 h-4 text-emerald-400" />, label: "Archives & Rapports", href: route("archives.index"), can: "voir_archives", routeName: "archives.index" },
+          { icon: <Database className="w-4 h-4 text-emerald-400" />, label: t("database_backups", "Sauvegardes BD"), href: route("backups.index"), can: "voir_sauvegardes", superAdminOnly: true, routeName: "backups.index" },
           // 📜 LOGS
           { icon: <FileText className="w-4 h-4 text-orange-400" />, label: t("activity_logs"), href: route("logs.index"), can: "voir_logs", routeName: "logs.index" },
         ],
@@ -196,8 +202,11 @@ export default function Sidebar() {
           return { ...link, children };
         }
 
+        // Vérification Super-Admin spécifique
+        if (link.superAdminOnly && !isSuperAdmin) return null;
+
         // Vérification permission simple
-        if (link.can && !can(link.can)) return null;
+        if (link.can && !can(link.can) && !isSuperAdmin) return null;
 
         return link;
       })

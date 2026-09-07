@@ -142,7 +142,7 @@ class PaiementController extends Controller
             // Frais de classe pour cette inscription
             $fraisClasse = FraisClasse::where('classe_id', $inscription->classe_id)
                 ->where('annee_scolaire_id', $inscription->annee_scolaire_id)
-                ->with('fraisType')
+                ->with(['fraisType', 'echeances'])
                 ->get();
 
             $balanceData = [];
@@ -164,7 +164,8 @@ class PaiementController extends Controller
                     'paye' => $payePourCeType,
                     'reste' => $reste,
                     'percent' => $percent,
-                    'status' => $reste == 0 ? 'paye' : ($payePourCeType > 0 ? 'partiel' : 'impaye')
+                    'status' => $reste == 0 ? 'paye' : ($payePourCeType > 0 ? 'partiel' : 'impaye'),
+                    'echeances' => $fc->echeances,
                 ];
 
                 $totalDue += $montantDu;
@@ -215,14 +216,24 @@ class PaiementController extends Controller
         $today = now()->format('Y-m-d');
         $currentMonth = now()->format('Y-m');
 
+        $statsData = (clone $baseQuery)->selectRaw('
+            COALESCE(SUM(montant), 0) as total_annee,
+            COALESCE(SUM(CASE WHEN DATE(date_paiement) = ? THEN montant ELSE 0 END), 0) as total_today,
+            COALESCE(SUM(CASE WHEN date_paiement LIKE ? THEN montant ELSE 0 END), 0) as total_month,
+            COALESCE(SUM(CASE WHEN mode_paiement = "especes" THEN montant ELSE 0 END), 0) as total_especes,
+            COALESCE(SUM(CASE WHEN mode_paiement = "mobile" THEN montant ELSE 0 END), 0) as total_mobile,
+            COALESCE(SUM(CASE WHEN mode_paiement IN ("virement", "cheque") THEN montant ELSE 0 END), 0) as total_banque,
+            COUNT(*) as nb_transactions
+        ', [$today, "{$currentMonth}%"])->first();
+
         $stats = [
-            'total_annee' => (float) (clone $baseQuery)->sum('montant'),
-            'total_today' => (float) (clone $baseQuery)->whereDate('date_paiement', $today)->sum('montant'),
-            'total_month' => (float) (clone $baseQuery)->where('date_paiement', 'like', "{$currentMonth}%")->sum('montant'),
-            'total_especes' => (float) (clone $baseQuery)->where('mode_paiement', 'especes')->sum('montant'),
-            'total_mobile' => (float) (clone $baseQuery)->where('mode_paiement', 'mobile')->sum('montant'),
-            'total_banque' => (float) (clone $baseQuery)->whereIn('mode_paiement', ['virement', 'cheque'])->sum('montant'),
-            'nb_transactions' => (int) (clone $baseQuery)->count(),
+            'total_annee' => (float) ($statsData->total_annee ?? 0),
+            'total_today' => (float) ($statsData->total_today ?? 0),
+            'total_month' => (float) ($statsData->total_month ?? 0),
+            'total_especes' => (float) ($statsData->total_especes ?? 0),
+            'total_mobile' => (float) ($statsData->total_mobile ?? 0),
+            'total_banque' => (float) ($statsData->total_banque ?? 0),
+            'nb_transactions' => (int) ($statsData->nb_transactions ?? 0),
         ];
 
         // Requête filtrée pour le tableau
@@ -247,8 +258,13 @@ class PaiementController extends Controller
                 });
             });
 
-        $stats['total_filtre'] = (float) (clone $query)->sum('montant');
-        $stats['count_filtre'] = (int) (clone $query)->count();
+        $filteredData = (clone $query)->selectRaw('
+            COALESCE(SUM(montant), 0) as total_filtre,
+            COUNT(*) as count_filtre
+        ')->first();
+
+        $stats['total_filtre'] = (float) ($filteredData->total_filtre ?? 0);
+        $stats['count_filtre'] = (int) ($filteredData->count_filtre ?? 0);
 
         $paiements = $query->latest('date_paiement')
             ->latest('id')
@@ -285,13 +301,21 @@ class PaiementController extends Controller
                     'matricule' => $i->eleve->matricule ?? '',
                     'classe_id' => $i->classe_id,
                     'classe_nom' => $i->classe->nom ?? '',
+                    'classe_type' => $i->classe->type ?? '',
+                    'is_secondaire' => $i->classe ? $i->classe->isSecondaire() : false,
+                    'montant_tenue_exigible' => (float) $i->montant_tenue_exigible,
                     'total_scolarite_payee' => (float) $totalScolaritePayee,
                     'mois_regles' => $moisRegles,
+                    'tenue_payee' => (bool) $i->tenue_payee,
                 ];
             });
 
-        $fraisTypes = \App\Models\FraisType::where('annee_scolaire_id', $anneeId)->get();
-        $fraisClasses = \App\Models\FraisClasse::where('annee_scolaire_id', $anneeId)->get();
+        $fraisTypes = \App\Models\FraisType::where(function($q) use ($anneeId) {
+            $q->where('annee_scolaire_id', $anneeId)->orWhereNull('annee_scolaire_id');
+        })->get();
+        $fraisClasses = \App\Models\FraisClasse::where('annee_scolaire_id', $anneeId)
+            ->with(['echeances', 'classe'])
+            ->get();
 
         return Inertia::render('Paiements/Index', [
             'paiements' => $paiements,
