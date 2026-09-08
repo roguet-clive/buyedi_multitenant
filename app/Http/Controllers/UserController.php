@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Mail\NewUserCredentials;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
 
@@ -21,24 +24,26 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
-        $search = $request->input('search');
-        $role = $request->input('role');
+        $search = trim((string) $request->input('search', ''));
+        $role = trim((string) $request->input('role', ''));
 
         $users = User::with('roles')
-            ->when($search, function ($query, $search) {
+            ->when(!empty($search), function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nom', 'like', "%{$search}%")
                       ->orWhere('prenom', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('telephone', 'like', "%{$search}%");
                 });
             })
-            ->when($role, function ($query, $role) {
+            ->when(!empty($role), function ($query) use ($role) {
                 $query->whereHas('roles', fn($q) => $q->where('name', $role));
             })
-            ->paginate(3)
+            ->latest('id')
+            ->paginate(10)
             ->withQueryString();
 
-        // 🔹 Transformer les rôles en tableau simple pour React
+        // Transformer les rôles en tableau simple pour React
         $roles = Role::all()->map(fn($r) => [
             'id' => $r->id,
             'name' => $r->name,
@@ -72,29 +77,32 @@ class UserController extends Controller
             'nom' => 'required|string|max:255',
             'prenom' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6',
-            'roles' => 'array|exists:roles,name',
+            'telephone' => 'nullable|string|max:25',
+            'password' => 'nullable|string|min:6',
+            'roles' => 'nullable|array',
+            'roles.*' => 'exists:roles,name',
         ]);
 
-        $defaultPassword = $validated['password'] ?? \Str::random(10);
+        $plainPassword = !empty($validated['password']) ? $validated['password'] : Str::random(10);
 
         $user = User::create([
             'nom' => $validated['nom'],
             'prenom' => $validated['prenom'] ?? null,
             'email' => $validated['email'],
-            'password' => bcrypt($defaultPassword),
+            'telephone' => $validated['telephone'] ?? null,
+            'password' => Hash::make($plainPassword),
         ]);
 
         if (!empty($validated['roles'])) {
-            $user->assignRole($validated['roles']);
+            $user->syncRoles($validated['roles']);
         }
 
-        // 🔹 Envoyer l'email avec mot de passe par défaut
-        Mail::to($user->email)->send(new NewUserCredentials($user, $defaultPassword));
-
-        return redirect()
-            ->route('users.index')
-            ->with('success', __('Utilisateur créé avec succès ✅'));
+        // Envoyer l'email avec mot de passe généré/défini
+        try {
+            Mail::to($user->email)->send(new NewUserCredentials($user, $plainPassword));
+        } catch (\Throwable $e) {
+            Log::warning("Échec de l'envoi de l'email des identifiants à {$user->email}: " . $e->getMessage());
+        }
 
         return redirect()
             ->route('users.index')
@@ -107,23 +115,32 @@ class UserController extends Controller
             'nom' => 'required|string|max:255',
             'prenom' => 'nullable|string|max:255',
             'email' => "required|email|unique:users,email,{$user->id}",
+            'telephone' => 'nullable|string|max:25',
             'password' => 'nullable|string|min:6',
-            'roles' => 'array|exists:roles,name',
+            'roles' => 'nullable|array',
+            'roles.*' => 'exists:roles,name',
         ]);
 
         $data = [
             'nom' => $validated['nom'],
             'prenom' => $validated['prenom'] ?? null,
             'email' => $validated['email'],
+            'telephone' => $validated['telephone'] ?? null,
         ];
 
         if (!empty($validated['password'])) {
-            $data['password'] = bcrypt($validated['password']);
+            $data['password'] = Hash::make($validated['password']);
         }
 
         $user->update($data);
 
-        $user->syncRoles($validated['roles'] ?? []);
+        // Protection: ne pas retirer le rôle super-admin au dernier super-admin
+        $newRoles = $validated['roles'] ?? [];
+        if ($user->hasRole('super-admin') && !in_array('super-admin', $newRoles) && User::role('super-admin')->count() <= 1) {
+            $newRoles[] = 'super-admin';
+        }
+
+        $user->syncRoles($newRoles);
 
         return redirect()
             ->route('users.index')
@@ -132,10 +149,22 @@ class UserController extends Controller
 
     public function destroy(User $user)
     {
-        $user->delete();
+        if (auth()->id() === $user->id) {
+            return back()->with('error', __('Vous ne pouvez pas supprimer votre propre compte.'));
+        }
 
-        return redirect()
-            ->route('users.index')
-            ->with('success', __('Utilisateur supprimé ✅'));
+        if ($user->hasRole('super-admin') && User::role('super-admin')->count() <= 1) {
+            return back()->with('error', __('Impossible de supprimer le dernier compte Super Administrateur.'));
+        }
+
+        try {
+            $user->delete();
+
+            return redirect()
+                ->route('users.index')
+                ->with('success', __('Utilisateur supprimé ✅'));
+        } catch (\Throwable $e) {
+            return back()->with('error', __('Impossible de supprimer cet utilisateur car il est rattaché à d\'autres enregistrements.'));
+        }
     }
 }

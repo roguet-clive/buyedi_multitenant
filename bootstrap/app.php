@@ -29,12 +29,14 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, \Illuminate\Http\Request $request) {
-            // On intercepte toutes les requêtes Web (hors API) pour afficher la 404 React
-            if (!$request->is('api/*') && !$request->wantsJson()) {
-                return \Inertia\Inertia::render('Error', ['status' => 404])
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, \Illuminate\Http\Request $request) {
+            $status = $e->getStatusCode();
+
+            // Si c'est une navigation Inertia, afficher la vue Error React personnalisée
+            if ($request->header('X-Inertia') && in_array($status, [401, 403, 404, 419, 429, 500, 503])) {
+                return \Inertia\Inertia::render('Error', ['status' => $status])
                     ->toResponse($request)
-                    ->setStatusCode(404);
+                    ->setStatusCode($status);
             }
         });
     })->create();

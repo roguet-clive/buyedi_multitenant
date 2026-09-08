@@ -37,7 +37,9 @@ class ProfileController extends Controller
 
         $request->user()->save();
 
-        return Redirect::route('profile.edit');
+        return Redirect::route('profile.edit')
+            ->with('status', 'profile-updated')
+            ->with('success', __('Profil mis à jour avec succès ✅'));
     }
 
     /**
@@ -51,13 +53,21 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
-        Auth::logout();
+        if ($user->hasRole('super-admin') && \App\Models\User::role('super-admin')->count() <= 1) {
+            return back()->with('error', __('Impossible de supprimer le dernier compte Super Administrateur.'));
+        }
 
-        $user->delete();
+        try {
+            Auth::logout();
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+            $user->delete();
 
-        return Redirect::to('/');
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return Redirect::to('/');
+        } catch (\Throwable $e) {
+            return back()->with('error', __('Impossible de supprimer votre compte car il est lié à des données existantes.'));
+        }
     }
 }

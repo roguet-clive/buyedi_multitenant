@@ -15,7 +15,7 @@ class User extends Authenticatable
     public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
     {
         return \Spatie\Activitylog\LogOptions::defaults()
-        ->logOnly(['nom', 'prenom', 'email'])
+        ->logOnly(['nom', 'prenom', 'email', 'telephone'])
         ->logOnlyDirty()
         ->dontSubmitEmptyLogs();
     }
@@ -24,6 +24,7 @@ class User extends Authenticatable
         'nom',
         'prenom',
         'email',
+        'telephone',
         'password',
     ];
 
