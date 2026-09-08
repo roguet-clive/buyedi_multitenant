@@ -35,7 +35,7 @@ jobs:
 
       - name: 🎨 Compilation des assets Vite (CSS & JS)
         run: |
-          npm install
+          npm install --include=optional
           npm run build
           rm -f public/hot
 
