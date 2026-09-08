@@ -35,7 +35,8 @@ jobs:
 
       - name: 🎨 Compilation des assets Vite (CSS & JS)
         run: |
-          npm install --include=optional
+          npm install
+          npm install @rollup/rollup-linux-x64-gnu --save-optional
           npm run build
           rm -f public/hot
 
