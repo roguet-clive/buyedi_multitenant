@@ -132,7 +132,69 @@ class ActivityLogAuditTest extends TestCase
             ->where('subject_id', $paiement->id)
             ->first();
 
-        $this->assertNotNull($paiementLog, "Le paiement doit gÃ©nÃ©rer un log d'activitÃ©");
+        $this->assertNotNull($paiementLog, "Le paiement doit générer un log d'activité");
         $this->assertEquals($this->admin->id, $paiementLog->causer_id);
+    }
+
+    public function test_user_login_is_tracked_in_activity_log(): void
+    {
+        $password = 'secret-password-123';
+        $user = User::factory()->create([
+            'email' => 'login_test@buyedi.com',
+            'password' => bcrypt($password),
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => 'login_test@buyedi.com',
+            'password' => $password,
+        ]);
+
+        $response->assertRedirect('/dashboard');
+
+        $log = Activity::where('log_name', 'authentification')
+            ->where('description', 'Connexion réussie')
+            ->where('causer_id', $user->id)
+            ->latest()
+            ->first();
+
+        $this->assertNotNull($log, "La connexion d'un utilisateur doit générer un log d'authentification");
+        $this->assertEquals($user->id, $log->causer_id);
+        $this->assertArrayHasKey('ip', $log->properties->toArray());
+    }
+
+    public function test_user_logout_is_tracked_in_activity_log(): void
+    {
+        $user = User::factory()->create(['email' => 'logout_test@buyedi.com']);
+
+        $response = $this->actingAs($user)->post('/logout');
+        $response->assertRedirect('/');
+
+        $log = Activity::where('log_name', 'authentification')
+            ->where('description', 'Déconnexion')
+            ->where('causer_id', $user->id)
+            ->latest()
+            ->first();
+
+        $this->assertNotNull($log, "La déconnexion doit générer un log d'activité");
+        $this->assertEquals($user->id, $log->causer_id);
+    }
+
+    public function test_failed_login_is_tracked_in_activity_log(): void
+    {
+        $response = $this->post('/login', [
+            'email' => 'pirate@hacker.com',
+            'password' => 'wrong-password',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+
+        $log = Activity::where('log_name', 'securite')
+            ->where('description', 'Échec de connexion')
+            ->latest()
+            ->first();
+
+        $this->assertNotNull($log, "L'échec de connexion doit générer un log de sécurité");
+        $this->assertEquals('pirate@hacker.com', $log->properties['email_tente']);
+        $this->assertArrayHasKey('ip', $log->properties->toArray());
     }
 }

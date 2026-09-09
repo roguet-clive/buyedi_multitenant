@@ -281,17 +281,45 @@ class EleveController extends Controller
                 ->latest('id')
                 ->get();
 
-            // Calculs financiers approfondis pour l'année scolaire en cours
+            // Calculs financiers approfondis pour l'année scolaire en cours harmonisés avec le barème officiel
             if ($currentInscription) {
+                $currentInscription->loadMissing(['classe', 'anneeScolaire', 'eleve.user']);
+                $classe = $currentInscription->classe;
+                $classeNom = $classe ? $classe->nom : '';
+                $isSecondaire = $classe ? $classe->isSecondaire() : false;
+                $isMaternelle = $classe ? ($classe->type === 'maternelle') : false;
+                $isPrimaire = $classe ? ($classe->type === 'primaire') : false;
+                $isCinquiemePrimaire = $isPrimaire && (
+                    (method_exists($classe, 'isCinquiemeAnneePrimaire') && $classe->isCinquiemeAnneePrimaire()) ||
+                    \Illuminate\Support\Str::contains(mb_strtolower($classeNom), ['5', 'cinquieme', 'cinquième', 'cm2'])
+                );
+                $isExamen = $classe ? (
+                    $classe->is_examen ||
+                    in_array(mb_strtolower(trim($classeNom)), ['3e', 'tle', 'terminale', 'cm2'])
+                ) : false;
+
                 $fraisClasse = \App\Models\FraisClasse::where('classe_id', $currentInscription->classe_id)
                     ->where('annee_scolaire_id', $currentInscription->annee_scolaire_id)
+                    ->with('echeances')
                     ->first();
                 
                 $fraisTypeScolarite = \App\Models\FraisType::where('is_scolarite', true)
-                    ->where('annee_scolaire_id', $currentInscription->annee_scolaire_id)
+                    ->where(function($q) use ($currentInscription) {
+                        $q->where('annee_scolaire_id', $currentInscription->annee_scolaire_id)
+                          ->orWhereNull('annee_scolaire_id');
+                    })
                     ->first();
 
-                $montantAnnuel = $fraisClasse ? (float)$fraisClasse->montant : ($fraisTypeScolarite ? (float)$fraisTypeScolarite->montant : 0);
+                // Barème officiel de scolarité
+                $defaultMontant = $isMaternelle
+                    ? 117000
+                    : ($isCinquiemePrimaire
+                        ? 135000
+                        : ($isPrimaire
+                            ? 121500
+                            : ($isExamen ? 145000 : 135000)));
+
+                $montantAnnuel = $fraisClasse ? (float)$fraisClasse->montant : ($fraisTypeScolarite ? (float)$fraisTypeScolarite->montant : $defaultMontant);
                 
                 // Paiements de scolarité de cette inscription
                 $paiementsScolarite = $paiements->filter(fn($p) => $p->inscription_id == $currentInscription->id && $p->fraisType && $p->fraisType->is_scolarite);
@@ -299,29 +327,20 @@ class EleveController extends Controller
                 $resteAPayer = max(0, $montantAnnuel - $totalScolaritePayee);
                 $pourcentage = $montantAnnuel > 0 ? min(100, round(($totalScolaritePayee / $montantAnnuel) * 100)) : 0;
 
-                // Décomposition des 10 mois scolaires
-                $schoolMonths = [
-                    ['mois' => 'Septembre', 'numero' => 1],
-                    ['mois' => 'Octobre', 'numero' => 2],
-                    ['mois' => 'Novembre', 'numero' => 3],
-                    ['mois' => 'Décembre', 'numero' => 4],
-                    ['mois' => 'Janvier', 'numero' => 5],
-                    ['mois' => 'Février', 'numero' => 6],
-                    ['mois' => 'Mars', 'numero' => 7],
-                    ['mois' => 'Avril', 'numero' => 8],
-                    ['mois' => 'Mai', 'numero' => 9],
-                    ['mois' => 'Juin', 'numero' => 10],
-                ];
+                // Mensualité de référence (pour Maternelle & Primaire : sur 9 mois de Septembre à Mai)
+                $defaultMensuel = $isMaternelle ? 13000 : ($isCinquiemePrimaire ? 15000 : 13500);
+                $montantMensuel = $montantAnnuel > 0 ? (int)round($montantAnnuel / 9) : $defaultMensuel;
 
-                $montantMensuel = $montantAnnuel > 0 ? round($montantAnnuel / 10) : 0;
-
-                // Extraire tous les mois enregistrés dans les règlements
+                // Extraire tous les mois / tranches enregistrés dans les règlements
                 $moisPayesMap = [];
+                $moisReglesList = [];
                 foreach ($paiementsScolarite as $p) {
                     if (!empty($p->mois)) {
                         $liste = array_map('trim', explode(',', $p->mois));
                         foreach ($liste as $m) {
-                            $moisPayesMap[mb_strtolower($m)] = [
+                            $cle = mb_strtolower($m);
+                            $moisReglesList[] = $m;
+                            $moisPayesMap[$cle] = [
                                 'date' => $p->date_paiement ? $p->date_paiement->format('d/m/Y') : null,
                                 'montant' => (float)$p->montant,
                                 'paiement_id' => $p->id,
@@ -330,7 +349,13 @@ class EleveController extends Controller
                     }
                 }
 
-                // Mois courant de l'année scolaire (1 = Sept, 2 = Oct, ..., 10 = Juin)
+                // 9 mois scolaires officiels (Maternelle & Primaire)
+                $schoolMonths = [
+                    'Septembre', 'Octobre', 'Novembre', 'Décembre',
+                    'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
+                ];
+
+                // Mois courant de l'année scolaire (1 = Sept, 2 = Oct, ..., 9 = Mai)
                 $curMonthReal = (int) date('n');
                 $moisScolaireActuel = match ($curMonthReal) {
                     9 => 1,
@@ -342,18 +367,17 @@ class EleveController extends Controller
                     3 => 7,
                     4 => 8,
                     5 => 9,
-                    6, 7, 8 => 10,
-                    default => 1,
+                    default => (in_array($curMonthReal, [6, 7, 8]) ? 9 : 1),
                 };
 
                 $moisDetails = [];
                 $nbMoisEnRetard = 0;
                 $montantEnRetard = 0;
 
-                foreach ($schoolMonths as $idx => $mInfo) {
-                    $nomMois = $mInfo['mois'];
+                foreach ($schoolMonths as $idx => $nomMois) {
                     $cle = mb_strtolower($nomMois);
-                    $isPaid = isset($moisPayesMap[$cle]) || ($totalScolaritePayee >= (($idx + 1) * $montantMensuel) && $montantMensuel > 0);
+                    $seuilCumule = ($idx + 1) * $montantMensuel;
+                    $isPaid = isset($moisPayesMap[$cle]) || ($totalScolaritePayee >= $seuilCumule && $montantMensuel > 0);
                     $isDue = ($idx + 1) <= $moisScolaireActuel;
 
                     $statut = 'a_venir';
@@ -379,17 +403,88 @@ class EleveController extends Controller
                     ];
                 }
 
+                // Tranches trimestrielles pour Secondaire
+                $tranchesConfig = [
+                    ['nom' => '1ère Tranche', 'montant' => 70000, 'date_limite' => 'Septembre'],
+                    ['nom' => '2ème Tranche', 'montant' => ($isExamen ? 37500 : 32500), 'date_limite' => 'Fin Novembre'],
+                    ['nom' => '3ème Tranche', 'montant' => ($isExamen ? 37500 : 32500), 'date_limite' => 'Fin Janvier'],
+                ];
+
+                $tranchesDetails = [];
+                $cumulAttendu = 0;
+                $nbTranchesEnRetard = 0;
+                $montantTranchesEnRetard = 0;
+
+                foreach ($tranchesConfig as $idx => $tr) {
+                    $cumulAttendu += $tr['montant'];
+                    $cleNom = mb_strtolower($tr['nom']);
+                    $cleCourt = 'tranche ' . ($idx + 1);
+                    $isPaid = isset($moisPayesMap[$cleNom]) || isset($moisPayesMap[$cleCourt]) || ($totalScolaritePayee >= $cumulAttendu);
+                    
+                    $isDue = match($idx) {
+                        0 => true,
+                        1 => in_array($curMonthReal, [12, 1, 2, 3, 4, 5, 6, 7, 8]),
+                        2 => in_array($curMonthReal, [2, 3, 4, 5, 6, 7, 8]),
+                        default => true
+                    };
+
+                    $statut = 'a_venir';
+                    $isRetard = false;
+
+                    if ($isPaid) {
+                        $statut = 'paye';
+                    } elseif ($isDue) {
+                        $statut = 'en_retard';
+                        $isRetard = true;
+                        $nbTranchesEnRetard++;
+                        $montantTranchesEnRetard += $tr['montant'];
+                    }
+
+                    $tranchesDetails[] = [
+                        'numero' => $idx + 1,
+                        'nom' => $tr['nom'],
+                        'montant' => $tr['montant'],
+                        'date_limite' => $tr['date_limite'],
+                        'statut' => $statut,
+                        'est_paye' => $isPaid,
+                        'est_retard' => $isRetard,
+                        'info_reglement' => $moisPayesMap[$cleNom] ?? ($moisPayesMap[$cleCourt] ?? null),
+                    ];
+                }
+
                 $financeStats = [
+                    'is_secondaire' => $isSecondaire,
+                    'is_maternelle' => $isMaternelle,
+                    'is_primaire' => $isPrimaire,
+                    'is_cinquieme_primaire' => $isCinquiemePrimaire,
+                    'is_examen' => $isExamen,
+                    'regime' => $isSecondaire ? 'tranches' : 'mensuel',
                     'montant_annuel' => $montantAnnuel,
                     'total_paye' => $totalScolaritePayee,
                     'reste_a_payer' => $resteAPayer,
                     'pourcentage' => $pourcentage,
                     'montant_mensuel' => $montantMensuel,
-                    'mois_details' => $moisDetails,
-                    'nb_mois_en_retard' => $nbMoisEnRetard,
-                    'montant_en_retard' => $montantEnRetard,
-                    'est_a_jour' => $nbMoisEnRetard === 0,
-                    'mois_actuel_nom' => $schoolMonths[min(9, $moisScolaireActuel - 1)]['mois'],
+                    'mois_details' => $isSecondaire ? [] : $moisDetails,
+                    'tranches_details' => $isSecondaire ? $tranchesDetails : [],
+                    'nb_mois_en_retard' => $isSecondaire ? $nbTranchesEnRetard : $nbMoisEnRetard,
+                    'montant_en_retard' => $isSecondaire ? $montantTranchesEnRetard : $montantEnRetard,
+                    'est_a_jour' => $isSecondaire ? ($nbTranchesEnRetard === 0) : ($nbMoisEnRetard === 0),
+                    'mois_actuel_nom' => $isSecondaire ? ($tranchesConfig[min(2, max(0, $nbTranchesEnRetard))]['nom'] ?? 'Tranche') : $schoolMonths[min(8, max(0, $moisScolaireActuel - 1))],
+                ];
+
+                $currentInscriptionData = [
+                    'id' => $currentInscription->id,
+                    'label' => ($eleve->user->nom ?? '') . ' ' . ($eleve->user->prenom ?? '') . ' (' . ($classeNom) . ')',
+                    'eleve_nom_complet' => ($eleve->user->nom ?? '') . ' ' . ($eleve->user->prenom ?? ''),
+                    'matricule' => $eleve->matricule ?? '',
+                    'classe_id' => $currentInscription->classe_id,
+                    'classe_nom' => $classeNom,
+                    'classe_type' => $classe ? $classe->type : '',
+                    'is_secondaire' => $isSecondaire,
+                    'montant_tenue_exigible' => (float) $currentInscription->montant_tenue_exigible,
+                    'total_scolarite_payee' => (float) $totalScolaritePayee,
+                    'mois_regles' => array_values(array_unique($moisReglesList)),
+                    'tenue_payee' => (bool) $currentInscription->tenue_payee,
                 ];
             }
         }
@@ -397,6 +492,15 @@ class EleveController extends Controller
         $absences = \App\Models\Absence::whereIn('inscription_id', $eleve->inscriptions->pluck('id'))
             ->latest('date')
             ->get();
+
+        $anneeId = $currentInscription?->annee_scolaire_id;
+        $fraisTypes = \App\Models\FraisType::where(function($q) use ($anneeId) {
+            if ($anneeId) {
+                $q->where('annee_scolaire_id', $anneeId)->orWhereNull('annee_scolaire_id');
+            }
+        })->get();
+        $fraisClasses = $anneeId ? \App\Models\FraisClasse::where('annee_scolaire_id', $anneeId)->with(['echeances', 'classe'])->get() : [];
+        $classesList = \App\Models\Classe::orderBy('nom')->get();
 
         return Inertia::render('Eleves/Show', [
             'eleve' => [
@@ -416,6 +520,10 @@ class EleveController extends Controller
                 'inscription_en_cours_id' => $currentInscription?->id,
             ],
             'financeStats' => $financeStats,
+            'currentInscriptionData' => $currentInscriptionData ?? null,
+            'classes' => $classesList,
+            'fraisTypes' => $fraisTypes,
+            'fraisClasses' => $fraisClasses,
             'inscriptions' => $eleve->inscriptions->map(function ($insc) use ($canViewFinances) {
                 return [
                     'id' => $insc->id,

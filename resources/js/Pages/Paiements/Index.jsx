@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, Fragment } from "react";
 import { useForm, usePage, router, Link, Head } from "@inertiajs/react";
 import toast from "react-hot-toast";
 import useTranslation from "@/Hooks/useTranslation";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import Select from "react-select";
 import Modal from "@/Components/Modal";
-import { Wallet, Search, Filter, Plus, Printer, Trash2, Calendar, User, BookOpen, Layers, CheckCircle2, Calculator, CalendarRange, Check, DollarSign, Clock, Sparkles, AlertCircle, ArrowRight } from "lucide-react";
+import { Wallet, Search, Filter, Plus, Printer, Trash2, Calendar, User, BookOpen, Layers, CheckCircle2, Calculator, CalendarRange, Check, DollarSign, Clock, Sparkles, AlertCircle, ArrowRight, ChevronDown, ChevronUp, FileText } from "lucide-react";
 
 // --- CUSTOM STYLES FOR REACT-SELECT ---
 const customSelectStyles = {
@@ -48,773 +48,15 @@ const customSelectStyles = {
     })
 };
 
-function StandardPaymentForm({ paiement, inscriptions, fraisTypes, onClose }) {
-    const { t } = useTranslation();
-    const otherFees = fraisTypes.filter(ft => !ft.is_scolarite);
-
-    const form = useForm({
-        inscription_id: paiement?.inscription_id || "",
-        frais_type_id: paiement?.frais_type_id || (otherFees[0]?.id || ""),
-        montant: paiement?.montant || (otherFees[0]?.montant || ""),
-        mode_paiement: paiement?.mode_paiement || "especes",
-        commentaire: paiement?.commentaire || "",
-    });
-
-    useEffect(() => {
-        if (form.data.frais_type_id) {
-            const feeType = otherFees.find(ft => ft.id == form.data.frais_type_id);
-            if (feeType) {
-                const isTenue = feeType.code === 'tenue' || feeType.nom?.toLowerCase().includes('tenue');
-                if (isTenue && form.data.inscription_id) {
-                    const selectedInsc = inscriptions.find(i => String(i.id) === String(form.data.inscription_id));
-                    const tenueMontant = selectedInsc?.montant_tenue_exigible || (selectedInsc?.is_secondaire ? 15000 : 10000);
-                    form.setData("montant", tenueMontant);
-                } else {
-                    form.setData("montant", feeType.montant);
-                }
-            }
-        }
-    }, [form.data.frais_type_id, form.data.inscription_id]);
-
-    const submit = (e) => {
-        e.preventDefault();
-        form.post(route("paiements.store"), {
-            onSuccess: () => {
-                onClose();
-                form.reset();
-            },
-            onError: () => { },
-        });
-    };
-
-    const inscriptionOptions = inscriptions.map((i) => ({ value: i.id, label: i.label }));
-
-    return (
-        <form onSubmit={submit} className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border-t-8 border-blue-600">
-            {/* EN-TÊTE MODALE */}
-            <div className="p-6 md:p-8 pb-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/40 text-blue-600 rounded-2xl shadow-sm border border-blue-100 dark:border-blue-800">
-                        <Layers className="w-8 h-8" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">
-                            {t("standard_payment_form", "Encaissement des Frais Annexes")}
-                        </h2>
-                        <p className="text-slate-500 font-medium text-sm">Frais ponctuels, inscription, examens, etc.</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Formulaire complet */}
-            <div className="p-6 md:p-8 flex flex-col form-scrollpane overflow-y-auto max-h-[75vh] space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="md:col-span-2">
-                        <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {t("student", "Élève concerné")}
-                        </label>
-                        <Select
-                            styles={customSelectStyles}
-                            options={inscriptionOptions}
-                            value={inscriptionOptions.find(opt => opt.value === form.data.inscription_id)}
-                            onChange={(opt) => form.setData("inscription_id", opt?.value || "")}
-                            placeholder="Rechercher un élève par nom, prénom..."
-                            isClearable
-                            classNamePrefix="react-select"
-                        />
-                        {form.errors.inscription_id && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.inscription_id}</p>}
-
-                        {/* ALERTE / SUGGESTION TENUE SCOLAIRE NON RÉGLÉE */}
-                        {(() => {
-                            const selectedInsc = inscriptions.find(i => String(i.id) === String(form.data.inscription_id));
-                            if (!selectedInsc || selectedInsc.tenue_payee) return null;
-                            const tenueFee = otherFees.find(ft => ft.code === 'tenue' || ft.nom?.toLowerCase().includes('tenue'));
-                            const isSecondaire = selectedInsc.is_secondaire || selectedInsc.classe_type === 'secondaire';
-                            const montantTenue = selectedInsc.montant_tenue_exigible || (isSecondaire ? 15000 : 10000);
-
-                            return (
-                                <div className="mt-3 p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
-                                    <div className="flex items-center gap-2.5">
-                                        <span className="text-xl">👕</span>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                                                    Tenue Scolaire non encore réglée
-                                                </p>
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isSecondaire ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
-                                                    {isSecondaire ? 'Secondaire' : 'Maternelle / Primaire'}
-                                                </span>
-                                            </div>
-                                            <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                                                Tarif exigible : <strong>{montantTenue.toLocaleString('fr-FR')} FCFA</strong>. Le parent peut la régler dès maintenant.
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {tenueFee && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                form.setData(prev => ({
-                                                    ...prev,
-                                                    frais_type_id: tenueFee.id,
-                                                    montant: montantTenue,
-                                                    commentaire: `Règlement Tenue Scolaire (${isSecondaire ? 'Secondaire' : 'Mat/Prim'})`
-                                                }));
-                                            }}
-                                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-black shrink-0 transition-colors shadow-sm flex items-center gap-1.5"
-                                        >
-                                            <span>Régler la Tenue</span>
-                                            <span className="bg-amber-700 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                {montantTenue.toLocaleString('fr-FR')} F
-                                            </span>
-                                        </button>
-                                    )}
-                                </div>
-                            );
-                        })()}
-                    </div>
-
-                    <div>
-                        <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("fee_type", "Type de Frais")}</label>
-                        <select
-                            value={form.data.frais_type_id}
-                            onChange={(e) => form.setData("frais_type_id", e.target.value)}
-                            className="w-full border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm font-medium"
-                        >
-                            <option value="">-- Sélectionner un type de frais --</option>
-                            {otherFees.map((ft) => (
-                                <option key={ft.id} value={ft.id}>{ft.nom}</option>
-                            ))}
-                        </select>
-                        {form.errors.frais_type_id && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.frais_type_id}</p>}
-                    </div>
-
-                    <div>
-                        <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("amount", "Montant (FCFA)")}</label>
-                        <input
-                            type="number"
-                            min="0"
-                            className="w-full border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm font-black text-xl text-blue-600 font-mono"
-                            value={form.data.montant}
-                            onChange={(e) => form.setData("montant", e.target.value)}
-                        />
-                        {form.errors.montant && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.montant}</p>}
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("mode_payment", "Mode de Règlement")}</label>
-                        <select
-                            value={form.data.mode_paiement}
-                            onChange={(e) => form.setData("mode_paiement", e.target.value)}
-                            className="w-full border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm font-medium"
-                        >
-                            <option value="especes">💵 Espèces (Au Guichet)</option>
-                            <option value="mobile">📱 Mobile Money (Airtel / Moov)</option>
-                            <option value="virement">🏦 Virement Bancaire</option>
-                            <option value="cheque">📝 Chèque</option>
-                        </select>
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">Commentaire / Observation</label>
-                        <input
-                            type="text"
-                            className="w-full border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-sm text-sm"
-                            value={form.data.commentaire}
-                            onChange={(e) => form.setData("commentaire", e.target.value)}
-                            placeholder="Observation ou précision sur le versement..."
-                        />
-                    </div>
-                </div>
-
-                <div className="mt-auto pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                        {t("cancel", "Annuler")}
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={form.processing || !form.data.inscription_id || !form.data.montant}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        <CheckCircle2 className="w-5 h-5" />
-                        {t("save_payment", "Valider l'Encaissement")}
-                    </button>
-                </div>
-            </div>
-        </form>
-    );
-}
-
-function ScolaritePaymentForm({ paiement, inscriptions, classes, fraisTypes, fraisClasses, onClose }) {
-    const { t } = useTranslation();
-    const [selectedClasse, setSelectedClasse] = useState("");
-    const [paymentPlanMode, setPaymentPlanMode] = useState("mensuel"); // "mensuel", "tranche", "total", "libre"
-    const [selectedMonths, setSelectedMonths] = useState([]);
-
-    const form = useForm({
-        inscription_id: paiement?.inscription_id || "",
-        frais_type_id: paiement?.frais_type_id || (fraisTypes.find(ft => ft.is_scolarite)?.id || ""),
-        montant: paiement?.montant || "",
-        date_paiement: paiement?.date_paiement || new Date().toISOString().split("T")[0],
-        mode_paiement: paiement?.mode_paiement || "especes",
-        reference: paiement?.reference || "",
-        mois: paiement?.mois || "",
-        commentaire: paiement?.commentaire || "",
-    });
-
-    const tuitionFees = fraisTypes.filter(ft => ft.is_scolarite);
-
-    // 9 mois scolaires officiels (Maternelle & Primaire)
-    const schoolMonths = [
-        "Septembre", "Octobre", "Novembre", "Décembre",
-        "Janvier", "Février", "Mars", "Avril", "Mai"
-    ];
-
-    // Trouver l'inscription active et sa classe
-    const selectedStudent = inscriptions.find(i => String(i.id) === String(form.data.inscription_id));
-    const studentClasse = selectedStudent ? classes.find(c => String(c.id) === String(selectedStudent.classe_id)) : null;
-    const isMaternelle = studentClasse ? (studentClasse.type === 'maternelle') : false;
-    const isPrimaire = studentClasse ? (studentClasse.type === 'primaire') : false;
-    const isCinquiemePrimaire = isPrimaire && (
-        studentClasse?.isCinquiemeAnneePrimaire ||
-        ['5', 'cinquieme', 'cinquième', 'cm2'].some(k => studentClasse?.nom?.toLowerCase()?.includes(k))
-    );
-    const isMaternelleOrPrimaire = isMaternelle || isPrimaire;
-    const isSecondaire = studentClasse ? (studentClasse.type === 'secondaire') : false;
-    const isExamen = studentClasse ? (studentClasse.is_examen || ['3e', 'tle'].includes(studentClasse.nom?.toLowerCase()?.trim())) : false;
-
-    // Basculer automatiquement le mode selon le cycle de l'élève
-    useEffect(() => {
-        if (selectedStudent && studentClasse) {
-            if (isSecondaire) {
-                setPaymentPlanMode("tranche");
-                setSelectedMonths([]);
-            } else {
-                setPaymentPlanMode("mensuel");
-            }
-        }
-    }, [form.data.inscription_id]);
-
-    // Calculs financiers de scolarité
-    const studentFinancials = (() => {
-        if (!selectedStudent) return null;
-
-        const classeId = selectedStudent.classe_id;
-        const override = fraisClasses?.find(fc => String(fc.classe_id) === String(classeId));
-        const feeType = tuitionFees.find(ft => String(ft.id) === String(form.data.frais_type_id)) || tuitionFees[0];
-        
-        const defaultMontant = isMaternelle
-            ? 117000
-            : (isCinquiemePrimaire
-                ? 135000
-                : (isPrimaire
-                    ? 121500
-                    : (isExamen ? 145000 : 135000)));
-
-        const montantAnnuel = override ? parseFloat(override.montant) : (feeType ? parseFloat(feeType.montant) : defaultMontant);
-        const totalDejaPaye = parseFloat(selectedStudent.total_scolarite_payee) || 0;
-        const resteAPayer = Math.max(0, montantAnnuel - totalDejaPaye);
-        
-        // Mensualité : 13 000 F (Maternelle), 13 500 F (Primaire 1-4), 15 000 F (Primaire 5)
-        const defaultMensuel = isMaternelle ? 13000 : (isCinquiemePrimaire ? 15000 : (isPrimaire ? 13500 : 13000));
-        const montantMensuel = isMaternelleOrPrimaire ? (montantAnnuel > 0 ? Math.round(montantAnnuel / 9) : defaultMensuel) : Math.round(montantAnnuel / 9);
-
-        // Tranches officielles
-        const echeancesFromDb = override?.echeances || [];
-        let tranches = [];
-        if (echeancesFromDb.length === 3 && echeancesFromDb[0].type === 'tranche') {
-            tranches = echeancesFromDb.map((e, idx) => ({
-                id: e.id,
-                num: idx + 1,
-                nom: e.nom,
-                montant: parseFloat(e.montant),
-                date_limite: e.date_limite ? new Date(e.date_limite).toLocaleDateString('fr-FR') : (idx === 0 ? "Septembre" : idx === 1 ? "Fin Novembre" : "Fin Janvier")
-            }));
-        } else {
-            const t1Amount = 70000;
-            const t2Amount = isExamen ? 37500 : 32500;
-            const t3Amount = isExamen ? 37500 : 32500;
-            tranches = [
-                { num: 1, nom: "1ère Tranche", montant: t1Amount, date_limite: "Septembre" },
-                { num: 2, nom: "2ème Tranche", montant: t2Amount, date_limite: "Fin Novembre" },
-                { num: 3, nom: "3ème Tranche", montant: t3Amount, date_limite: "Fin Janvier" },
-            ];
-        }
-
-        const montantTrimestriel = tranches[0]?.montant || 70000;
-        const pourcentage = montantAnnuel > 0 ? Math.min(100, Math.round((totalDejaPaye / montantAnnuel) * 100)) : 0;
-
-        return {
-            montantAnnuel,
-            totalDejaPaye,
-            resteAPayer,
-            montantMensuel,
-            montantTrimestriel,
-            tranches,
-            pourcentage,
-            moisRegles: selectedStudent.mois_regles || []
-        };
-    })();
-
-    // Synchronisation automatique des modes de règlement
-    const handleSelectMonth = (month) => {
-        let newMonths;
-        if (selectedMonths.includes(month)) {
-            newMonths = selectedMonths.filter(m => m !== month);
-        } else {
-            newMonths = [...selectedMonths, month];
-        }
-        setSelectedMonths(newMonths);
-
-        if (studentFinancials) {
-            const calculatedAmount = newMonths.length * studentFinancials.montantMensuel;
-            form.setData({
-                ...form.data,
-                montant: calculatedAmount > 0 ? calculatedAmount : "",
-                mois: newMonths.join(", "),
-                commentaire: newMonths.length > 0 ? `Scolarité (${newMonths.join(", ")})` : ""
-            });
-        }
-    };
-
-    const handleSelectTranche = (tranche) => {
-        form.setData({
-            ...form.data,
-            montant: tranche.montant,
-            mois: tranche.nom,
-            commentaire: `Règlement ${tranche.nom} Scolarité (Échéance ${tranche.date_limite})`
-        });
-    };
-
-    const handleSelectTotal = () => {
-        if (!studentFinancials) return;
-        form.setData({
-            ...form.data,
-            montant: studentFinancials.resteAPayer,
-            mois: "Année Complète (Solde)",
-            commentaire: "Solde tout compte Scolarité Annuelle"
-        });
-    };
-
-    const handleSelectMode = (mode) => {
-        setPaymentPlanMode(mode);
-        if (mode === "total") {
-            handleSelectTotal();
-        } else if (mode === "tranche" && studentFinancials?.tranches?.length > 0) {
-            handleSelectTranche(studentFinancials.tranches[0]);
-        } else if (mode === "libre") {
-            form.setData({
-                ...form.data,
-                mois: "Acompte Libre",
-                commentaire: "Acompte sur scolarité"
-            });
-        }
-    };
-
-    const submit = (e) => {
-        e.preventDefault();
-        form.post(route("paiements.store"), {
-            onSuccess: () => {
-                onClose();
-                form.reset();
-                setSelectedMonths([]);
-            },
-            onError: () => { },
-        });
-    };
-
-    const filteredInscriptions = selectedClasse
-        ? inscriptions.filter(i => String(i.classe_id) === String(selectedClasse))
-        : inscriptions;
-
-    const inscriptionOptions = filteredInscriptions.map((i) => ({ 
-        value: i.id, 
-        label: `${i.eleve_nom_complet || i.label} ${i.matricule ? `(${i.matricule})` : ''} - ${i.classe_nom || ''}` 
-    }));
-
-    return (
-        <form onSubmit={submit} className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border-t-8 border-emerald-500">
-            {/* EN-TÊTE MODALE */}
-            <div className="p-6 md:p-8 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 rounded-2xl shadow-sm border border-emerald-100 dark:border-emerald-800">
-                        <BookOpen className="w-8 h-8" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">
-                            {t("tuition_payment_form", "Encaisser la Scolarité")}
-                        </h2>
-                        <p className="text-slate-500 font-medium text-xs">Paiement flexible : par mensualité, par tranche trimestrielle ou solde total.</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Formulaire complet */}
-            <div className="p-6 md:p-8 flex flex-col form-scrollpane overflow-y-auto max-h-[75vh] space-y-6">
-                
-                {/* 1. SELECTION CLASSE & ELEVE */}
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100/30 dark:from-emerald-900/10 dark:to-slate-800 border border-emerald-100 dark:border-emerald-800/30">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="flex items-center gap-2 mb-2 text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs">1</span>
-                                Filtrer par Classe
-                            </label>
-                            <select
-                                value={selectedClasse}
-                                onChange={(e) => {
-                                    setSelectedClasse(e.target.value);
-                                    form.setData("inscription_id", "");
-                                }}
-                                className="w-full border-white dark:border-slate-700 p-2.5 rounded-xl bg-white dark:bg-slate-900 shadow-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-bold text-sm"
-                            >
-                                <option value="">-- Toutes les classes --</option>
-                                {classes.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.nom}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="flex items-center gap-2 mb-2 text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider">
-                                <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-200 dark:bg-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs">2</span>
-                                Sélectionner l'Élève
-                            </label>
-                            <Select
-                                styles={{
-                                    ...customSelectStyles,
-                                    control: (base, state) => ({
-                                        ...customSelectStyles.control(base, state),
-                                        borderColor: state.isFocused ? '#10b981' : 'white',
-                                        boxShadow: state.isFocused ? '0 0 0 3px rgba(16, 185, 129, 0.1)' : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                                    })
-                                }}
-                                options={inscriptionOptions}
-                                value={inscriptionOptions.find(opt => String(opt.value) === String(form.data.inscription_id))}
-                                onChange={(opt) => {
-                                    form.setData("inscription_id", opt?.value || "");
-                                    setSelectedMonths([]);
-                                }}
-                                placeholder="Rechercher par nom, prénom ou matricule..."
-                                isClearable
-                                classNamePrefix="react-select"
-                            />
-                            {form.errors.inscription_id && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.inscription_id}</p>}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 2. RECAPITULATIF FINANCIER EN TEMPS REEL DE L'ELEVE */}
-                {studentFinancials && (
-                    <div className="bg-[#0B1A2D] text-white p-5 rounded-2xl shadow-xl border border-slate-800 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                                        Dossier Scolarité En Direct
-                                    </span>
-                                </div>
-                                <h3 className="text-xl font-black text-white mt-1">{selectedStudent?.eleve_nom_complet}</h3>
-                                <p className="text-xs text-slate-400">{selectedStudent?.classe_nom} • Matricule: {selectedStudent?.matricule || 'N/A'}</p>
-                            </div>
-                            <div className="text-left sm:text-right bg-white/5 p-3 rounded-xl border border-white/10">
-                                <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">Reste à Solder</span>
-                                <span className="text-2xl font-black text-rose-400 font-mono">
-                                    {studentFinancials.resteAPayer.toLocaleString('fr-FR')} FCFA
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* 4 KPIs Clés */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-                                <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Dû</span>
-                                <span className="text-sm font-black font-mono text-white">{studentFinancials.montantAnnuel.toLocaleString('fr-FR')} F</span>
-                            </div>
-                            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-                                <span className="text-[10px] uppercase font-bold text-emerald-400 block">Déjà Réglé</span>
-                                <span className="text-sm font-black font-mono text-emerald-400">{studentFinancials.totalDejaPaye.toLocaleString('fr-FR')} F</span>
-                            </div>
-                            {isMaternelleOrPrimaire ? (
-                                <>
-                                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-                                        <span className="text-[10px] uppercase font-bold text-blue-400 block">Tarif Mensuel</span>
-                                        <span className="text-sm font-black font-mono text-blue-300">
-                                            {studentFinancials.montantMensuel.toLocaleString('fr-FR')} F / mois
-                                        </span>
-                                    </div>
-                                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-                                        <span className="text-[10px] uppercase font-bold text-teal-400 block">Période</span>
-                                        <span className="text-sm font-black text-teal-300">9 mois (Sept-Mai)</span>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-                                        <span className="text-[10px] uppercase font-bold text-purple-400 block">Tranche 1 (Sept.)</span>
-                                        <span className="text-sm font-black font-mono text-purple-300">70 000 F</span>
-                                    </div>
-                                    <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
-                                        <span className="text-[10px] uppercase font-bold text-purple-400 block">Tranches 2 & 3</span>
-                                        <span className="text-sm font-black font-mono text-purple-300">
-                                            {isExamen ? "37 500 F" : "32 500 F"}
-                                        </span>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* JAUGE DE PROGRESSION VISUELLE */}
-                        <div className="space-y-1.5 pt-2 border-t border-white/10">
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="font-bold text-slate-300">Progression du règlement :</span>
-                                <span className="font-black text-xs px-2.5 py-0.5 rounded-full bg-emerald-500 text-white font-mono shadow-sm">
-                                    {studentFinancials.pourcentage}% Réglé
-                                </span>
-                            </div>
-                            <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700/80 p-0.5">
-                                <div
-                                    className="bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 h-full rounded-full transition-all duration-500 shadow-lg shadow-emerald-500/50"
-                                    style={{ width: `${Math.max(studentFinancials.pourcentage > 0 ? 3 : 0, studentFinancials.pourcentage)}%` }}
-                                ></div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* 3. SELECTION DU MODE DE PAIEMENT SOUHAITE PAR LE PARENT */}
-                {studentFinancials && (
-                    <div>
-                        <label className="block mb-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                            Choisir l'Option de Règlement du Parent :
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* Option 1: Mensuel (pour Maternelle/Primaire) OU Tranche (pour Secondaire) */}
-                            {isMaternelleOrPrimaire ? (
-                                <button
-                                    type="button"
-                                    onClick={() => handleSelectMode("mensuel")}
-                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
-                                        paymentPlanMode === "mensuel"
-                                            ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20 ring-2 ring-emerald-400/30"
-                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400"
-                                    }`}
-                                >
-                                    <span className="flex items-center gap-1"><CalendarRange className="w-4 h-4" /> Par Mensualité</span>
-                                    <span className="font-mono text-[11px] opacity-90">{studentFinancials.montantMensuel.toLocaleString('fr-FR')} FCFA / mois (9 mois)</span>
-                                </button>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => handleSelectMode("tranche")}
-                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
-                                        paymentPlanMode === "tranche"
-                                            ? "bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20 ring-2 ring-purple-400/30"
-                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-purple-400"
-                                    }`}
-                                >
-                                    <span className="flex items-center gap-1"><Layers className="w-4 h-4" /> Par Tranche</span>
-                                    <span className="font-mono text-[11px] opacity-90">3 Tranches Officielles</span>
-                                </button>
-                            )}
-
-                            {/* Option 2: Solde Total */}
-                            <button
-                                type="button"
-                                onClick={() => handleSelectMode("total")}
-                                className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
-                                    paymentPlanMode === "total"
-                                        ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 ring-2 ring-blue-400/30"
-                                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400"
-                                    }`}
-                            >
-                                <span className="flex items-center gap-1"><Wallet className="w-4 h-4" /> Solde Tout Compte</span>
-                                <span className="font-mono text-[11px] opacity-90">{studentFinancials.resteAPayer.toLocaleString('fr-FR')} FCFA</span>
-                            </button>
-
-                            {/* Option 3: Montant Libre */}
-                            <button
-                                type="button"
-                                onClick={() => handleSelectMode("libre")}
-                                className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
-                                    paymentPlanMode === "libre"
-                                        ? "bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20 ring-2 ring-amber-400/30"
-                                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400"
-                                    }`}
-                            >
-                                <span className="flex items-center gap-1"><Calculator className="w-4 h-4" /> Acompte Libre</span>
-                                <span className="font-mono text-[11px] opacity-90">Saisie personnalisée</span>
-                            </button>
-                        </div>
-
-                        {/* DETAIL DU MODE MENSUALITES (MATERNELLE & PRIMAIRE : 9 MOIS) */}
-                        {paymentPlanMode === "mensuel" && isMaternelleOrPrimaire && (
-                            <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                                <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-200 dark:border-slate-700/60">
-                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                        <CalendarRange className="w-4 h-4 text-emerald-600" />
-                                        Maternelle & Primaire : Calendrier des 9 Mensualités
-                                    </span>
-                                    <span className="text-xs font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/40">
-                                        {studentFinancials.montantMensuel.toLocaleString('fr-FR')} FCFA / mois
-                                    </span>
-                                </div>
-
-                                <span className="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-2.5">
-                                    Cochez le ou les mois réglés aujourd'hui :
-                                </span>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                                    {schoolMonths.map((m) => {
-                                        const isAlreadyPaid = studentFinancials.moisRegles.some(mr => mr.toLowerCase().includes(m.toLowerCase()));
-                                        const isSelected = selectedMonths.includes(m);
-
-                                        return (
-                                            <button
-                                                key={m}
-                                                type="button"
-                                                disabled={isAlreadyPaid}
-                                                onClick={() => handleSelectMonth(m)}
-                                                className={`p-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between border ${
-                                                    isAlreadyPaid
-                                                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 opacity-80 cursor-not-allowed"
-                                                        : isSelected
-                                                        ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20"
-                                                        : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400"
-                                                }`}
-                                            >
-                                                <span>{m}</span>
-                                                {isAlreadyPaid ? (
-                                                    <span className="text-[10px] bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 px-1.5 py-0.5 rounded-md">Payé</span>
-                                                ) : isSelected ? (
-                                                    <Check className="w-3.5 h-3.5" />
-                                                ) : null}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* DETAIL DU MODE TRANCHES (SECONDAIRE : 3 TRANCHES OFFICIELLES) */}
-                        {paymentPlanMode === "tranche" && isSecondaire && (
-                            <div className="mt-4 p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800/40">
-                                <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-purple-200/60 dark:border-purple-800/40">
-                                    <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
-                                        <Layers className="w-4 h-4 text-purple-600" />
-                                        Secondaire : Sélectionnez la tranche à encaisser
-                                    </span>
-                                    <span className="text-xs font-black text-purple-700 bg-purple-100 dark:bg-purple-900/40 px-2.5 py-1 rounded-lg">
-                                        {isExamen ? "Barème Examen (145 000 F)" : "Barème Général (135 000 F)"}
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    {studentFinancials.tranches.map((tranche) => {
-                                        const isSelected = form.data.mois === tranche.nom;
-                                        const isAlreadyPaid = studentFinancials.moisRegles.some(mr => mr.toLowerCase().includes(tranche.nom.toLowerCase()));
-
-                                        return (
-                                            <button
-                                                key={tranche.nom}
-                                                type="button"
-                                                onClick={() => handleSelectTranche(tranche)}
-                                                className={`p-3.5 rounded-xl border font-bold text-xs flex flex-col gap-1.5 text-left transition-all ${
-                                                    isSelected
-                                                        ? "bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-600/30 ring-2 ring-purple-400"
-                                                        : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-purple-200 dark:border-purple-800 hover:border-purple-400"
-                                                }`}
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-sm font-black">{tranche.nom}</span>
-                                                    {isAlreadyPaid && (
-                                                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Soldée</span>
-                                                    )}
-                                                </div>
-                                                <span className={`font-mono text-base font-black ${isSelected ? 'text-white' : 'text-purple-600 dark:text-purple-400'}`}>
-                                                    {tranche.montant.toLocaleString('fr-FR')} FCFA
-                                                </span>
-                                                <span className={`text-[11px] ${isSelected ? 'text-purple-200' : 'text-slate-400'}`}>
-                                                    Échéance : {tranche.date_limite}
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* 4. MONTANT FINAL & MODE DE REGLEMENT */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                        <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                            Montant à Encaisser (FCFA)
-                        </label>
-                        <div className="relative border-2 border-emerald-300 dark:border-emerald-700 rounded-2xl p-1 bg-emerald-50/50 dark:bg-emerald-900/10">
-                            <input
-                                type="number"
-                                min="0"
-                                placeholder="0"
-                                className="w-full border-none bg-transparent p-3.5 pl-14 rounded-xl text-3xl font-black text-emerald-700 dark:text-emerald-400 focus:ring-0 text-right font-mono"
-                                value={form.data.montant}
-                                onChange={(e) => form.setData("montant", e.target.value)}
-                            />
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600 font-black text-sm bg-emerald-100 dark:bg-emerald-800/40 px-2 py-1 rounded-lg">
-                                FCFA
-                            </span>
-                        </div>
-                        {form.errors.montant && <p className="text-red-500 text-xs font-bold mt-1.5 text-right">{form.errors.montant}</p>}
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Mode de Règlement</label>
-                        <select
-                            value={form.data.mode_paiement}
-                            onChange={(e) => form.setData("mode_paiement", e.target.value)}
-                            className="w-full border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm text-sm font-bold"
-                        >
-                            <option value="especes">💵 Espèces (Au Guichet)</option>
-                            <option value="mobile">📱 Mobile Money (Airtel / Moov)</option>
-                            <option value="virement">🏦 Virement Bancaire</option>
-                            <option value="cheque">📝 Chèque</option>
-                        </select>
-                    </div>
-
-                    <div className="md:col-span-2">
-                        <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Libellé / Note sur le Reçu</label>
-                        <input
-                            type="text"
-                            className="w-full border-slate-200 dark:border-slate-700 p-3 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm text-sm"
-                            value={form.data.commentaire}
-                            onChange={(e) => form.setData("commentaire", e.target.value)}
-                            placeholder="Libellé imprimé sur le reçu (ex: Scolarité Octobre 2026)..."
-                        />
-                    </div>
-                </div>
-
-                <div className="mt-auto pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-sm">
-                        {t("cancel", "Annuler")}
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={form.processing || !form.data.inscription_id || !form.data.montant}
-                        className="flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 disabled:opacity-50 text-sm"
-                    >
-                        <CheckCircle2 className="w-5 h-5" />
-                        {t("save_tuition", "Valider et Générer le Reçu")}
-                    </button>
-                </div>
-            </div>
-        </form>
-    );
-}
+import StandardPaymentForm from "./Partials/StandardPaymentForm";
+import ScolaritePaymentForm from "./Partials/ScolaritePaymentForm";
 
 export default function Index({ paiements, stats, annees, currentAnneeId, inscriptions, classes, fraisTypes, fraisClasses, filters, auth }) {
     const { t } = useTranslation();
     const { etablissement } = usePage().props;
+
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    const initialInscriptionId = urlParams.get('inscription_id') || filters.inscription_id || null;
 
     const [search, setSearch] = useState(filters.search || "");
     const [selectedAnnee, setSelectedAnnee] = useState(filters.annee_scolaire_id || currentAnneeId);
@@ -825,7 +67,10 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
     const [activeTab, setActiveTab] = useState("all"); // 'all' | 'scolarite' | 'general'
 
     const [generalModalOpen, setGeneralModalOpen] = useState(false);
-    const [scolariteModalOpen, setScolariteModalOpen] = useState(false);
+    const [scolariteModalOpen, setScolariteModalOpen] = useState(
+        filters.open_scolarite === '1' || urlParams.get('open_scolarite') === '1'
+    );
+    const [preselectedInscriptionId, setPreselectedInscriptionId] = useState(initialInscriptionId);
 
     const permissions = auth?.permissions || [];
     const can = (permission) => permissions.includes(permission);
@@ -880,12 +125,55 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
 
     const formatFCFA = (val) => Number(val || 0).toLocaleString('fr-FR') + ' FCFA';
 
+    // Mode d'affichage : 'operations' (par quittance/facture globale) ou 'details' (par flux ventilé)
+    const [viewMode, setViewMode] = useState("operations");
+    const [expandedGroups, setExpandedGroups] = useState({});
+
+    const toggleGroup = (key) => {
+        setExpandedGroups(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
+
     // Filtrage local pour les onglets
     const displayedPaiements = (paiements.data || []).filter(p => {
         if (activeTab === 'all') return true;
         const isSco = fraisTypes.find(ft => ft.id === p.frais_type_id)?.is_scolarite;
         return activeTab === 'general' ? !isSco : isSco;
     });
+
+    // Regroupement professionnel par reçu / opération financière
+    const groupedOperations = useMemo(() => {
+        const map = new Map();
+        displayedPaiements.forEach(p => {
+            const groupKey = p.reference_recu || (p.inscription_id ? `INSC-${p.inscription_id}-${p.date_paiement}` : `PAY-${p.id}`);
+            if (!map.has(groupKey)) {
+                map.set(groupKey, {
+                    key: groupKey,
+                    reference_recu: p.reference_recu || (p.inscription?.numero_recu || `REC-${String(p.id).padStart(6, '0')}`),
+                    date_paiement: p.date_paiement,
+                    created_at: p.created_at,
+                    inscription_id: p.inscription_id,
+                    inscription: p.inscription,
+                    mode_paiement: p.mode_paiement,
+                    user: p.user,
+                    total_montant: 0,
+                    is_inscription_pack: false,
+                    items: []
+                });
+            }
+            const group = map.get(groupKey);
+            group.total_montant += Number(p.montant || 0);
+            group.items.push(p);
+
+            const isAdmission = p.frais_type?.code === 'inscription' || p.frais_type?.code === 'reinscription';
+            if (isAdmission || group.items.length > 1) {
+                group.is_inscription_pack = true;
+            }
+        });
+        return Array.from(map.values());
+    }, [displayedPaiements]);
 
     const isFiltered = Boolean(selectedMode || filterClasse || dateDebut || dateFin || search);
 
@@ -944,7 +232,7 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                                     {t("journal_caisse", "Journal de Caisse")}
                                 </h1>
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                    {stats?.nb_transactions || 0} règlements
+                                    {stats?.nb_operations || stats?.nb_transactions || 0} encaissement(s) {stats?.nb_flux && stats.nb_flux !== (stats.nb_operations || stats.nb_transactions) ? `(${stats.nb_flux} flux)` : ''}
                                 </span>
                             </div>
                             <p className="text-slate-300 font-medium text-sm mt-1">
@@ -999,7 +287,7 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                     </div>
                     <div className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        {stats?.nb_transactions || 0} encaissements validés
+                        {stats?.nb_operations || stats?.nb_transactions || 0} encaissement(s) validé(s) {stats?.nb_flux && stats.nb_flux !== (stats.nb_operations || stats.nb_transactions) ? `(${stats.nb_flux} flux)` : ''}
                     </div>
                 </div>
 
@@ -1109,8 +397,50 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                         </button>
                     </div>
 
-                    {/* Sélecteur Année Scolaire & Raccourcis Dates */}
+                    {/* Sélecteur Année Scolaire, Vue & Raccourcis Dates */}
                     <div className="flex flex-wrap items-center gap-2">
+                        {/* Toggle Vue Opérations / Reçus vs Vue Ventilée */}
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('operations')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                                    viewMode === 'operations'
+                                        ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                                }`}
+                                title="Regrouper par quittance / facture globale (recommandé)"
+                            >
+                                <span>📑 Par Reçu</span>
+                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                                    viewMode === 'operations' 
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300' 
+                                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                }`}>
+                                    {groupedOperations.length}
+                                </span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('details')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
+                                    viewMode === 'details'
+                                        ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                                }`}
+                                title="Afficher chaque flux individuel (comptabilité analytique)"
+                            >
+                                <span>🔍 Vue Ventilée</span>
+                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
+                                    viewMode === 'details' 
+                                        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300' 
+                                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                }`}>
+                                    {displayedPaiements.length}
+                                </span>
+                            </button>
+                        </div>
+
                         <div className="relative">
                             <select
                                 value={selectedAnnee}
@@ -1228,7 +558,7 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
             </div>
 
             {/* MODALS DE SAISIE */}
-            <Modal show={generalModalOpen} onClose={() => setGeneralModalOpen(false)} maxWidth="4xl">
+            <Modal show={generalModalOpen} onClose={() => setGeneralModalOpen(false)} maxWidth="5xl">
                 <StandardPaymentForm
                     inscriptions={inscriptions}
                     fraisTypes={fraisTypes}
@@ -1236,7 +566,7 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                 />
             </Modal>
 
-            <Modal show={scolariteModalOpen} onClose={() => setScolariteModalOpen(false)} maxWidth="4xl">
+            <Modal show={scolariteModalOpen} onClose={() => setScolariteModalOpen(false)} maxWidth="5xl">
                 <ScolaritePaymentForm
                     inscriptions={inscriptions}
                     classes={classes}
@@ -1262,138 +592,370 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                            {displayedPaiements.length > 0 ? (
-                                displayedPaiements.map((p) => (
-                                    <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors group text-xs sm:text-sm">
-                                        
-                                        {/* Date */}
-                                        <td className="p-4 sm:p-5 whitespace-nowrap">
-                                            <div className="font-bold text-slate-800 dark:text-slate-200">
-                                                {new Date(p.date_paiement).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                                            </div>
-                                            <div className="text-[10px] font-medium text-slate-400">
-                                                {p.created_at ? new Date(p.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                                            </div>
-                                        </td>
-
-                                        {/* Élève & Classe */}
-                                        <td className="p-4 sm:p-5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-600 dark:text-slate-300 shrink-0 text-xs border border-slate-200 dark:border-slate-600">
-                                                    {(p.inscription?.eleve?.user?.nom || "?")[0]}
-                                                    {(p.inscription?.eleve?.user?.prenom || "?")[0]}
-                                                </div>
-                                                <div>
-                                                    <div className="font-extrabold text-slate-900 dark:text-white uppercase truncate">
-                                                        {p.inscription?.eleve?.user?.nom} {p.inscription?.eleve?.user?.prenom}
+                            {viewMode === 'operations' ? (
+                                groupedOperations.length > 0 ? (
+                                    groupedOperations.map((group) => (
+                                        <React.Fragment key={group.key}>
+                                            <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors group text-xs sm:text-sm">
+                                                
+                                                {/* Date & Reçu */}
+                                                <td className="p-4 sm:p-5 whitespace-nowrap">
+                                                    <div className="font-bold text-slate-800 dark:text-slate-200">
+                                                        {new Date(group.date_paiement).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                     </div>
-                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                        <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900">
-                                                            {p.inscription?.classe?.nom || 'N/A'}
+                                                    <div className="text-[10px] font-medium text-slate-400">
+                                                        {group.created_at ? new Date(group.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                    </div>
+                                                    <div className="mt-1">
+                                                        <span className="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-600 inline-block">
+                                                            {group.reference_recu}
                                                         </span>
-                                                        {p.inscription?.eleve?.matricule && (
-                                                            <span className="text-[10px] font-mono text-slate-400">
-                                                                {p.inscription.eleve.matricule}
+                                                    </div>
+                                                </td>
+
+                                                {/* Élève & Classe */}
+                                                <td className="p-4 sm:p-5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-600 dark:text-slate-300 shrink-0 text-xs border border-slate-200 dark:border-slate-600">
+                                                            {(group.inscription?.eleve?.user?.nom || "?")[0]}
+                                                            {(group.inscription?.eleve?.user?.prenom || "?")[0]}
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-extrabold text-slate-900 dark:text-white uppercase truncate">
+                                                                {group.inscription?.eleve?.user?.nom} {group.inscription?.eleve?.user?.prenom}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 mt-0.5">
+                                                                <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900">
+                                                                    {group.inscription?.classe?.nom || 'N/A'}
+                                                                </span>
+                                                                {group.inscription?.eleve?.matricule && (
+                                                                    <span className="text-[10px] font-mono text-slate-400">
+                                                                        {group.inscription.eleve.matricule}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* Motif & Ventilation */}
+                                                <td className="p-4 sm:p-5">
+                                                    {group.items.length === 1 ? (
+                                                        <div>
+                                                            <span className={`font-bold inline-block text-xs px-2.5 py-1 rounded-lg border ${group.items[0].frais_type?.is_scolarite
+                                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                                                                : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                                                            }`}>
+                                                                {group.items[0].frais_type?.nom || "Frais"}
                                                             </span>
+                                                            {group.items[0].mois && (
+                                                                <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
+                                                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                                                    <span>Mois : {group.items[0].mois}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                                <span className="font-bold inline-block text-xs px-2.5 py-1 rounded-lg border bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+                                                                    {group.is_inscription_pack ? "📦 Pack Inscription & Fournitures" : "📑 Règlement Groupé"}
+                                                                </span>
+                                                                <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full">
+                                                                    {group.items.length} rubriques
+                                                                </span>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleGroup(group.key)}
+                                                                className="mt-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1 transition-colors no-print"
+                                                            >
+                                                                {expandedGroups[group.key] ? (
+                                                                    <>
+                                                                        <ChevronUp className="w-3.5 h-3.5" />
+                                                                        <span>Masquer le détail</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <ChevronDown className="w-3.5 h-3.5" />
+                                                                        <span>Voir le détail ({group.items.length} rubriques)</span>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                            <div className="print-only text-[10px] text-slate-600 mt-1">
+                                                                {group.items.map(it => `${it.frais_type?.nom || 'Frais'}: ${Number(it.montant).toLocaleString('fr-FR')} F`).join(' • ')}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </td>
+
+                                                {/* Mode de règlement */}
+                                                <td className="p-4 sm:p-5 whitespace-nowrap">
+                                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border
+                                                        ${group.mode_paiement === 'especes' ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' :
+                                                            group.mode_paiement === 'mobile' ? 'bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800' :
+                                                                'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800'}`}>
+                                                        {group.mode_paiement === 'especes' && '💵'}
+                                                        {group.mode_paiement === 'mobile' && '📱'}
+                                                        {(group.mode_paiement === 'virement' || group.mode_paiement === 'cheque') && '🏦'}
+                                                        <span>{group.mode_paiement}</span>
+                                                    </span>
+                                                </td>
+
+                                                {/* Encaissé par */}
+                                                <td className="p-4 sm:p-5">
+                                                    {group.user ? (
+                                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                                            <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">
+                                                                {(group.user.nom || 'A')[0]}
+                                                            </span>
+                                                            <span>{group.user.nom} {group.user.prenom ? group.user.prenom[0] + '.' : ''}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400 italic">Caisse Principale</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Montant Total */}
+                                                <td className="p-4 sm:p-5 text-right whitespace-nowrap">
+                                                    <div className="font-black text-base text-emerald-600 dark:text-emerald-400 font-mono">
+                                                        {Number(group.total_montant).toLocaleString('fr-FR')} <span className="text-[10px] font-bold text-slate-400">FCFA</span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="p-4 sm:p-5 text-center no-print">
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        {group.is_inscription_pack && group.inscription_id ? (
+                                                            <a
+                                                                href={route('inscriptions.recu', group.inscription_id)}
+                                                                target="_blank"
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 dark:text-emerald-300 rounded-xl transition-all shadow-sm font-bold text-xs border border-emerald-200 dark:border-emerald-800"
+                                                                title="Imprimer le Reçu d'Inscription Officiel complet"
+                                                            >
+                                                                <Printer className="w-4 h-4" />
+                                                                <span className="hidden sm:inline">Reçu Global</span>
+                                                            </a>
+                                                        ) : (
+                                                            <a
+                                                                href={route('paiements.recu', group.items[0].id)}
+                                                                target="_blank"
+                                                                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 rounded-xl transition-all shadow-sm"
+                                                                title="Imprimer le Reçu Officiel"
+                                                            >
+                                                                <Printer className="w-4 h-4" />
+                                                            </a>
+                                                        )}
+
+                                                        {can('supprimer_paiements') && group.items.length === 1 && (
+                                                            <button
+                                                                onClick={() => destroy(group.items[0].id)}
+                                                                className="p-2 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:hover:bg-red-900/60 dark:text-red-400 rounded-xl transition-all shadow-sm"
+                                                                title={t("delete", "Supprimer")}
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
                                                         )}
                                                     </div>
-                                                </div>
-                                            </div>
-                                        </td>
+                                                </td>
+                                            </tr>
 
-                                        {/* Motif & Période */}
-                                        <td className="p-4 sm:p-5">
-                                            <div>
-                                                <span className={`font-bold inline-block text-xs px-2.5 py-1 rounded-lg border ${p.frais_type?.is_scolarite
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-                                                    : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
-                                                }`}>
-                                                    {p.frais_type?.nom || "Frais"}
-                                                </span>
-                                                {p.mois && (
-                                                    <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3 text-slate-400" />
-                                                        <span>Mois : {p.mois}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
-
-                                        {/* Mode de règlement */}
-                                        <td className="p-4 sm:p-5 whitespace-nowrap">
-                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border
-                                                ${p.mode_paiement === 'especes' ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' :
-                                                    p.mode_paiement === 'mobile' ? 'bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800' :
-                                                        'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800'}`}>
-                                                {p.mode_paiement === 'especes' && '💵'}
-                                                {p.mode_paiement === 'mobile' && '📱'}
-                                                {(p.mode_paiement === 'virement' || p.mode_paiement === 'cheque') && '🏦'}
-                                                <span>{p.mode_paiement}</span>
-                                            </span>
-                                        </td>
-
-                                        {/* Encaissé par (Caissier) */}
-                                        <td className="p-4 sm:p-5">
-                                            {p.user ? (
-                                                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                                    <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">
-                                                        {(p.user.nom || 'A')[0]}
-                                                    </span>
-                                                    <span>{p.user.nom} {p.user.prenom ? p.user.prenom[0] + '.' : ''}</span>
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-slate-400 italic">Caisse Principale</span>
+                                            {/* SOUS-LIGNE DÉPLIABLE : VENTILATION DÉTAILLÉE DU PACK */}
+                                            {expandedGroups[group.key] && (
+                                                <tr className="bg-slate-50/90 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-700">
+                                                    <td colSpan="7" className="p-3 sm:px-6">
+                                                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                            <div className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2.5 flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2">
+                                                                <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                                                                    <span>📋 Ventilation des {group.items.length} rubriques</span>
+                                                                    <span className="font-mono text-slate-500">#{group.reference_recu}</span>
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-400 font-semibold">
+                                                                    Total Quittance : {Number(group.total_montant).toLocaleString('fr-FR')} FCFA
+                                                                </span>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                                                {group.items.map((it) => (
+                                                                    <div key={it.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/80 flex justify-between items-center text-xs">
+                                                                        <div>
+                                                                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                                                                                {it.frais_type?.nom || "Rubrique"}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-mono text-slate-400 uppercase">
+                                                                                {it.frais_type?.code || 'ANNEXE'} • ID #{it.id}
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className="font-mono font-black text-slate-900 dark:text-white shrink-0 ml-2">
+                                                                            {Number(it.montant).toLocaleString('fr-FR')} F
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             )}
-                                        </td>
-
-                                        {/* Montant */}
-                                        <td className="p-4 sm:p-5 text-right whitespace-nowrap">
-                                            <div className="font-black text-base text-emerald-600 dark:text-emerald-400 font-mono">
-                                                {Number(p.montant).toLocaleString('fr-FR')} <span className="text-[10px] font-bold text-slate-400">FCFA</span>
-                                            </div>
-                                        </td>
-
-                                        {/* Actions */}
-                                        <td className="p-4 sm:p-5 text-center no-print">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                <a
-                                                    href={route('paiements.recu', p.id)}
-                                                    target="_blank"
-                                                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 rounded-xl transition-all shadow-sm"
-                                                    title="Imprimer le Reçu Officiel"
-                                                >
-                                                    <Printer className="w-4 h-4" />
-                                                </a>
-
-                                                {can('supprimer_paiements') && (
-                                                    <button
-                                                        onClick={() => destroy(p.id)}
-                                                        className="p-2 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:hover:bg-red-900/60 dark:text-red-400 rounded-xl transition-all shadow-sm"
-                                                        title={t("delete", "Supprimer")}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                )}
+                                        </React.Fragment>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="7" className="p-12 text-center">
+                                            <div className="flex flex-col items-center justify-center text-slate-400">
+                                                <div className="p-4 rounded-full bg-slate-50 dark:bg-slate-800 mb-4">
+                                                    <Wallet className="w-8 h-8 opacity-50" />
+                                                </div>
+                                                <p className="font-bold text-base text-slate-700 dark:text-slate-300">
+                                                    {t("no_payments", "Aucun encaissement trouvé.")}
+                                                </p>
+                                                <p className="text-xs mt-1 text-slate-400">
+                                                    Modifiez vos filtres ou enregistrez un nouveau paiement.
+                                                </p>
                                             </div>
                                         </td>
                                     </tr>
-                                ))
+                                )
                             ) : (
-                                <tr>
-                                    <td colSpan="7" className="p-12 text-center">
-                                        <div className="flex flex-col items-center justify-center text-slate-400">
-                                            <div className="p-4 rounded-full bg-slate-50 dark:bg-slate-800 mb-4">
-                                                <Wallet className="w-8 h-8 opacity-50" />
+                                /* VUE DÉTAILLÉE FLUX PAR FLUX */
+                                displayedPaiements.length > 0 ? (
+                                    displayedPaiements.map((p) => (
+                                        <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors group text-xs sm:text-sm">
+                                            
+                                            {/* Date */}
+                                            <td className="p-4 sm:p-5 whitespace-nowrap">
+                                                <div className="font-bold text-slate-800 dark:text-slate-200">
+                                                    {new Date(p.date_paiement).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                                </div>
+                                                <div className="text-[10px] font-medium text-slate-400">
+                                                    {p.created_at ? new Date(p.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                                </div>
+                                                {p.reference_recu && (
+                                                    <div className="mt-1">
+                                                        <span className="text-[9px] font-mono font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                                                            {p.reference_recu}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            {/* Élève & Classe */}
+                                            <td className="p-4 sm:p-5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-black text-slate-600 dark:text-slate-300 shrink-0 text-xs border border-slate-200 dark:border-slate-600">
+                                                        {(p.inscription?.eleve?.user?.nom || "?")[0]}
+                                                        {(p.inscription?.eleve?.user?.prenom || "?")[0]}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-extrabold text-slate-900 dark:text-white uppercase truncate">
+                                                            {p.inscription?.eleve?.user?.nom} {p.inscription?.eleve?.user?.prenom}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900">
+                                                                {p.inscription?.classe?.nom || 'N/A'}
+                                                            </span>
+                                                            {p.inscription?.eleve?.matricule && (
+                                                                <span className="text-[10px] font-mono text-slate-400">
+                                                                    {p.inscription.eleve.matricule}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* Motif & Période */}
+                                            <td className="p-4 sm:p-5">
+                                                <div>
+                                                    <span className={`font-bold inline-block text-xs px-2.5 py-1 rounded-lg border ${p.frais_type?.is_scolarite
+                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                                                        : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                                                    }`}>
+                                                        {p.frais_type?.nom || "Frais"}
+                                                    </span>
+                                                    {p.mois && (
+                                                        <div className="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1">
+                                                            <Calendar className="w-3 h-3 text-slate-400" />
+                                                            <span>Mois : {p.mois}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* Mode de règlement */}
+                                            <td className="p-4 sm:p-5 whitespace-nowrap">
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border
+                                                    ${p.mode_paiement === 'especes' ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' :
+                                                        p.mode_paiement === 'mobile' ? 'bg-purple-50 text-purple-800 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800' :
+                                                            'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800'}`}>
+                                                    {p.mode_paiement === 'especes' && '💵'}
+                                                    {p.mode_paiement === 'mobile' && '📱'}
+                                                    {(p.mode_paiement === 'virement' || p.mode_paiement === 'cheque') && '🏦'}
+                                                    <span>{p.mode_paiement}</span>
+                                                </span>
+                                            </td>
+
+                                            {/* Encaissé par */}
+                                            <td className="p-4 sm:p-5">
+                                                {p.user ? (
+                                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                                        <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">
+                                                            {(p.user.nom || 'A')[0]}
+                                                        </span>
+                                                        <span>{p.user.nom} {p.user.prenom ? p.user.prenom[0] + '.' : ''}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400 italic">Caisse Principale</span>
+                                                )}
+                                            </td>
+
+                                            {/* Montant */}
+                                            <td className="p-4 sm:p-5 text-right whitespace-nowrap">
+                                                <div className="font-black text-base text-emerald-600 dark:text-emerald-400 font-mono">
+                                                    {Number(p.montant).toLocaleString('fr-FR')} <span className="text-[10px] font-bold text-slate-400">FCFA</span>
+                                                </div>
+                                            </td>
+
+                                            {/* Actions */}
+                                            <td className="p-4 sm:p-5 text-center no-print">
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <a
+                                                        href={route('paiements.recu', p.id)}
+                                                        target="_blank"
+                                                        className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 rounded-xl transition-all shadow-sm"
+                                                        title="Imprimer le Reçu Officiel"
+                                                    >
+                                                        <Printer className="w-4 h-4" />
+                                                    </a>
+
+                                                    {can('supprimer_paiements') && (
+                                                        <button
+                                                            onClick={() => destroy(p.id)}
+                                                            className="p-2 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:hover:bg-red-900/60 dark:text-red-400 rounded-xl transition-all shadow-sm"
+                                                            title={t("delete", "Supprimer")}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="7" className="p-12 text-center">
+                                            <div className="flex flex-col items-center justify-center text-slate-400">
+                                                <div className="p-4 rounded-full bg-slate-50 dark:bg-slate-800 mb-4">
+                                                    <Wallet className="w-8 h-8 opacity-50" />
+                                                </div>
+                                                <p className="font-bold text-base text-slate-700 dark:text-slate-300">
+                                                    {t("no_payments", "Aucun encaissement trouvé.")}
+                                                </p>
+                                                <p className="text-xs mt-1 text-slate-400">
+                                                    Modifiez vos filtres ou enregistrez un nouveau paiement.
+                                                </p>
                                             </div>
-                                            <p className="font-bold text-base text-slate-700 dark:text-slate-300">
-                                                {t("no_payments", "Aucun encaissement trouvé.")}
-                                            </p>
-                                            <p className="text-xs mt-1 text-slate-400">
-                                                Modifiez vos filtres ou enregistrez un nouveau paiement.
-                                            </p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                        </td>
+                                    </tr>
+                                )
                             )}
                         </tbody>
                     </table>
@@ -1403,7 +965,7 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                 {displayedPaiements.length > 0 && (
                     <div className="bg-slate-900 text-white p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="text-xs font-semibold text-slate-300">
-                            Page {paiements.current_page || 1} sur {paiements.last_page || 1} • {paiements.total || displayedPaiements.length} transaction(s) au total
+                            Page {paiements.current_page || 1} sur {paiements.last_page || 1} • {viewMode === 'operations' ? `${groupedOperations.length} quittance(s) (${displayedPaiements.length} flux ventilés)` : `${displayedPaiements.length} flux au total`}
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Total Encaissé (Sélection) :</span>
@@ -1449,6 +1011,28 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                     <div className="border-b border-dotted border-slate-500 w-3/4 mx-auto"></div>
                 </div>
             </div>
+
+            {/* MODAL PAIEMENT GENERAL / FRAIS ANNEXES */}
+            <Modal show={generalModalOpen} onClose={() => { setGeneralModalOpen(false); setPreselectedInscriptionId(null); }} maxWidth="3xl">
+                <StandardPaymentForm
+                    inscriptions={inscriptions}
+                    fraisTypes={fraisTypes}
+                    preselectedInscriptionId={preselectedInscriptionId}
+                    onClose={() => { setGeneralModalOpen(false); setPreselectedInscriptionId(null); }}
+                />
+            </Modal>
+
+            {/* MODAL ENCAISSER SCOLARITE */}
+            <Modal show={scolariteModalOpen} onClose={() => { setScolariteModalOpen(false); setPreselectedInscriptionId(null); }} maxWidth="4xl">
+                <ScolaritePaymentForm
+                    inscriptions={inscriptions}
+                    classes={classes}
+                    fraisTypes={fraisTypes}
+                    fraisClasses={fraisClasses}
+                    preselectedInscriptionId={preselectedInscriptionId}
+                    onClose={() => { setScolariteModalOpen(false); setPreselectedInscriptionId(null); }}
+                />
+            </Modal>
 
         </DashboardLayout>
     );

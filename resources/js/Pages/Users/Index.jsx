@@ -342,12 +342,13 @@ function UserForm({ user, roles, onClose }) {
   );
 }
 
-export default function Users({ users, roles, filters }) {
+export default function Users({ users, roles, filters, isSuperAdmin }) {
   const { t } = useTranslation();
   const { auth } = usePage().props;
 
   const [search, setSearch] = useState(filters.search || "");
   const [filterRole, setFilterRole] = useState(filters.role || "");
+  const [showSuperAdmin, setShowSuperAdmin] = useState(Boolean(filters.show_superadmin));
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
@@ -364,7 +365,8 @@ export default function Users({ users, roles, filters }) {
         route("users.index"), 
         { 
           search: search || undefined, 
-          role: filterRole || undefined 
+          role: filterRole || undefined,
+          show_superadmin: showSuperAdmin ? '1' : undefined,
         }, 
         { 
           preserveState: true, 
@@ -375,7 +377,7 @@ export default function Users({ users, roles, filters }) {
     }, 350);
 
     return () => clearTimeout(timeout);
-  }, [search, filterRole]);
+  }, [search, filterRole, showSuperAdmin]);
 
   const openCreateModal = () => { 
     setEditingUser(null); 
@@ -390,6 +392,7 @@ export default function Users({ users, roles, filters }) {
   const clearFilters = () => {
     setSearch("");
     setFilterRole("");
+    setShowSuperAdmin(false);
     router.get(route("users.index"), {}, { preserveState: true, replace: true });
   };
 
@@ -410,7 +413,7 @@ export default function Users({ users, roles, filters }) {
     });
   };
 
-  const hasFilters = Boolean(search || filterRole);
+  const hasFilters = Boolean(search || filterRole || showSuperAdmin);
 
   return (
     <DashboardLayout title={t("users_management", "Gestion des Utilisateurs")}>
@@ -486,6 +489,23 @@ export default function Users({ users, roles, filters }) {
             ))}
           </select>
         </div>
+
+        {/* Toggle discret pour super-admins */}
+        {isSuperAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowSuperAdmin(!showSuperAdmin)}
+            className={`flex items-center gap-1.5 px-3.5 py-3 rounded-2xl text-xs font-bold border transition-all ${
+              showSuperAdmin
+                ? "bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700 shadow-sm"
+                : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50"
+            }`}
+            title={showSuperAdmin ? "Masquer les comptes Super-Admin" : "Afficher les comptes Super-Admin"}
+          >
+            {showSuperAdmin ? <Eye className="w-4 h-4 text-purple-600" /> : <EyeOff className="w-4 h-4 text-slate-400" />}
+            <span>{showSuperAdmin ? "Super-Admin visibles" : "Super-Admin masqués"}</span>
+          </button>
+        )}
 
         {hasFilters && (
           <button

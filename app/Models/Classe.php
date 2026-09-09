@@ -21,7 +21,7 @@ class Classe extends Model
 
     protected $fillable = ['nom', 'type'];
 
-    protected $appends = ['mode_paiement_scolarite', 'is_examen', 'montant_tenue'];
+    protected $appends = ['mode_paiement_scolarite', 'is_examen', 'montant_tenue', 'montant_bulletin'];
 
     public function inscriptions()
     {
@@ -92,5 +92,15 @@ class Classe extends Model
     public function getMontantTenueAttribute(): float
     {
         return $this->isSecondaire() ? 15000.00 : 10000.00;
+    }
+
+    /**
+     * Montant du bulletin selon le cycle
+     * Maternelle & Primaire : 1 000 FCFA
+     * Secondaire : 0 FCFA (Gratuit)
+     */
+    public function getMontantBulletinAttribute(): float
+    {
+        return $this->isSecondaire() ? 0.00 : 1000.00;
     }
 }

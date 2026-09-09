@@ -1,14 +1,18 @@
 // resources/js/Pages/Dashboard.jsx
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, GraduationCap, School, Calendar, ArrowUpRight, Clock, User, Mail, Phone, MapPin, Briefcase, BookOpen, Wallet, TrendingUp, TrendingDown } from "lucide-react";
+import { 
+  Users, GraduationCap, School, Calendar, ArrowUpRight, Clock, 
+  User, Mail, Phone, MapPin, Briefcase, BookOpen, Wallet, 
+  TrendingUp, TrendingDown, Coins, UserPlus, Receipt 
+} from "lucide-react";
 import useTranslation from "@/Hooks/useTranslation";
 import { Link } from "@inertiajs/react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useState } from "react";
 
 
-export default function Dashboard({ counts, recentRegistrations, financialStats, financialChart }) {
+export default function Dashboard({ counts, recentRegistrations, financialStats, financialChart, todayStats, currentYear }) {
   const { t } = useTranslation();
 
   // Données réelles venant du contrôleur
@@ -22,39 +26,180 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
   return (
     <DashboardLayout title={t("dashboard")}>
       {/* Bienvenue */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+      <div className="mb-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white mb-0.5">
           {t("dashboard")}
         </h1>
-        <p className="text-slate-500 dark:text-slate-400">
-          Aperçu général de votre établissement pour l'année scolaire en cours.
+        <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">
+          Pilotage général de votre établissement en direct et pour l'année scolaire en cours.
         </p>
       </div>
 
+      {/* ⚡ BANDEAU EXÉCUTIF DU JOUR EN DIRECT (LIVE COCKPIT) */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-5 bg-gradient-to-br from-[#0B1A2D] via-slate-900 to-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-xl shadow-slate-900/25 border border-slate-700/60 relative overflow-hidden text-white"
+      >
+        {/* Glow de fond */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+
+        {/* Mini barre d'action discrète */}
+        <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/[0.08] relative z-10">
+          <div className="inline-flex items-center gap-2 text-xs font-bold text-slate-200">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="tracking-wide">Activité en direct aujourd'hui</span>
+          </div>
+
+          <Link
+            href={route('paiements.index')}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 hover:text-white transition border border-white/10"
+          >
+            <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+            Journal de Caisse &rarr;
+          </Link>
+        </div>
+
+        {/* Cartes métriques du jour */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 relative z-10">
+          {/* 1. Recette du Jour */}
+          {todayStats?.can_see_finances ? (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10 hover:bg-white/[0.09] transition-all group">
+              <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30 shrink-0 group-hover:scale-105 transition-transform">
+                <Coins className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Recette du Jour</p>
+                  <span className="text-[10px] bg-emerald-500/30 text-emerald-300 font-extrabold px-1.5 py-0.5 rounded-md border border-emerald-500/30">
+                    Entrées
+                  </span>
+                </div>
+                <p className="text-lg sm:text-xl font-black text-white mt-0.5 tracking-tight">
+                  {new Intl.NumberFormat('fr-FR').format(todayStats?.recettes || 0)} <span className="text-[11px] font-bold text-emerald-400">FCFA</span>
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-[11px] text-slate-300">
+                  <span className="font-semibold text-emerald-300">{todayStats?.nb_operations || 0} quittance{todayStats?.nb_operations > 1 ? 's' : ''}</span>
+                  {todayStats?.recettes > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="text-slate-400">{new Intl.NumberFormat('fr-FR').format(todayStats?.especes || 0)} F espèces</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10">
+              <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30 shrink-0">
+                <Calendar className="w-4.5 h-4.5" />
+              </div>
+              <div>
+                <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Journée en cours</p>
+                <p className="text-base font-bold text-white mt-0.5">Opérations Ouvertes</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Activités scolaires normales</p>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Inscrits du Jour */}
+          <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10 hover:bg-white/[0.09] transition-all group">
+            <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30 shrink-0 group-hover:scale-105 transition-transform">
+              <UserPlus className="w-4.5 h-4.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Inscrits du Jour</p>
+                <span className="text-[10px] bg-blue-500/30 text-blue-300 font-extrabold px-1.5 py-0.5 rounded-md border border-blue-500/30">
+                  Élèves
+                </span>
+              </div>
+              <p className="text-lg sm:text-xl font-black text-white mt-0.5 tracking-tight">
+                {todayStats?.inscriptions_count || 0} <span className="text-[11px] font-bold text-blue-300">{todayStats?.inscriptions_count > 1 ? 'nouveaux' : 'nouveau'}</span>
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                {todayStats?.inscriptions_count > 0 ? 'Dossier(s) validé(s) aujourd\'hui' : 'Aucune inscription enregistrée'}
+              </p>
+            </div>
+          </div>
+
+          {/* 3. Option A : Net en Caisse (Aujourd'hui) */}
+          {todayStats?.can_see_finances ? (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10 hover:bg-white/[0.09] transition-all group">
+              <div className={`p-2 rounded-lg border shrink-0 group-hover:scale-105 transition-transform ${(todayStats?.solde || 0) >= 0 ? 'bg-teal-500/20 text-teal-400 border-teal-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
+                <Wallet className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Net en Caisse</p>
+                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md border ${(todayStats?.solde || 0) >= 0 ? 'bg-teal-500/30 text-teal-300 border-teal-500/30' : 'bg-rose-500/30 text-rose-300 border-rose-500/30'}`}>
+                    Solde Réel
+                  </span>
+                </div>
+                <p className="text-lg sm:text-xl font-black text-white mt-0.5 tracking-tight">
+                  {(todayStats?.solde || 0) >= 0 ? '+' : ''}
+                  {new Intl.NumberFormat('fr-FR').format(todayStats?.solde || 0)}{' '}
+                  <span className={`text-[11px] font-bold ${(todayStats?.solde || 0) >= 0 ? 'text-teal-400' : 'text-rose-400'}`}>FCFA</span>
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-300 truncate" title={`Recettes: ${new Intl.NumberFormat('fr-FR').format(todayStats?.recettes || 0)} F | Dépenses: ${new Intl.NumberFormat('fr-FR').format(todayStats?.depenses || 0)} F`}>
+                  <span className="text-emerald-300 font-semibold">+{new Intl.NumberFormat('fr-FR').format(todayStats?.recettes || 0)} F</span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-rose-300 font-semibold">-{new Intl.NumberFormat('fr-FR').format(todayStats?.depenses || 0)} F sortis</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10 hover:bg-white/[0.09] transition-all group">
+              <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/30 shrink-0 group-hover:scale-105 transition-transform">
+                <Receipt className="w-4.5 h-4.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Activité Guichet</p>
+                  <span className="text-[10px] bg-amber-500/30 text-amber-300 font-extrabold px-1.5 py-0.5 rounded-md border border-amber-500/30">
+                    Flux
+                  </span>
+                </div>
+                <p className="text-lg sm:text-xl font-black text-white mt-0.5 tracking-tight">
+                  {todayStats?.nb_flux || 0} <span className="text-[11px] font-bold text-amber-300">lignes</span>
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Flux administratifs du jour
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
       {/* Cartes KPI */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-6">
         {stats.map((stat, idx) => (
           <motion.div
             key={idx}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-xl shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 group"
+            className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 hover:shadow-xl transition-all duration-300 group"
           >
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{stat.title}</p>
-                <h3 className="text-3xl font-extrabold text-[#0B1A2D] dark:text-white group-hover:text-green-500 transition-colors">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{stat.title}</p>
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-[#0B1A2D] dark:text-white group-hover:text-green-500 transition-colors">
                   {stat.value}
                 </h3>
               </div>
-              <div className={`p-3.5 rounded-2xl ${stat.bg} ${stat.color} bg-opacity-50 ring-4 ring-white dark:ring-slate-800`}>
+              <div className={`p-2.5 sm:p-3 rounded-xl ${stat.bg} ${stat.color} bg-opacity-50 ring-4 ring-white dark:ring-slate-800`}>
                 {stat.icon}
               </div>
             </div>
           </motion.div>
         ))}
       </div>
+
 
       {/* SECTION FINANCES (Si autorisé) */}
       {financialStats && (

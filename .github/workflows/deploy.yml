@@ -31,7 +31,7 @@ jobs:
       - name: 🟢 Configuration de Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: 🎨 Compilation des assets Vite (CSS & JS)
         run: |
@@ -47,7 +47,8 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT || 21 }}
-          protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
+          security-mode: loose
           server-dir: ${{ secrets.FTP_SERVER_DIR || './' }}
           exclude: |
             **/.git*

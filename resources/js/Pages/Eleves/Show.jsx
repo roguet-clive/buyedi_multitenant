@@ -2,6 +2,9 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head, Link, usePage, useForm, router } from '@inertiajs/react';
 import { useState } from 'react';
 import useTranslation from '@/Hooks/useTranslation';
+import Modal from '@/Components/Modal';
+import ScolaritePaymentForm from '@/Pages/Paiements/Partials/ScolaritePaymentForm';
+import StandardPaymentForm from '@/Pages/Paiements/Partials/StandardPaymentForm';
 import {
   UserIcon, CalendarIcon, MapPinIcon, EnvelopeIcon, ExclamationTriangleIcon, DocumentTextIcon,
   CreditCardIcon, AcademicCapIcon, ArrowLeftIcon, ArrowDownTrayIcon,
@@ -10,15 +13,30 @@ import {
 } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function ShowEleve({ eleve, financeStats, inscriptions, paiements, documents, absences }) {
+export default function ShowEleve({
+  eleve,
+  financeStats,
+  inscriptions,
+  paiements,
+  documents,
+  absences,
+  currentInscriptionData,
+  classes = [],
+  fraisTypes = [],
+  fraisClasses = []
+}) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('infos');
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [scolariteModalOpen, setScolariteModalOpen] = useState(false);
+  const [standardModalOpen, setStandardModalOpen] = useState(false);
   const { auth } = usePage().props;
   const permissions = auth?.permissions || [];
   const roles = auth?.roles || [];
   const can = (permission) => permissions.includes(permission) || roles.includes('super-admin') || roles.includes('directeur');
   const canViewFinances = can('voir_paiements');
+
+  const inscriptionsForForm = currentInscriptionData ? [currentInscriptionData] : [];
 
   // Formulaire d'upload de pièces justificatives
   const { data, setData, post, processing, errors, reset } = useForm({
@@ -382,13 +400,31 @@ export default function ShowEleve({ eleve, financeStats, inscriptions, paiements
                         </div>
                       </div>
 
-                      <Link
-                        href={route('paiements.index', { search: eleve.matricule })}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold text-xs shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition active:scale-95 shrink-0"
-                      >
-                        <CreditCardIcon className="w-4 h-4 text-emerald-600" />
-                        Encaisser au Guichet
-                      </Link>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setScolariteModalOpen(true)}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-500/20 transition active:scale-95 shrink-0"
+                        >
+                          <CreditCardIcon className="w-4 h-4" />
+                          Encaisser la Scolarité
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStandardModalOpen(true)}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold text-xs shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition active:scale-95 shrink-0"
+                        >
+                          <FolderIcon className="w-4 h-4 text-blue-500" />
+                          Autre Règlement
+                        </button>
+                        <Link
+                          href={route('paiements.index', { search: eleve.matricule })}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs transition active:scale-95 shrink-0"
+                          title="Ouvrir dans le journal général"
+                        >
+                          Journal Caisse
+                        </Link>
+                      </div>
                     </div>
                   )}
 
@@ -448,15 +484,29 @@ export default function ShowEleve({ eleve, financeStats, inscriptions, paiements
                           <p className="text-[11px] text-rose-600/80 mt-1 font-medium">Solde pour achever l'année</p>
                         </div>
 
-                        <div className="p-5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40">
-                          <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-700 dark:text-blue-400 block mb-1">
-                            4. Mensualité de Référence
-                          </span>
-                          <div className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono">
-                            {financeStats.montant_mensuel.toLocaleString('fr-FR')} <span className="text-xs font-bold text-blue-700/60">FCFA</span>
+                        {financeStats.is_secondaire ? (
+                          <div className="p-5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40">
+                            <span className="text-[11px] font-extrabold uppercase tracking-wider text-purple-700 dark:text-purple-400 block mb-1">
+                              4. Modalité de Règlement
+                            </span>
+                            <div className="text-xl font-black text-purple-600 dark:text-purple-400">
+                              3 Tranches Trimestrielles
+                            </div>
+                            <p className="text-[11px] text-purple-600/80 mt-1 font-medium">
+                              T1: 70 000 F • T2 & T3: {financeStats.is_examen ? '37 500 F' : '32 500 F'}
+                            </p>
                           </div>
-                          <p className="text-[11px] text-blue-600/80 mt-1 font-medium">Sur 10 mois scolaires</p>
-                        </div>
+                        ) : (
+                          <div className="p-5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40">
+                            <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-700 dark:text-blue-400 block mb-1">
+                              4. Mensualité de Référence
+                            </span>
+                            <div className="text-2xl font-black text-blue-600 dark:text-blue-400 font-mono">
+                              {financeStats.montant_mensuel.toLocaleString('fr-FR')} <span className="text-xs font-bold text-blue-700/60">FCFA</span>
+                            </div>
+                            <p className="text-[11px] text-blue-600/80 mt-1 font-medium">Sur 9 mois scolaires (Septembre à Mai)</p>
+                          </div>
+                        )}
                       </div>
 
                       {/* JAUGE DE PROGRESSION VISUELLE */}
@@ -479,17 +529,109 @@ export default function ShowEleve({ eleve, financeStats, inscriptions, paiements
                     </div>
                   )}
 
-                  {/* 3. CALENDRIER / DÉCOMPOSITION DES 10 MOIS SCOLAIRES */}
-                  {financeStats && financeStats.mois_details && (
+                  {/* 3. CALENDRIER / ÉCHÉANCIER HARMONISÉ SELON LE CYCLE */}
+                  {financeStats && financeStats.is_secondaire && financeStats.tranches_details && financeStats.tranches_details.length > 0 && (
+                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-100 dark:border-slate-700/50 space-y-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            <CalendarIcon className="w-5 h-5 text-purple-500" />
+                            Échéancier des 3 Tranches Trimestrielles (Secondaire)
+                          </h3>
+                          <p className="text-xs text-slate-400 font-medium mt-0.5">
+                            Barème officiel secondaire • Cliquez sur une tranche impayée pour l'encaisser
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-bold">
+                          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Réglé
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 rounded-lg border border-rose-200 dark:border-rose-800">
+                            <span className="w-2 h-2 rounded-full bg-rose-500"></span> En retard
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-600">
+                            <span className="w-2 h-2 rounded-full bg-slate-400"></span> À échoir
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {financeStats.tranches_details.map((tr) => {
+                          const isPaid = tr.statut === 'paye';
+                          const isLate = tr.statut === 'en_retard';
+
+                          return (
+                            <div
+                              key={tr.nom}
+                              onClick={() => !isPaid && setScolariteModalOpen(true)}
+                              className={`p-5 rounded-2xl border flex flex-col justify-between gap-3 transition-all relative ${
+                                !isPaid ? 'cursor-pointer hover:shadow-md hover:border-purple-400 hover:scale-[1.01]' : ''
+                              } ${
+                                isPaid
+                                  ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100"
+                                  : isLate
+                                  ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100 ring-2 ring-rose-400/20"
+                                  : "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="text-xs font-black uppercase tracking-wider block">{tr.nom}</span>
+                                  <span className="text-[10px] text-slate-500 font-medium">Échéance : {tr.date_limite}</span>
+                                </div>
+                                {isPaid ? (
+                                  <span className="p-1.5 rounded-lg bg-emerald-500 text-white">
+                                    <CheckCircleIcon className="w-4 h-4" />
+                                  </span>
+                                ) : isLate ? (
+                                  <span className="p-1.5 rounded-lg bg-rose-500 text-white">
+                                    <ExclamationTriangleIcon className="w-4 h-4" />
+                                  </span>
+                                ) : (
+                                  <span className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-400">
+                                    <ClockIcon className="w-4 h-4" />
+                                  </span>
+                                )}
+                              </div>
+
+                              <div>
+                                <div className="text-xl font-black font-mono">
+                                  {tr.montant.toLocaleString('fr-FR')} <span className="text-xs font-bold opacity-75">FCFA</span>
+                                </div>
+                                <div className="text-[10px] font-extrabold uppercase mt-1">
+                                  {isPaid ? (
+                                    <span className="text-emerald-700 dark:text-emerald-400">
+                                      Réglé {tr.info_reglement?.date ? `le ${tr.info_reglement.date}` : ''}
+                                    </span>
+                                  ) : isLate ? (
+                                    <span className="text-rose-600 dark:text-rose-400 font-black">
+                                      🚨 Échéance Dépassée — Encaisser
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-500">
+                                      À échoir — Encaisser
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ÉCHÉANCIER 9 MOIS (MATERNELLE & PRIMAIRE) */}
+                  {financeStats && !financeStats.is_secondaire && financeStats.mois_details && (
                     <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-100 dark:border-slate-700/50 space-y-5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
                           <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                             <CalendarIcon className="w-5 h-5 text-emerald-500" />
-                            Échéancier Mensuel des Cotisations
+                            Échéancier Mensuel des Cotisations (Maternelle & Primaire)
                           </h3>
                           <p className="text-xs text-slate-400 font-medium mt-0.5">
-                            Suivi détaillé mois par mois de Septembre à Juin
+                            Suivi détaillé des 9 mensualités de Septembre à Mai • Cliquez sur un mois pour l'encaisser
                           </p>
                         </div>
                         <div className="flex items-center gap-2 text-xs font-bold">
@@ -513,7 +655,10 @@ export default function ShowEleve({ eleve, financeStats, inscriptions, paiements
                           return (
                             <div
                               key={m.mois}
+                              onClick={() => !isPaid && setScolariteModalOpen(true)}
                               className={`p-4 rounded-2xl border flex flex-col justify-between gap-3 transition-all relative ${
+                                !isPaid ? 'cursor-pointer hover:shadow-md hover:border-emerald-400 hover:scale-[1.02]' : ''
+                              } ${
                                 isPaid
                                   ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100"
                                   : isLate
@@ -1040,6 +1185,29 @@ export default function ShowEleve({ eleve, financeStats, inscriptions, paiements
           </AnimatePresence>
         </div>
       </div>
+
+      {/* MODAL ENCAISSER LA SCOLARITÉ (DIRECTEMENT DEPUIS LA FICHE ÉLÈVE) */}
+      <Modal show={scolariteModalOpen} onClose={() => setScolariteModalOpen(false)} maxWidth="4xl">
+        <ScolaritePaymentForm
+          inscriptions={inscriptionsForForm}
+          classes={classes}
+          fraisTypes={fraisTypes}
+          fraisClasses={fraisClasses}
+          preselectedInscriptionId={eleve.inscription_en_cours_id}
+          onClose={() => setScolariteModalOpen(false)}
+        />
+      </Modal>
+
+      {/* MODAL AUTRES RÈGLEMENTS / FRAIS ANNEXES */}
+      <Modal show={standardModalOpen} onClose={() => setStandardModalOpen(false)} maxWidth="3xl">
+        <StandardPaymentForm
+          inscriptions={inscriptionsForForm}
+          fraisTypes={fraisTypes}
+          preselectedInscriptionId={eleve.inscription_en_cours_id}
+          onClose={() => setStandardModalOpen(false)}
+        />
+      </Modal>
+
     </DashboardLayout>
   );
 }

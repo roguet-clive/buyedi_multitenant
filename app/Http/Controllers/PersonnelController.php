@@ -66,8 +66,8 @@ class PersonnelController extends Controller
             'sexe' => 'required|in:M,F',
             'date_embauche' => 'nullable|date',
             'date_naissance' => 'nullable|date',
-            'salaire_base' => 'required|numeric|min:0',
-            'type_contrat' => 'required|string|in:CDI,CDD,Vacataire,Stage',
+            'salaire_base' => 'nullable|numeric|min:0',
+            'type_contrat' => 'nullable|string|in:CDI,CDD,Vacataire,Stage',
         ]);
 
         DB::transaction(function () use ($validated) {
@@ -79,6 +79,7 @@ class PersonnelController extends Controller
                 'nom' => $validated['nom'],
                 'prenom' => $validated['prenom'],
                 'email' => $validated['email'],
+                'telephone' => $validated['telephone'] ?? null,
                 'password' => Hash::make($plainPassword),
             ]);
 
@@ -98,8 +99,8 @@ class PersonnelController extends Controller
             // 3. Création du Contrat
             Contrat::create([
                 'user_id' => $user->id,
-                'type' => $validated['type_contrat'],
-                'salaire_base' => $validated['salaire_base'],
+                'type' => $validated['type_contrat'] ?? 'CDI',
+                'salaire_base' => $validated['salaire_base'] ?? 0,
                 'date_debut' => $validated['date_embauche'] ?? now(),
                 'actif' => true,
             ]);

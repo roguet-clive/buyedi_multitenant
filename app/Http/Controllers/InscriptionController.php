@@ -312,6 +312,8 @@ class InscriptionController extends Controller
             // Enregistrement des Paiements
             $totalPaye = 0;
             $fraisInput = $request->input('frais', []);
+            $classe = Classe::find($validated['classe_id']);
+            $isSecondaire = $classe && $classe->isSecondaire();
 
             foreach ($fraisInput as $fraisTypeId => $data) {
                 // Exclusion mutuelle absolue : l'un ou l'autre, pas les deux
@@ -319,14 +321,22 @@ class InscriptionController extends Controller
                     continue;
                 }
 
+                $fraisType = FraisType::find($fraisTypeId);
+                $isBulletin = $fraisType && ($fraisType->code === 'bulletin' || stripos($fraisType->nom, 'bulletin') !== false);
+
+                // Au secondaire, le bulletin est gratuit (0 FCFA - aucun paiement exigible)
+                if ($isBulletin && $isSecondaire) {
+                    continue;
+                }
+
                 // Check if this fee was selected for payment
                 if (!empty($data['selected']) && $data['selected'] == true) {
                     $montant = (isset($data['montant']) && $data['montant'] !== '') ? (float) $data['montant'] : null;
                     if ($montant === null || $montant <= 0) {
-                        $fraisType = FraisType::find($fraisTypeId);
                         if ($fraisType && $fraisType->code === 'tenue') {
-                            $classe = Classe::find($validated['classe_id']);
                             $montant = $classe ? (float) $classe->montant_tenue : 10000.0;
+                        } elseif ($isBulletin) {
+                            $montant = $classe ? (float) $classe->montant_bulletin : (float) ($fraisType?->montant ?? 1000.0);
                         } else {
                             $montant = (float) ($fraisType?->montant ?? 0);
                         }
@@ -340,6 +350,7 @@ class InscriptionController extends Controller
                             'montant' => $montant,
                             'date_paiement' => $validated['date_inscription'] ?? now(),
                             'mode_paiement' => 'especes',
+                            'reference_recu' => $inscription->numero_recu,
                         ]);
                         $totalPaye += $montant;
                     }
@@ -476,18 +487,29 @@ class InscriptionController extends Controller
                     ? ($fraisInscription?->id) 
                     : ($fraisReinscription?->id);
 
+                $classe = Classe::find($validated['classe_id']);
+                $isSecondaire = $classe && $classe->isSecondaire();
+
                 foreach ($fraisInput as $fraisTypeId => $data) {
                     if ($typeAExclureId && (int)$fraisTypeId === (int)$typeAExclureId) {
+                        continue;
+                    }
+
+                    $fraisType = FraisType::find($fraisTypeId);
+                    $isBulletin = $fraisType && ($fraisType->code === 'bulletin' || stripos($fraisType->nom, 'bulletin') !== false);
+
+                    // Au secondaire, le bulletin est gratuit (0 FCFA - aucun paiement exigible)
+                    if ($isBulletin && $isSecondaire) {
                         continue;
                     }
 
                     if (!empty($data['selected']) && $data['selected'] == true) {
                         $montant = (isset($data['montant']) && $data['montant'] !== '') ? (float) $data['montant'] : null;
                         if ($montant === null || $montant <= 0) {
-                            $fraisType = FraisType::find($fraisTypeId);
                             if ($fraisType && $fraisType->code === 'tenue') {
-                                $classe = Classe::find($validated['classe_id']);
                                 $montant = $classe ? (float) $classe->montant_tenue : 10000.0;
+                            } elseif ($isBulletin) {
+                                $montant = $classe ? (float) $classe->montant_bulletin : (float) ($fraisType?->montant ?? 1000.0);
                             } else {
                                 $montant = (float) ($fraisType?->montant ?? 0);
                             }
@@ -505,6 +527,7 @@ class InscriptionController extends Controller
                                 'montant' => $montant,
                                 'date_paiement' => $validated['date_inscription'] ?? now(),
                                 'mode_paiement' => 'especes',
+                                'reference_recu' => $inscription->numero_recu,
                             ]);
                             $totalAjoute += $montant;
                         }

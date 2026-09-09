@@ -2,11 +2,27 @@ import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head, router, Link } from '@inertiajs/react';
 import useTranslation from "@/Hooks/useTranslation";
 import { useState, useEffect } from 'react';
-import { ScrollText, Search, Filter, User, Clock, CheckCircle2, PenLine, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+    ScrollText, Search, Filter, User, Clock, CheckCircle2, 
+    PenLine, Trash2, Plus, ChevronLeft, ChevronRight,
+    LogIn, LogOut, ShieldAlert, KeyRound, Globe, ShieldCheck 
+} from 'lucide-react';
 
 // Config des badges par type d'action
 const getActionConfig = (description) => {
     const d = (description || '').toLowerCase();
+    if (d.includes('connexion réussie') || d.includes('login')) {
+        return { label: 'Connexion', icon: LogIn, color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800', dot: 'bg-emerald-500' };
+    }
+    if (d.includes('déconnexion') || d.includes('logout')) {
+        return { label: 'Déconnexion', icon: LogOut, color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700', dot: 'bg-slate-500' };
+    }
+    if (d.includes('échec') || d.includes('echec') || d.includes('failed')) {
+        return { label: 'Échec Connexion', icon: ShieldAlert, color: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800', dot: 'bg-rose-500' };
+    }
+    if (d.includes('mot de passe') || d.includes('password')) {
+        return { label: 'Sécurité MDP', icon: KeyRound, color: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800', dot: 'bg-amber-500' };
+    }
     if (d.includes('created') || d.includes('créé') || d.includes('ajout')) {
         return { label: 'Création', icon: Plus, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400', dot: 'bg-emerald-500' };
     }
@@ -32,15 +48,16 @@ export default function Index({ logs, filters, users }) {
     const [search, setSearch] = useState(filters.search || '');
     const [date, setDate] = useState(filters.date || '');
     const [causer, setCauser] = useState(filters.causer_id || '');
+    const [categorie, setCategorie] = useState(filters.categorie || '');
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            router.get(route('logs.index'), { search, date, causer_id: causer }, {
+            router.get(route('logs.index'), { search, date, causer_id: causer, categorie }, {
                 preserveState: true, preserveScroll: true, replace: true
             });
         }, 500);
         return () => clearTimeout(timer);
-    }, [search, date, causer]);
+    }, [search, date, causer, categorie]);
 
     const formatDate = (d) => {
         if (!d) return '-';
@@ -69,13 +86,13 @@ export default function Index({ logs, filters, users }) {
                         <div>
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-slate-200 text-sm font-medium mb-3 border border-white/10">
                                 <Clock className="w-4 h-4" />
-                                <span>{t("audit_trail", "Piste d'Audit")}</span>
+                                <span>{t("audit_trail", "Piste d'Audit & Sécurité")}</span>
                             </div>
                             <h1 className="text-3xl md:text-4xl font-black mb-2 tracking-tight">
                                 {t("journal_title", "Journal d'Activité")}
                             </h1>
                             <p className="text-slate-300 text-base max-w-xl font-light">
-                                {t("journal_desc", "Consultez l'historique complet des actions effectuées dans le système : créations, modifications, suppressions et plus encore.")}
+                                {t("journal_desc", "Consultez l'historique complet des actions : connexions, déconnexions, alertes de sécurité, créations, modifications et suppressions.")}
                             </p>
                         </div>
                     </div>
@@ -93,8 +110,18 @@ export default function Index({ logs, filters, users }) {
                 <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                        placeholder={t("search_log", "Rechercher dans le journal...")}
+                        placeholder={t("search_log", "Rechercher une action, adresse IP, email...")}
                         className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-all" />
+                </div>
+
+                <div className="relative">
+                    <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    <select value={categorie} onChange={(e) => setCategorie(e.target.value)}
+                        className="pl-12 pr-8 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 shadow-sm appearance-none cursor-pointer min-w-[190px]">
+                        <option value="">Toutes les catégories</option>
+                        <option value="auth">🔐 Connexions & Sécurité</option>
+                        <option value="data">📦 Données & Métiers</option>
+                    </select>
                 </div>
 
                 <div className="relative">
@@ -114,8 +141,8 @@ export default function Index({ logs, filters, users }) {
                     </select>
                 </div>
 
-                {(search || date || causer) && (
-                    <button onClick={() => { setSearch(''); setDate(''); setCauser(''); }}
+                {(search || date || causer || categorie) && (
+                    <button onClick={() => { setSearch(''); setDate(''); setCauser(''); setCategorie(''); }}
                         className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-2xl text-sm font-semibold hover:bg-red-100 transition-colors whitespace-nowrap">
                         ✕ Réinitialiser
                     </button>
@@ -131,7 +158,7 @@ export default function Index({ logs, filters, users }) {
                                 <th className="py-5 px-6 font-semibold text-sm tracking-wide uppercase rounded-tl-3xl">Horodatage</th>
                                 <th className="py-5 px-6 font-semibold text-sm tracking-wide uppercase">Utilisateur</th>
                                 <th className="py-5 px-6 font-semibold text-sm tracking-wide uppercase">Action</th>
-                                <th className="py-5 px-6 font-semibold text-sm tracking-wide uppercase">Entité</th>
+                                <th className="py-5 px-6 font-semibold text-sm tracking-wide uppercase">Entité / Domaine</th>
                                 <th className="py-5 px-6 font-semibold text-sm tracking-wide uppercase rounded-tr-3xl">Détails</th>
                             </tr>
                         </thead>
@@ -141,10 +168,12 @@ export default function Index({ logs, filters, users }) {
                                     const actionCfg = getActionConfig(log.description);
                                     const ActionIcon = actionCfg.icon;
                                     const modelName = getModelName(log.subject_type);
-                                    const causerName = log.causer ? `${log.causer.prenom || ''} ${log.causer.nom || ''}`.trim() : 'Système';
+                                    const isAuth = log.log_name === 'authentification';
+                                    const isSecurite = log.log_name === 'securite';
+                                    const causerName = log.causer 
+                                        ? `${log.causer.prenom || ''} ${log.causer.nom || ''}`.trim() 
+                                        : (isSecurite ? 'Visiteur / Anonyme' : 'Système');
                                     const props = log.properties ?? {};
-                                    const propKeys = Object.keys(props).filter(k => k !== 'attributes' && k !== 'old');
-                                    const attributes = props.attributes || props;
 
                                     return (
                                         <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors align-top">
@@ -161,11 +190,16 @@ export default function Index({ logs, filters, users }) {
                                                             {(log.causer.prenom?.charAt(0) || '?').toUpperCase()}
                                                         </div>
                                                     ) : (
-                                                        <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center shrink-0">
-                                                            <User className="w-4 h-4 text-slate-400" />
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSecurite ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-600' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
+                                                            {isSecurite ? <ShieldAlert className="w-4 h-4" /> : <User className="w-4 h-4" />}
                                                         </div>
                                                     )}
-                                                    <span className="text-sm font-semibold text-slate-800 dark:text-white">{causerName}</span>
+                                                    <div>
+                                                        <span className="text-sm font-semibold text-slate-800 dark:text-white block">{causerName}</span>
+                                                        {log.causer?.email && (
+                                                            <span className="text-[11px] text-slate-400 font-mono block">{log.causer.email}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="py-4 px-6">
@@ -176,7 +210,15 @@ export default function Index({ logs, filters, users }) {
                                                 </span>
                                             </td>
                                             <td className="py-4 px-6">
-                                                {modelName ? (
+                                                {isAuth ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-semibold">
+                                                        🛡️ Session Auth
+                                                    </span>
+                                                ) : isSecurite ? (
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-semibold">
+                                                        🚨 Sécurité
+                                                    </span>
+                                                ) : modelName ? (
                                                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-mono font-semibold text-slate-600 dark:text-slate-400">
                                                         {modelName}
                                                         {log.subject_id && <span className="text-slate-400">#{log.subject_id}</span>}
@@ -185,13 +227,33 @@ export default function Index({ logs, filters, users }) {
                                                     <span className="text-slate-400 text-xs">—</span>
                                                 )}
                                             </td>
-                                            <td className="py-4 px-6 max-w-xs">
-                                                <div className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate max-w-[200px]" title={JSON.stringify(log.properties, null, 2)}>
-                                                    {typeof log.properties === 'object' && Object.keys(log.properties || {}).length > 0
-                                                        ? JSON.stringify(log.properties).substring(0, 80) + (JSON.stringify(log.properties).length > 80 ? '...' : '')
-                                                        : <span className="italic text-slate-300 dark:text-slate-600">—</span>
-                                                    }
-                                                </div>
+                                            <td className="py-4 px-6 max-w-sm">
+                                                {props.ip || props.email_tente || props.navigateur ? (
+                                                    <div className="flex flex-col gap-1 text-xs">
+                                                        {props.ip && (
+                                                            <span className="inline-flex items-center gap-1.5 font-mono text-slate-700 dark:text-slate-300 font-semibold">
+                                                                <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                                                IP: {props.ip}
+                                                            </span>
+                                                        )}
+                                                        {props.email_tente && (
+                                                            <span className="text-[11px] font-mono text-rose-600 dark:text-rose-400 font-semibold bg-rose-50 dark:bg-rose-950/30 px-2 py-0.5 rounded border border-rose-200/60 w-fit">
+                                                                Tentative : {props.email_tente}
+                                                            </span>
+                                                        )}
+                                                        {props.navigateur && (
+                                                            <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[240px] block" title={props.navigateur}>
+                                                                {props.navigateur}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : typeof log.properties === 'object' && Object.keys(log.properties || {}).length > 0 ? (
+                                                    <div className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate max-w-[220px]" title={JSON.stringify(log.properties, null, 2)}>
+                                                        {JSON.stringify(log.properties).substring(0, 80) + (JSON.stringify(log.properties).length > 80 ? '...' : '')}
+                                                    </div>
+                                                ) : (
+                                                    <span className="italic text-slate-300 dark:text-slate-600 text-xs">—</span>
+                                                )}
                                             </td>
                                         </tr>
                                     );

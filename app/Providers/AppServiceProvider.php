@@ -25,5 +25,8 @@ class AppServiceProvider extends ServiceProvider
         Inertia::share([
             'locale' => fn () => app()->getLocale(),
         ]);
+
+        // 📜 Traçabilité et Audit Sécurité : Connexions, Déconnexions & Échecs
+        \Illuminate\Support\Facades\Event::subscribe(\App\Listeners\AuthenticationLogSubscriber::class);
     }
 }

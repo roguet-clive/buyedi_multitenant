@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { User, Lock, Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
 import InputError from '@/Components/InputError';
@@ -7,6 +7,7 @@ import useTranslation from '@/Hooks/useTranslation';
 
 export default function ResetPassword({ token, email: initialEmail }) {
   const { t } = useTranslation();
+  const { etablissement } = usePage().props;
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
 
@@ -92,17 +93,23 @@ export default function ResetPassword({ token, email: initialEmail }) {
             <div className="flex justify-center mb-3">
               <div className="flex flex-col items-center justify-center w-20 h-20 rounded-2xl border-2 border-green-500/80 p-2 shadow-sm bg-white overflow-hidden">
                 <img
-                  src="/images/logo.png"
-                  alt="Logo Buyedi"
+                  src={etablissement?.logo ? `/storage/${etablissement.logo}` : '/images/logo.png'}
+                  alt={etablissement?.nom || "Logo Établissement"}
                   className="w-full h-full object-contain"
                   onError={(e) => {
-                    e.target.style.display = 'none';
-                    if (e.target.nextSibling) {
-                      e.target.nextSibling.style.display = 'flex';
+                    if (e.target.src.includes('/storage/')) {
+                      e.target.src = '/images/logo.png';
+                    } else {
+                      e.target.style.display = 'none';
+                      if (e.target.nextSibling) {
+                        e.target.nextSibling.style.display = 'flex';
+                      }
                     }
                   }}
                 />
-                <span className="text-sm font-extrabold text-blue-900 hidden text-center leading-tight">VOTRE<br />LOGO</span>
+                <span className="text-xs font-extrabold text-blue-900 hidden text-center leading-tight">
+                  {etablissement?.sigle || 'LOGO'}
+                </span>
               </div>
             </div>
 
@@ -111,7 +118,7 @@ export default function ResetPassword({ token, email: initialEmail }) {
               {t('reset_password_title', 'Nouveau mot de passe')}
             </h2>
             <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 text-center uppercase tracking-wider mb-5">
-              Réinitialisation
+              {etablissement?.nom || 'Réinitialisation'}
             </p>
 
             <form onSubmit={submit} className="space-y-3.5">

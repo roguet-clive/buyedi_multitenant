@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { User, ArrowLeft, Send, ShieldCheck, MailCheck } from 'lucide-react';
 import InputError from '@/Components/InputError';
@@ -6,6 +6,7 @@ import useTranslation from '@/Hooks/useTranslation';
 
 export default function ForgotPassword({ status }) {
   const { t } = useTranslation();
+  const { etablissement } = usePage().props;
 
   const { data, setData, post, processing, errors } = useForm({
     email: '',
@@ -80,17 +81,23 @@ export default function ForgotPassword({ status }) {
             <div className="flex justify-center mb-3">
               <div className="flex flex-col items-center justify-center w-20 h-20 rounded-2xl border-2 border-green-500/80 p-2 shadow-sm bg-white overflow-hidden">
                 <img
-                  src="/images/logo.png"
-                  alt="Logo Buyedi"
+                  src={etablissement?.logo ? `/storage/${etablissement.logo}` : '/images/logo.png'}
+                  alt={etablissement?.nom || "Logo Établissement"}
                   className="w-full h-full object-contain"
                   onError={(e) => {
-                    e.target.style.display = 'none';
-                    if (e.target.nextSibling) {
-                      e.target.nextSibling.style.display = 'flex';
+                    if (e.target.src.includes('/storage/')) {
+                      e.target.src = '/images/logo.png';
+                    } else {
+                      e.target.style.display = 'none';
+                      if (e.target.nextSibling) {
+                        e.target.nextSibling.style.display = 'flex';
+                      }
                     }
                   }}
                 />
-                <span className="text-sm font-extrabold text-blue-900 hidden text-center leading-tight">VOTRE<br />LOGO</span>
+                <span className="text-xs font-extrabold text-blue-900 hidden text-center leading-tight">
+                  {etablissement?.sigle || 'LOGO'}
+                </span>
               </div>
             </div>
 
@@ -98,6 +105,11 @@ export default function ForgotPassword({ status }) {
             <h2 className="text-xl font-bold text-center text-blue-950 dark:text-white mb-1">
               {t('forgot_password_title', 'Mot de passe oublié')}
             </h2>
+            {etablissement?.nom && (
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 text-center uppercase tracking-wider mb-2">
+                {etablissement.nom}
+              </p>
+            )}
 
             <p className="text-slate-500 dark:text-slate-400 text-xs text-center mb-5 px-2 leading-relaxed">
               Saisissez votre adresse email pour recevoir un lien de réinitialisation sécurisé.

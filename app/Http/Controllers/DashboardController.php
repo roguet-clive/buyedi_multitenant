@@ -365,6 +365,50 @@ class DashboardController extends Controller
                 ];
             });
 
+        // ⚡ 6. ACTIVITÉ & ENCAISSEMENTS EN DIRECT DU JOUR (LIVE TODAY)
+        $todayStr = now()->toDateString();
+        $inscriptionsJour = $anneeId 
+            ? Inscription::where('annee_scolaire_id', $anneeId)->whereDate('created_at', $todayStr)->count() 
+            : 0;
+
+        $recettesJour = 0;
+        $depensesJour = 0;
+        $nbPaiementsJour = 0;
+        $nbOperationsJour = 0;
+        $especesJour = 0;
+        $mobileJour = 0;
+        $banqueJour = 0;
+
+        if ($canSeeFinances) {
+            $recettesJour = (float) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->sum('montant');
+            $depensesJour = (float) \App\Models\Depense::whereDate('date_depense', $todayStr)->sum('montant');
+            $nbPaiementsJour = (int) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->count();
+            $nbOperationsJour = (int) \App\Models\Paiement::whereDate('date_paiement', $todayStr)
+                ->distinct('reference_recu')
+                ->count('reference_recu');
+            if ($nbOperationsJour === 0 && $nbPaiementsJour > 0) {
+                $nbOperationsJour = $nbPaiementsJour;
+            }
+
+            $especesJour = (float) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->where('mode_paiement', 'especes')->sum('montant');
+            $mobileJour = (float) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->where('mode_paiement', 'mobile')->sum('montant');
+            $banqueJour = (float) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->whereIn('mode_paiement', ['virement', 'cheque'])->sum('montant');
+        }
+
+        $todayStats = [
+            'date_complete' => ucfirst(now()->locale('fr')->isoFormat('dddd D MMMM YYYY')),
+            'inscriptions_count' => $inscriptionsJour,
+            'recettes' => $recettesJour,
+            'depenses' => $depensesJour,
+            'solde' => $recettesJour - $depensesJour,
+            'nb_operations' => $nbOperationsJour,
+            'nb_flux' => $nbPaiementsJour,
+            'especes' => $especesJour,
+            'mobile' => $mobileJour,
+            'banque' => $banqueJour,
+            'can_see_finances' => $canSeeFinances,
+        ];
+
         return Inertia::render('Dashboard', [
             'counts' => [
                 'students' => $totalEleves,
@@ -378,6 +422,7 @@ class DashboardController extends Controller
             'currentYear' => $currentYear,
             'financialStats' => $financialStats,
             'financialChart' => $financialChart,
+            'todayStats' => $todayStats,
         ]);
     }
 }

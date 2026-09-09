@@ -26,8 +26,15 @@ class UserController extends Controller
     {
         $search = trim((string) $request->input('search', ''));
         $role = trim((string) $request->input('role', ''));
+        $showSuperAdmin = $request->boolean('show_superadmin', false);
+
+        // Seul un super-admin a le droit d'afficher les comptes super-admin
+        $canShowSuperAdmin = auth()->user()?->hasRole('super-admin') && $showSuperAdmin;
 
         $users = User::with('roles')
+            ->when(!$canShowSuperAdmin, function ($query) {
+                $query->whereDoesntHave('roles', fn($q) => $q->where('name', 'super-admin'));
+            })
             ->when(!empty($search), function ($query) use ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nom', 'like', "%{$search}%")
@@ -43,8 +50,13 @@ class UserController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        // Transformer les rôles en tableau simple pour React
-        $roles = Role::all()->map(fn($r) => [
+        // Transformer les rôles en tableau simple pour React (exclure super-admin du filtre si masqué)
+        $rolesQuery = Role::query();
+        if (!$canShowSuperAdmin) {
+            $rolesQuery->where('name', '!=', 'super-admin');
+        }
+
+        $roles = $rolesQuery->get()->map(fn($r) => [
             'id' => $r->id,
             'name' => $r->name,
         ])->toArray();
@@ -60,9 +72,11 @@ class UserController extends Controller
         return Inertia::render('Users/Index', [
             'users' => $users,
             'roles' => $roles,
+            'isSuperAdmin' => (bool) (auth()->user()?->hasRole('super-admin')),
             'filters' => [
                 'search' => $search,
                 'role' => $role,
+                'show_superadmin' => $canShowSuperAdmin,
             ],
             'flash' => [
                 'success' => session('success'),
@@ -93,8 +107,13 @@ class UserController extends Controller
             'password' => Hash::make($plainPassword),
         ]);
 
-        if (!empty($validated['roles'])) {
-            $user->syncRoles($validated['roles']);
+        $rolesToAssign = $validated['roles'] ?? [];
+        if (!auth()->user()?->hasRole('super-admin')) {
+            $rolesToAssign = array_values(array_filter($rolesToAssign, fn($r) => $r !== 'super-admin'));
+        }
+
+        if (!empty($rolesToAssign)) {
+            $user->syncRoles($rolesToAssign);
         }
 
         // Envoyer l'email avec mot de passe généré/défini
@@ -136,6 +155,9 @@ class UserController extends Controller
 
         // Protection: ne pas retirer le rôle super-admin au dernier super-admin
         $newRoles = $validated['roles'] ?? [];
+        if (!auth()->user()?->hasRole('super-admin')) {
+            $newRoles = array_values(array_filter($newRoles, fn($r) => $r !== 'super-admin'));
+        }
         if ($user->hasRole('super-admin') && !in_array('super-admin', $newRoles) && User::role('super-admin')->count() <= 1) {
             $newRoles[] = 'super-admin';
         }
@@ -153,8 +175,8 @@ class UserController extends Controller
             return back()->with('error', __('Vous ne pouvez pas supprimer votre propre compte.'));
         }
 
-        if ($user->hasRole('super-admin') && User::role('super-admin')->count() <= 1) {
-            return back()->with('error', __('Impossible de supprimer le dernier compte Super Administrateur.'));
+        if ($user->hasRole('super-admin')) {
+            return back()->with('error', __('Le compte Super Administrateur ne peut pas être supprimé.'));
         }
 
         try {

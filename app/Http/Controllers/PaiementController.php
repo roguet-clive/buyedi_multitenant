@@ -65,7 +65,7 @@ class PaiementController extends Controller
         return Inertia::render('Paiements/Recu', [
             'paiement' => [
                 'id' => $paiement->id,
-                'numero_recu' => 'REC-' . str_pad($paiement->id, 6, '0', STR_PAD_LEFT),
+                'numero_recu' => $paiement->reference_recu ?: ('REC-' . str_pad($paiement->id, 6, '0', STR_PAD_LEFT)),
                 'montant' => (float) $paiement->montant,
                 'date_paiement' => $paiement->date_paiement ? \Carbon\Carbon::parse($paiement->date_paiement)->format('d/m/Y') : now()->format('d/m/Y'),
                 'created_at' => $paiement->created_at ? $paiement->created_at->format('d/m/Y H:i') : now()->format('d/m/Y H:i'),
@@ -223,7 +223,8 @@ class PaiementController extends Controller
             COALESCE(SUM(CASE WHEN mode_paiement = "especes" THEN montant ELSE 0 END), 0) as total_especes,
             COALESCE(SUM(CASE WHEN mode_paiement = "mobile" THEN montant ELSE 0 END), 0) as total_mobile,
             COALESCE(SUM(CASE WHEN mode_paiement IN ("virement", "cheque") THEN montant ELSE 0 END), 0) as total_banque,
-            COUNT(*) as nb_transactions
+            COUNT(*) as nb_flux,
+            COUNT(DISTINCT COALESCE(reference_recu, id)) as nb_operations
         ', [$today, "{$currentMonth}%"])->first();
 
         $stats = [
@@ -233,7 +234,9 @@ class PaiementController extends Controller
             'total_especes' => (float) ($statsData->total_especes ?? 0),
             'total_mobile' => (float) ($statsData->total_mobile ?? 0),
             'total_banque' => (float) ($statsData->total_banque ?? 0),
-            'nb_transactions' => (int) ($statsData->nb_transactions ?? 0),
+            'nb_transactions' => (int) ($statsData->nb_operations ?? 0),
+            'nb_operations' => (int) ($statsData->nb_operations ?? 0),
+            'nb_flux' => (int) ($statsData->nb_flux ?? 0),
         ];
 
         // Requête filtrée pour le tableau
@@ -260,15 +263,18 @@ class PaiementController extends Controller
 
         $filteredData = (clone $query)->selectRaw('
             COALESCE(SUM(montant), 0) as total_filtre,
-            COUNT(*) as count_filtre
+            COUNT(*) as count_flux,
+            COUNT(DISTINCT COALESCE(reference_recu, id)) as count_operations
         ')->first();
 
         $stats['total_filtre'] = (float) ($filteredData->total_filtre ?? 0);
-        $stats['count_filtre'] = (int) ($filteredData->count_filtre ?? 0);
+        $stats['count_filtre'] = (int) ($filteredData->count_operations ?? 0);
+        $stats['count_operations'] = (int) ($filteredData->count_operations ?? 0);
+        $stats['count_flux'] = (int) ($filteredData->count_flux ?? 0);
 
         $paiements = $query->latest('date_paiement')
             ->latest('id')
-            ->paginate(15)
+            ->paginate(30)
             ->withQueryString();
 
         $annees = AnneeScolaire::orderBy('nom', 'desc')->get();
@@ -363,6 +369,7 @@ class PaiementController extends Controller
         try {
             // Date de paiement automatique = aujourd'hui
             $datePaiement = $request->date_paiement ?: now()->toDateString();
+            $refRecu = 'REC-' . now()->format('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(4));
 
             // 1. Créer le paiement
             $paiement = Paiement::create([
@@ -374,6 +381,7 @@ class PaiementController extends Controller
                 'mode_paiement' => $request->mode_paiement,
                 'mois' => $request->mois,
                 'commentaire' => $request->commentaire,
+                'reference_recu' => $refRecu,
             ]);
 
             // 2. Logique de solde supprimée car FraisInscription est retiré

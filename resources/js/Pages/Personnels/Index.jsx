@@ -70,8 +70,13 @@ function PersonnelForm({ personnel, onClose, roles = [] }) {
             onSuccess: () => {
                 onClose();
                 form.reset();
+                toast.success(personnel ? t("personnel_updated", "Employé mis à jour avec succès") : t("personnel_created", "Employé créé avec succès"));
             },
-            onError: () => toast.error(personnel ? t("update_failed") : t("creation_failed")),
+            onError: (errs) => {
+                const firstError = Object.values(errs || {})[0];
+                const msg = typeof firstError === 'string' ? firstError : (Array.isArray(firstError) ? firstError[0] : null);
+                toast.error(msg || (personnel ? t("update_failed", "Erreur lors de la mise à jour") : t("creation_failed", "Erreur lors de l'enregistrement")));
+            },
         });
     };
 
@@ -129,6 +134,7 @@ function PersonnelForm({ personnel, onClose, roles = [] }) {
                                 <label className="block mb-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">{t("telephone", "Téléphone")}</label>
                                 <input type="text" className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm shadow-sm"
                                     value={form.data.telephone} onChange={(e) => form.setData("telephone", e.target.value)} placeholder="+241 07 ..." />
+                                {form.errors.telephone && <p className="text-red-500 text-xs font-bold mt-1">{form.errors.telephone}</p>}
                             </div>
 
                             <div>
@@ -138,12 +144,14 @@ function PersonnelForm({ personnel, onClose, roles = [] }) {
                                     <option value="M">Masculin</option>
                                     <option value="F">Féminin</option>
                                 </select>
+                                {form.errors.sexe && <p className="text-red-500 text-xs font-bold mt-1">{form.errors.sexe}</p>}
                             </div>
 
                             <div className="md:col-span-2">
                                 <label className="block mb-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">{t("adresse", "Adresse de Résidence")}</label>
                                 <input type="text" className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm shadow-sm"
                                     value={form.data.adresse} onChange={(e) => form.setData("adresse", e.target.value)} placeholder="Quartier, Libreville" />
+                                {form.errors.adresse && <p className="text-red-500 text-xs font-bold mt-1">{form.errors.adresse}</p>}
                             </div>
                         </div>
                     </div>
@@ -172,12 +180,14 @@ function PersonnelForm({ personnel, onClose, roles = [] }) {
                                     <option value="Vacataire">Vacataire</option>
                                     <option value="Stage">Stage</option>
                                 </select>
+                                {form.errors.type_contrat && <p className="text-red-500 text-xs font-bold mt-1">{form.errors.type_contrat}</p>}
                             </div>
 
                             <div>
                                 <label className="block mb-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">Date d'embauche</label>
                                 <input type="date" className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm shadow-sm"
                                     value={form.data.date_embauche} onChange={(e) => form.setData("date_embauche", e.target.value)} />
+                                {form.errors.date_embauche && <p className="text-red-500 text-xs font-bold mt-1">{form.errors.date_embauche}</p>}
                             </div>
 
                             <div className="md:col-span-2">
@@ -189,6 +199,7 @@ function PersonnelForm({ personnel, onClose, roles = [] }) {
                                         <span className="text-slate-400 font-bold text-xs">FCFA</span>
                                     </div>
                                 </div>
+                                {form.errors.salaire_base && <p className="text-red-500 text-xs font-bold mt-1">{form.errors.salaire_base}</p>}
                             </div>
                         </div>
                     </div>
@@ -229,6 +240,7 @@ function PersonnelForm({ personnel, onClose, roles = [] }) {
                                     <option value="personnel">Personnel Administratif</option>
                                 )}
                             </select>
+                            {form.errors.role && <p className="text-red-500 text-xs font-bold mt-1">{form.errors.role}</p>}
                             <p className="text-[11px] text-slate-500 mt-1">
                                 Détermine les modules et menus auxquels cet employé aura accès (Finance, Caisse, RH, etc.).
                             </p>
@@ -293,7 +305,10 @@ function PersonnelForm({ personnel, onClose, roles = [] }) {
 
 export default function Index({ personnels, roles = [], filters }) {
     const { t } = useTranslation();
-    const { flash } = usePage().props;
+    const { flash, auth } = usePage().props;
+    const permissions = auth?.permissions || [];
+    const isSuperAdmin = auth?.roles?.some(role => role.toLowerCase() === 'super-admin' || role.toLowerCase() === 'superadmin');
+    const can = (permission) => isSuperAdmin || permissions.includes(permission);
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingPersonnel, setEditingPersonnel] = useState(null);
@@ -363,13 +378,15 @@ export default function Index({ personnels, roles = [], filters }) {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-200" />
                         </div>
 
-                        <button
-                            onClick={openCreateModal}
-                            className="w-full sm:w-auto bg-blue-500 hover:bg-blue-400 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-blue-500/30 font-bold flex items-center justify-center gap-2 transition-all active:scale-95 border border-blue-400"
-                        >
-                            <Plus className="w-5 h-5" />
-                            <span>{t("add_personnel", "Nouvel Employé")}</span>
-                        </button>
+                        {can('ajouter_personnels') && (
+                            <button
+                                onClick={openCreateModal}
+                                className="w-full sm:w-auto bg-blue-500 hover:bg-blue-400 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-blue-500/30 font-bold flex items-center justify-center gap-2 transition-all active:scale-95 border border-blue-400"
+                            >
+                                <Plus className="w-5 h-5" />
+                                <span>{t("add_personnel", "Nouvel Employé")}</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -453,20 +470,24 @@ export default function Index({ personnels, roles = [], filters }) {
 
                                             <td className="p-5">
                                                 <div className="flex justify-center gap-2 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => openEditModal(p)}
-                                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                                                        title={t("edit")}
-                                                    >
-                                                        <Pencil className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => destroy(p.id)}
-                                                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                        title={t("delete")}
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                    {can('modifier_personnels') && (
+                                                        <button
+                                                            onClick={() => openEditModal(p)}
+                                                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                                            title={t("edit")}
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                    {can('supprimer_personnels') && (
+                                                        <button
+                                                            onClick={() => destroy(p.id)}
+                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                            title={t("delete")}
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

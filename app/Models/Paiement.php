@@ -28,6 +28,7 @@ class Paiement extends Model
         'mode_paiement',
         'mois',
         'commentaire',
+        'reference_recu',
         'arriere_paiement_id',
     ];
 

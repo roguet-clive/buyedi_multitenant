@@ -62,9 +62,17 @@ export default function Create(props) {
       let isSelected = isPaid;
       let baseMontant = type.montant || 0;
 
-      // Montant spécifique tenue selon la classe (JAMAIS remisé)
+      // Montant spécifique tenue et bulletin selon la classe (JAMAIS remisé)
       if (type.code === 'tenue' || type.nom?.toLowerCase().includes('tenue')) {
         baseMontant = isSecondaire ? 15000 : 10000;
+      } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
+        baseMontant = isSecondaire ? 0 : Number(type.montant || 1000);
+      } else if (type.code === 'carte' || type.nom?.toLowerCase().includes('carte')) {
+        baseMontant = Number(type.montant || 1500);
+      } else if (type.nom?.toLowerCase().includes('assurance')) {
+        baseMontant = Number(type.montant || 1000);
+      } else if (type.nom?.toLowerCase().includes('ape')) {
+        baseMontant = Number(type.montant || 5000);
       } else if (type.code === 'inscription') {
         baseMontant = type.montant || 10000;
       } else if (type.code === 'reinscription') {
@@ -81,11 +89,13 @@ export default function Create(props) {
         montant = paiementsMap[type.id].montant;
       }
 
-      // Exclusion mutuelle pour les frais d'admission
+      // Exclusion mutuelle pour les frais d'admission et règle bulletin secondaire
       if (type.code === 'inscription') {
         isSelected = isPaid || (admType === 'inscription');
       } else if (type.code === 'reinscription') {
         isSelected = isPaid || (admType === 'reinscription');
+      } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
+        isSelected = isPaid || (!isSecondaire && !inscription);
       } else if (!inscription) {
         isSelected = isPaid || true;
       }
@@ -127,6 +137,11 @@ export default function Create(props) {
     if (isTenue) {
       const selected = classes.find(c => String(c.id) === String(classeId));
       return (selected?.type === 'secondaire') ? 15000 : 10000;
+    }
+    const isBulletin = feeType?.code === 'bulletin' || feeType?.nom?.toLowerCase().includes('bulletin');
+    if (isBulletin) {
+      const selected = classes.find(c => String(c.id) === String(classeId));
+      return (selected?.type === 'secondaire') ? 0 : Number(feeType?.montant || 1000);
     }
     return Number(feeType?.montant || 0);
   };
@@ -242,7 +257,7 @@ export default function Create(props) {
     });
   };
 
-  // Changement de classe : ajuste automatiquement le montant de la tenue (10 000 Maternelle/Primaire vs 15 000 Secondaire) SANS REMISE
+  // Changement de classe : ajuste automatiquement le montant de la tenue et du bulletin (Secondaire ne paie pas le bulletin : 0F)
   const handleClasseChange = (classeId) => {
     const selected = classes.find(c => String(c.id) === String(classeId));
     const isSecondaire = selected?.type === 'secondaire';
@@ -259,6 +274,15 @@ export default function Create(props) {
         };
       }
 
+      const bulletinFee = fraisAnnexes.find(ft => ft.code === 'bulletin' || ft.nom?.toLowerCase().includes('bulletin'));
+      if (bulletinFee && updatedFrais[bulletinFee.id] && !updatedFrais[bulletinFee.id].already_paid) {
+        updatedFrais[bulletinFee.id] = {
+          ...updatedFrais[bulletinFee.id],
+          montant: isSecondaire ? 0 : Number(bulletinFee.montant || 1000),
+          selected: isSecondaire ? false : true,
+        };
+      }
+
       return {
         ...prev,
         classe_id: classeId,
@@ -269,12 +293,53 @@ export default function Create(props) {
 
   // Handle fee change
   const handleFeeChange = (id, field, value) => {
+    const feeType = fraisAnnexes.find(ft => String(ft.id) === String(id));
+    const isBulletin = feeType?.code === 'bulletin' || feeType?.nom?.toLowerCase().includes('bulletin');
+    const isCarte = feeType?.code === 'carte' || feeType?.nom?.toLowerCase().includes('carte');
+    const isAssurance = feeType?.nom?.toLowerCase().includes('assurance');
+    const isTenue = feeType?.code === 'tenue' || feeType?.nom?.toLowerCase().includes('tenue');
+    const isApe = feeType?.nom?.toLowerCase().includes('ape');
+    const isSecondaire = selectedClasseObj?.type === 'secondaire';
+
+    // Frais au montant strictement fixe et non négociable (Carte: 1500, Assurance: 1000, Tenue: 10000/15000, Bulletin: 1000/0)
+    // L'APE est le SEUL frais annexe modifiable par l'opérateur ou le parent
+    const isFixedAmountFee = isCarte || isAssurance || isTenue || isBulletin;
+
+    // Si le montant est fixe pour tous, interdire sa modification manuelle
+    if (field === 'montant' && isFixedAmountFee) {
+      return;
+    }
+
+    // Au secondaire, le montant du bulletin est toujours verrouillé à 0 FCFA
+    let finalValue = value;
+    if (isBulletin && isSecondaire) {
+      if (field === 'montant') finalValue = 0;
+      if (field === 'selected') finalValue = false;
+    }
+
+    let updatedItem = {
+      ...data.frais[id],
+      [field]: finalValue
+    };
+
+    // Rétablir le montant officiel dès que le frais est sélectionné
+    if (field === 'selected' && finalValue === true) {
+      if (isTenue) {
+        updatedItem.montant = isSecondaire ? 15000 : 10000;
+      } else if (isBulletin) {
+        updatedItem.montant = isSecondaire ? 0 : Number(feeType?.montant || 1000);
+      } else if (isCarte) {
+        updatedItem.montant = Number(feeType?.montant || 1500);
+      } else if (isAssurance) {
+        updatedItem.montant = Number(feeType?.montant || 1000);
+      } else if (isApe && (!updatedItem.montant || Number(updatedItem.montant) <= 0)) {
+        updatedItem.montant = Number(feeType?.montant || 5000);
+      }
+    }
+
     setData('frais', {
       ...data.frais,
-      [id]: {
-        ...data.frais[id],
-        [field]: value
-      }
+      [id]: updatedItem
     });
   };
 
@@ -673,7 +738,13 @@ export default function Create(props) {
               {fraisAnnexes.map((type) => {
                 const feeState = data.frais[type.id] || { selected: false, montant: type.montant || 0 };
                 const isTenue = type.code === 'tenue' || type.nom.toLowerCase().includes('tenue');
+                const isBulletin = type.code === 'bulletin' || type.nom.toLowerCase().includes('bulletin');
+                const isCarte = type.code === 'carte' || type.nom.toLowerCase().includes('carte');
+                const isAssurance = type.nom.toLowerCase().includes('assurance');
+                const isApe = type.nom.toLowerCase().includes('ape');
                 const isSecondaire = selectedClasseObj?.type === 'secondaire';
+                // L'APE est le SEUL frais modifiable par le parent ou l'opérateur
+                const isFixedFee = isCarte || isAssurance || isTenue || isBulletin;
 
                 return (
                   <div
@@ -684,6 +755,10 @@ export default function Create(props) {
                         : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
                       }
                       ${isTenue ? (isSecondaire ? 'relative border-l-4 border-l-purple-500' : 'relative border-l-4 border-l-amber-500') : ''}
+                      ${isBulletin ? (isSecondaire ? 'relative border-l-4 border-l-cyan-500 bg-cyan-50/20 dark:bg-cyan-950/10' : 'relative border-l-4 border-l-blue-500') : ''}
+                      ${isCarte ? 'relative border-l-4 border-l-blue-400' : ''}
+                      ${isAssurance ? 'relative border-l-4 border-l-teal-500' : ''}
+                      ${isApe ? 'relative border-l-4 border-l-indigo-400' : ''}
                     `}
                   >
                     {isTenue && (
@@ -703,6 +778,65 @@ export default function Create(props) {
                       </div>
                     )}
 
+                    {isBulletin && (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className={`text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border
+                          ${isSecondaire
+                            ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                          }
+                        `}>
+                          <span>📋 Bulletin Scolaire</span>
+                          <span>• {selectedClasseObj ? (isSecondaire ? 'Secondaire (0 FCFA - Non facturé)' : 'Maternelle / Primaire (1 000 FCFA)') : '1 000 F (Mat/Prim) • 0 F (Sec)'}</span>
+                        </span>
+                        {isSecondaire ? (
+                          <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-100/80 dark:bg-cyan-950/60 px-2 py-0.5 rounded-full">
+                            Non facturé au secondaire (0F)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-slate-400">
+                            {feeState.selected ? 'Payé à l\'inscription' : 'Non coché'}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {isCarte && (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-blue-50 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                          <span>💳 Carte Scolaire</span>
+                          <span>• Tarif Fixe pour tous (1 500 FCFA)</span>
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          {feeState.selected ? 'Payée à l\'inscription' : 'Non cochée'}
+                        </span>
+                      </div>
+                    )}
+
+                    {isAssurance && (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-teal-50 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 border-teal-200 dark:border-teal-800">
+                          <span>🛡️ Assurance Scolaire</span>
+                          <span>• Tarif Fixe pour tous (1 000 FCFA)</span>
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          {feeState.selected ? 'Payée à l\'inscription' : 'Non cochée'}
+                        </span>
+                      </div>
+                    )}
+
+                    {isApe && (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-indigo-50 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
+                          <span>👨‍👩‍👧 Cotisation APE</span>
+                          <span>• Montant indicatif (5 000 FCFA) - Modifiable</span>
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-400">
+                          {feeState.selected ? 'Payée à l\'inscription' : 'Non cochée'}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="flex items-start justify-between gap-3">
                       <label className="flex items-start gap-3 cursor-pointer flex-1">
                         <input
@@ -710,7 +844,7 @@ export default function Create(props) {
                           checked={feeState.selected}
                           onChange={(e) => handleFeeChange(type.id, 'selected', e.target.checked)}
                           className="mt-1 w-5 h-5 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 dark:bg-slate-900 dark:border-slate-600 cursor-pointer"
-                          disabled={!isValidee || feeState.already_paid}
+                          disabled={!isValidee || feeState.already_paid || (isBulletin && isSecondaire)}
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
@@ -731,25 +865,53 @@ export default function Create(props) {
                               ℹ️ Non réglée aujourd'hui : le parent pourra la payer ultérieurement ({isSecondaire ? '15 000 FCFA' : '10 000 FCFA'}). Un suivi d'encaissement sera créé.
                             </p>
                           )}
+                          {isBulletin && isSecondaire && (
+                            <p className="text-[11px] text-cyan-700 dark:text-cyan-400 font-semibold mt-1 bg-cyan-50 dark:bg-cyan-900/20 p-1.5 rounded-lg border border-cyan-200/50">
+                              ℹ️ Au secondaire, les élèves ne paient pas le bulletin de notes (0 FCFA).
+                            </p>
+                          )}
+                          {isApe && feeState.selected && (
+                            <p className="text-[11px] text-indigo-700 dark:text-indigo-300 font-medium mt-1 bg-indigo-50 dark:bg-indigo-950/30 p-1.5 rounded-lg border border-indigo-200/50">
+                              💡 Cotisation APE libre ou ajustable selon le parent (5 000 FCFA par défaut).
+                            </p>
+                          )}
                         </div>
                       </label>
 
-                      {/* CHAMP MONTANT (AJUSTÉ SELON LA CLASSE CHOISIE) */}
+                      {/* CHAMP MONTANT (SEUL L'APE EST MODIFIABLE) */}
                       <div className="w-28 shrink-0">
                         <div className="relative">
                           <input
                             type="number"
+                            readOnly={isFixedFee}
                             className={`w-full text-right py-1.5 px-2.5 rounded-xl border text-sm font-black transition-colors
-                              ${feeState.selected
-                                ? 'bg-white border-emerald-300 text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
-                                : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700'
+                              ${isFixedFee
+                                ? (feeState.selected
+                                    ? 'bg-slate-100 border-slate-300 text-slate-800 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200 cursor-not-allowed select-none'
+                                    : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 cursor-not-allowed select-none'
+                                  )
+                                : (feeState.selected
+                                    ? 'bg-white border-indigo-300 dark:bg-slate-800 text-indigo-950 dark:text-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm'
+                                    : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700'
+                                  )
                               }
                             `}
                             value={feeState.montant}
-                            onChange={(e) => handleFeeChange(type.id, 'montant', e.target.value)}
-                            disabled={!feeState.selected || !isValidee || feeState.already_paid}
+                            onChange={(e) => !isFixedFee && handleFeeChange(type.id, 'montant', e.target.value)}
+                            disabled={!feeState.selected || !isValidee || feeState.already_paid || (isBulletin && isSecondaire)}
                           />
-                          <span className="block text-[10px] text-slate-400 text-right mt-0.5 font-bold">FCFA</span>
+                          <div className="flex items-center justify-end gap-1 mt-0.5">
+                            {isFixedFee ? (
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1 rounded border border-slate-200 dark:border-slate-700">
+                                Fixe
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1 rounded border border-indigo-200 dark:border-indigo-800">
+                                Modifiable
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-bold">FCFA</span>
+                          </div>
                         </div>
                       </div>
                     </div>

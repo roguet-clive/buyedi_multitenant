@@ -470,4 +470,115 @@ class InscriptionAdmissionTenueTest extends TestCase
         $this->assertEquals(0.0, (float)$inscription->remise_montant);
         $this->assertEquals(5000.0, (float)$inscription->total_frais);
     }
+
+    /**
+     * Test 9 : Au secondaire, l'élève ne paie pas le bulletin (0 FCFA - Aucun paiement de bulletin créé)
+     */
+    public function test_secondaire_ne_paie_pas_le_bulletin_donc_0f(): void
+    {
+        $fraisBulletin = FraisType::firstOrCreate(
+            ['nom' => 'Bulletin'],
+            ['code' => 'divers', 'montant' => 1000.00, 'is_scolarite' => false, 'globale' => true]
+        );
+
+        $classeSecondaire = Classe::create([
+            'nom' => '5ème B',
+            'type' => 'secondaire',
+        ]);
+
+        $this->assertEquals(0.0, (float) $classeSecondaire->montant_bulletin);
+
+        $user = User::factory()->create(['nom' => 'Sec', 'prenom' => 'BulletinGratuit']);
+        $eleve = Eleve::create([
+            'user_id' => $user->id,
+            'matricule' => 'EL-SEC-01',
+            'sexe' => 'M',
+            'date_naissance' => '2012-05-15',
+            'lieu_naissance' => 'Libreville',
+        ]);
+
+        $payload = [
+            'eleve_id' => $eleve->id,
+            'classe_id' => $classeSecondaire->id,
+            'date_inscription' => '2026-09-04',
+            'admission_type' => 'inscription',
+            'has_remise' => false,
+            'remise_pourcentage' => 0,
+            'remise_montant' => 0,
+            'statut' => 'validee',
+            'frais' => [
+                $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
+                $fraisBulletin->id => ['selected' => true, 'montant' => 0], // Bulletin sélectionné mais à 0F
+            ],
+        ];
+
+        $response = $this->actingAs($this->admin)->post(route('inscriptions.store'), $payload);
+        $response->assertRedirect(route('inscriptions.index'));
+
+        $inscription = Inscription::where('eleve_id', $eleve->id)->first();
+        $this->assertNotNull($inscription);
+        // Seulement les 10 000 F d'inscription doivent être payés (aucun paiement de bulletin)
+        $this->assertEquals(10000.0, (float) $inscription->total_frais);
+
+        $bulletinPaiement = Paiement::where('inscription_id', $inscription->id)
+            ->where('frais_type_id', $fraisBulletin->id)
+            ->first();
+        $this->assertNull($bulletinPaiement, 'Au secondaire, aucun paiement pour le bulletin ne doit être créé.');
+    }
+
+    /**
+     * Test 10 : Au primaire / maternelle, le bulletin est payant (1 000 FCFA)
+     */
+    public function test_primaire_paie_le_bulletin_1000f(): void
+    {
+        $fraisBulletin = FraisType::firstOrCreate(
+            ['nom' => 'Bulletin'],
+            ['code' => 'divers', 'montant' => 1000.00, 'is_scolarite' => false, 'globale' => true]
+        );
+
+        $classePrimaire = Classe::create([
+            'nom' => 'CM1 A',
+            'type' => 'primaire',
+        ]);
+
+        $this->assertEquals(1000.0, (float) $classePrimaire->montant_bulletin);
+
+        $user = User::factory()->create(['nom' => 'Prim', 'prenom' => 'BulletinPayant']);
+        $eleve = Eleve::create([
+            'user_id' => $user->id,
+            'matricule' => 'EL-PRIM-01',
+            'sexe' => 'F',
+            'date_naissance' => '2016-08-20',
+            'lieu_naissance' => 'Oyem',
+        ]);
+
+        $payload = [
+            'eleve_id' => $eleve->id,
+            'classe_id' => $classePrimaire->id,
+            'date_inscription' => '2026-09-04',
+            'admission_type' => 'inscription',
+            'has_remise' => false,
+            'remise_pourcentage' => 0,
+            'remise_montant' => 0,
+            'statut' => 'validee',
+            'frais' => [
+                $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
+                $fraisBulletin->id => ['selected' => true, 'montant' => 1000],
+            ],
+        ];
+
+        $response = $this->actingAs($this->admin)->post(route('inscriptions.store'), $payload);
+        $response->assertRedirect(route('inscriptions.index'));
+
+        $inscription = Inscription::where('eleve_id', $eleve->id)->first();
+        $this->assertNotNull($inscription);
+        // 10 000 F d'inscription + 1 000 F de bulletin = 11 000 F
+        $this->assertEquals(11000.0, (float) $inscription->total_frais);
+
+        $bulletinPaiement = Paiement::where('inscription_id', $inscription->id)
+            ->where('frais_type_id', $fraisBulletin->id)
+            ->first();
+        $this->assertNotNull($bulletinPaiement);
+        $this->assertEquals(1000.0, (float) $bulletinPaiement->montant);
+    }
 }
