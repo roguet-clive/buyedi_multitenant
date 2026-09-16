@@ -279,9 +279,24 @@ class DashboardController extends Controller
             ? Inscription::where('annee_scolaire_id', $anneeId)->count() 
             : 0;
 
+        $garcons = $anneeId 
+            ? Inscription::where('annee_scolaire_id', $anneeId)->whereHas('eleve', fn($q) => $q->where('sexe', 'M'))->count() 
+            : 0;
+        $filles = $anneeId 
+            ? Inscription::where('annee_scolaire_id', $anneeId)->whereHas('eleve', fn($q) => $q->where('sexe', 'F'))->count() 
+            : 0;
+        $nouveaux = $anneeId 
+            ? Inscription::where('annee_scolaire_id', $anneeId)->where('reinscription', false)->count() 
+            : 0;
+        $reinscrits = $anneeId 
+            ? Inscription::where('annee_scolaire_id', $anneeId)->where('reinscription', true)->count() 
+            : 0;
+
         $totalEnseignants = Enseignant::count();
         $totalClasses = Classe::count();
         $totalParents = \App\Models\ParentModel::count();
+        $cyclesCount = Classe::distinct('type')->count('type') ?: 3;
+        $moyenneParClasse = $totalClasses > 0 ? round($totalEleves / $totalClasses, 1) : 0;
 
         // 2. Derni?res Inscriptions
         $recentRegistrations = [];
@@ -412,8 +427,16 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard', [
             'counts' => [
                 'students' => $totalEleves,
+                'garcons' => $garcons,
+                'filles' => $filles,
+                'pct_garcons' => $totalEleves > 0 ? round(($garcons / $totalEleves) * 100) : 0,
+                'pct_filles' => $totalEleves > 0 ? round(($filles / $totalEleves) * 100) : 0,
+                'nouveaux' => $nouveaux,
+                'reinscrits' => $reinscrits,
                 'teachers' => $totalEnseignants,
                 'classes' => $totalClasses,
+                'cycles_count' => $cyclesCount,
+                'moyenne_par_classe' => $moyenneParClasse,
                 'parents' => $totalParents,
                 'pending_demandes' => $pendingDemandesCount,
             ],

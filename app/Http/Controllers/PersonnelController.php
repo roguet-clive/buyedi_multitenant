@@ -27,8 +27,13 @@ class PersonnelController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
+        $isSuperAdmin = (bool) auth()->user()?->hasRole('super-admin');
 
         $personnels = Personnel::with(['user.roles', 'user.contrat'])
+            ->when(!$isSuperAdmin, function ($query) {
+                // Masquer les éventuels profils super-admin aux non-superadmins
+                $query->whereDoesntHave('user.roles', fn($q) => $q->where('name', 'super-admin'));
+            })
             ->when($search, function ($query, $search) {
                 $query->whereHas('user', function ($q) use ($search) {
                     $q->where('nom', 'like', "%{$search}%")
@@ -42,8 +47,15 @@ class PersonnelController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        // Rôles assignables aux membres du personnel
-        $roles = Role::whereNotIn('name', ['eleve', 'parent'])->get(['id', 'name']);
+        // Rôles assignables aux membres du personnel (élèves et parents exclus)
+        $rolesQuery = Role::whereNotIn('name', ['eleve', 'parent']);
+
+        // 🔒 Verrou de sécurité : seul un super-admin a le droit de voir et assigner le rôle super-admin
+        if (!$isSuperAdmin) {
+            $rolesQuery->where('name', '!=', 'super-admin');
+        }
+
+        $roles = $rolesQuery->get(['id', 'name']);
 
         return Inertia::render('Personnels/Index', [
             'personnels' => $personnels,
@@ -69,6 +81,11 @@ class PersonnelController extends Controller
             'salaire_base' => 'nullable|numeric|min:0',
             'type_contrat' => 'nullable|string|in:CDI,CDD,Vacataire,Stage',
         ]);
+
+        // 🔒 Verrou de sécurité : Empêcher l'élévation de privilège vers super-admin
+        if (!auth()->user()?->hasRole('super-admin') && ($validated['role'] ?? null) === 'super-admin') {
+            abort(403, "Seul un Super-Administrateur peut assigner le rôle Super-Admin.");
+        }
 
         DB::transaction(function () use ($validated) {
             $plainPassword = !empty($validated['password']) ? $validated['password'] : '12345678';
@@ -111,6 +128,11 @@ class PersonnelController extends Controller
 
     public function update(Request $request, Personnel $personnel)
     {
+        // 🔒 Verrou : Empêcher la modification d'un compte super-admin par un non-superadmin
+        if ($personnel->user->hasRole('super-admin') && !auth()->user()?->hasRole('super-admin')) {
+            abort(403, "Vous n'avez pas l'autorisation de modifier un profil Super-Administrateur.");
+        }
+
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
@@ -126,6 +148,11 @@ class PersonnelController extends Controller
             'salaire_base' => 'nullable|numeric|min:0',
             'type_contrat' => 'nullable|string|in:CDI,CDD,Vacataire,Stage',
         ]);
+
+        // 🔒 Verrou de sécurité : Empêcher l'élévation de privilège vers super-admin
+        if (!auth()->user()?->hasRole('super-admin') && ($validated['role'] ?? null) === 'super-admin') {
+            abort(403, "Seul un Super-Administrateur peut assigner le rôle Super-Admin.");
+        }
 
         DB::transaction(function () use ($validated, $personnel) {
             $userUpdates = [
@@ -172,6 +199,11 @@ class PersonnelController extends Controller
 
     public function destroy(Personnel $personnel)
     {
+        // 🔒 Verrou : Empêcher la suppression d'un compte super-admin par un non-superadmin
+        if ($personnel->user->hasRole('super-admin') && !auth()->user()?->hasRole('super-admin')) {
+            abort(403, "Vous n'avez pas l'autorisation de supprimer un profil Super-Administrateur.");
+        }
+
         $personnel->user->delete();
         return redirect()->back()->with('success', 'Personnel supprimé.');
     }

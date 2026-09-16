@@ -223,16 +223,17 @@ class FraisClasseController extends Controller
             }
         } else {
             // Modèle Secondaire : 3 Tranches
+            // Le forfait d'entrée est de 70 000 F dont 10 000 F d'inscription et 60 000 F pour la 1ère tranche de scolarité
             if ($montant == 145000 && $classe->isClasseExamen()) {
-                $t1 = 70000;
+                $t1 = 60000;
+                $t2 = 42500;
+                $t3 = 42500;
+            } elseif ($montant == 135000) {
+                $t1 = 60000;
                 $t2 = 37500;
                 $t3 = 37500;
-            } elseif ($montant == 135000) {
-                $t1 = 70000;
-                $t2 = 32500;
-                $t3 = 32500;
             } else {
-                $t1 = min(70000, $montant);
+                $t1 = min(60000, $montant);
                 $reste = max(0, $montant - $t1);
                 $t2 = round($reste / 2);
                 $t3 = $reste - $t2;

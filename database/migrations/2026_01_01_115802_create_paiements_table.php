@@ -21,6 +21,7 @@ return new class extends Migration
             $table->enum('mode_paiement', ['especes', 'virement', 'mobile', 'cheque'])->default('especes');
             $table->string('mois')->nullable(); // Pour les frais mensuels (ex: "Octobre")
             $table->text('commentaire')->nullable();
+            $table->string('reference_recu')->nullable()->index();
             $table->timestamps();
         });
     }

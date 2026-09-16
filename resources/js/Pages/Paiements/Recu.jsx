@@ -24,6 +24,7 @@ function PaymentReceiptVoucher({ paiement, etablissement, url_verification, copy
                                 src={`/storage/${etablissement.logo}`}
                                 alt="Logo"
                                 className="h-12 w-12 object-contain rounded-lg border border-slate-200 p-0.5"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
                         ) : (
                             <div className="h-12 w-12 rounded-lg bg-slate-900 text-white font-black text-xl flex items-center justify-center">
@@ -106,9 +107,16 @@ function PaymentReceiptVoucher({ paiement, etablissement, url_verification, copy
                                 </td>
                                 <td className="py-1.5 px-2.5 text-slate-600 text-[10px]">
                                     {paiement.mois ? (
-                                        <span className="font-semibold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                                            {paiement.mois}
-                                        </span>
+                                        <div>
+                                            <span className="font-semibold text-blue-800 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 inline-block">
+                                                {paiement.mois}
+                                            </span>
+                                            {paiement.commentaire && (
+                                                <div className="text-[9px] text-slate-500 mt-0.5 leading-tight">
+                                                    {paiement.commentaire}
+                                                </div>
+                                            )}
+                                        </div>
                                     ) : (
                                         <span>{paiement.commentaire || '-'}</span>
                                     )}

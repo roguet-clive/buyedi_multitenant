@@ -197,4 +197,95 @@ class ActivityLogAuditTest extends TestCase
         $this->assertEquals('pirate@hacker.com', $log->properties['email_tente']);
         $this->assertArrayHasKey('ip', $log->properties->toArray());
     }
+
+    public function test_superadmin_activities_are_hidden_from_non_superadmin_users(): void
+    {
+        // Créer un utilisateur directeur avec la permission voir_logs mais sans rôle super-admin
+        $directeur = User::factory()->create([
+            'nom' => 'Directeur',
+            'prenom' => 'Audit',
+            'email' => 'directeur@buyedi.com',
+        ]);
+        $directeur->givePermissionTo('voir_logs');
+
+        // Nettoyer les logs générés lors du seeding et de la création des users
+        Activity::truncate();
+
+        // Créer un log d'action par le super-admin
+        activity('systeme')
+            ->causedBy($this->admin)
+            ->log('Action ultra-confidentielle du Super-Admin');
+
+        // Créer un log d'action par le directeur
+        activity('systeme')
+            ->causedBy($directeur)
+            ->log('Action standard du Directeur');
+
+        // 1. Accès classique du directeur : le log super-admin doit être invisible
+        $response = $this->actingAs($directeur)->get('/logs');
+        $response->assertStatus(200);
+
+        $response->assertInertia(fn ($page) => 
+            $page->component('Logs/Index')
+                ->where('isSuperAdmin', false)
+                ->where('filters.show_superadmin', false)
+                ->has('logs.data', 1)
+                ->where('logs.data.0.description', 'Action standard du Directeur')
+        );
+
+        // 2. Le directeur tente de forcer l'affichage avec des paramètres URL
+        $responseHack = $this->actingAs($directeur)->get("/logs?show_superadmin=1&causer_id={$this->admin->id}");
+        $responseHack->assertStatus(200);
+
+        $responseHack->assertInertia(fn ($page) => 
+            $page->component('Logs/Index')
+                ->where('isSuperAdmin', false)
+                ->where('filters.show_superadmin', false)
+                ->where('logs.total', 1) // Ne doit pas contenir l'action super-admin
+        );
+    }
+
+    public function test_superadmin_can_toggle_incognito_mode(): void
+    {
+        $directeur = User::factory()->create([
+            'nom' => 'Directeur',
+            'prenom' => 'Audit',
+            'email' => 'directeur2@buyedi.com',
+        ]);
+        $directeur->givePermissionTo('voir_logs');
+
+        // Nettoyer les logs de création d'utilisateurs
+        Activity::truncate();
+
+        activity('systeme')
+            ->causedBy($this->admin)
+            ->log('Action Super-Admin');
+
+        activity('systeme')
+            ->causedBy($directeur)
+            ->log('Action Directeur');
+
+        // 1. Par défaut pour le super-admin : tout est visible
+        $response = $this->actingAs($this->admin)->get('/logs');
+        $response->assertStatus(200);
+
+        $response->assertInertia(fn ($page) => 
+            $page->component('Logs/Index')
+                ->where('isSuperAdmin', true)
+                ->where('filters.show_superadmin', true)
+                ->has('logs.data', 2)
+        );
+
+        // 2. Mode Incognito activé par le super-admin (?show_superadmin=0)
+        $responseIncognito = $this->actingAs($this->admin)->get('/logs?show_superadmin=0');
+        $responseIncognito->assertStatus(200);
+
+        $responseIncognito->assertInertia(fn ($page) => 
+            $page->component('Logs/Index')
+                ->where('isSuperAdmin', true)
+                ->where('filters.show_superadmin', false)
+                ->has('logs.data', 1)
+                ->where('logs.data.0.description', 'Action Directeur')
+        );
+    }
 }

@@ -19,15 +19,70 @@ class DepenseController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $depenses = \App\Models\Depense::with('user')
-            ->latest()
-            ->paginate(15);
+        $defaultCategories = [
+            'Loyer',
+            'Fourniture',
+            'Electricité/Eau',
+            'Transport',
+            'Entretien',
+            'Salaire',
+            'Carburant',
+            'Pédagogie & Examens',
+            'Communication & Internet',
+            'Pharmacie & Soins',
+            'Autre',
+        ];
+
+        // Récupérer les catégories déjà créées et enregistrées en base
+        $dbCategories = Depense::whereNotNull('categorie')
+            ->where('categorie', '!=', '')
+            ->distinct()
+            ->pluck('categorie')
+            ->toArray();
+
+        // Fusionner et dédupliquer
+        $allCategories = array_values(array_filter(array_unique(array_merge($defaultCategories, $dbCategories))));
+        $sortedCategories = array_values(array_diff($allCategories, ['Autre']));
+        sort($sortedCategories, SORT_STRING | SORT_FLAG_CASE);
+        $sortedCategories[] = 'Autre';
+
+        $query = Depense::with('user')->orderBy('date_depense', 'desc')->orderBy('id', 'desc');
+
+        // Filtre par catégorie
+        if ($request->filled('categorie') && $request->categorie !== 'all') {
+            $query->where('categorie', $request->categorie);
+        }
+
+        // Filtre par recherche
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('description', 'like', "%{$search}%")
+                  ->orWhere('categorie', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($u) use ($search) {
+                      $u->where('nom', 'like', "%{$search}%")
+                        ->orWhere('prenom', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $depenses = $query->paginate(15)->withQueryString();
+
+        $totalGlobal = (float) Depense::sum('montant');
+        $totalMois = (float) Depense::whereMonth('date_depense', now()->month)
+            ->whereYear('date_depense', now()->year)
+            ->sum('montant');
             
         return Inertia::render('Depenses/Index', [
             'depenses' => $depenses,
-            'categories' => ['Loyer', 'Fourniture', 'Electricité/Eau', 'Transport', 'Entretien', 'Autre'],
+            'categories' => $sortedCategories,
+            'filters' => $request->only(['categorie', 'search']),
+            'stats' => [
+                'total_global' => $totalGlobal,
+                'total_mois' => $totalMois,
+            ],
         ]);
     }
 
@@ -39,21 +94,32 @@ class DepenseController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'categorie' => 'required|string',
-            'montant' => 'required|numeric|min:0',
-            'description' => 'nullable|string',
+            'categorie' => 'required|string|max:100',
+            'custom_categorie' => 'nullable|string|max:100',
+            'montant' => 'required|numeric|min:1',
+            'description' => 'nullable|string|max:1000',
             'date_depense' => 'required|date',
         ]);
 
-        \App\Models\Depense::create([
+        $categorie = trim($request->categorie);
+        if ($categorie === '__custom__' || $categorie === 'NOUVELLE_CATEGORIE') {
+            $custom = trim($request->custom_categorie ?? '');
+            if (!empty($custom)) {
+                $categorie = ucfirst($custom);
+            } else {
+                $categorie = 'Autre';
+            }
+        }
+
+        Depense::create([
             'user_id' => auth()->id(),
-            'categorie' => $request->categorie,
+            'categorie' => $categorie,
             'montant' => $request->montant,
             'description' => $request->description,
             'date_depense' => $request->date_depense,
         ]);
 
-        return redirect()->back()->with('success', 'Dépense enregistrée ✅');
+        return redirect()->back()->with('success', "Dépense « {$categorie} » enregistrée ✅");
     }
 
     public function show(string $id)

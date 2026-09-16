@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import { 
     ScrollText, Search, Filter, User, Clock, CheckCircle2, 
     PenLine, Trash2, Plus, ChevronLeft, ChevronRight,
-    LogIn, LogOut, ShieldAlert, KeyRound, Globe, ShieldCheck 
+    LogIn, LogOut, ShieldAlert, KeyRound, Globe, ShieldCheck,
+    Eye, EyeOff
 } from 'lucide-react';
 
 // Config des badges par type d'action
@@ -42,22 +43,27 @@ const AVATAR_COLORS = [
 ];
 const avatarColor = (name) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 
-export default function Index({ logs, filters, users }) {
+export default function Index({ logs, filters, users, isSuperAdmin }) {
     const { t } = useTranslation();
 
     const [search, setSearch] = useState(filters.search || '');
     const [date, setDate] = useState(filters.date || '');
     const [causer, setCauser] = useState(filters.causer_id || '');
     const [categorie, setCategorie] = useState(filters.categorie || '');
+    const [showSuperAdmin, setShowSuperAdmin] = useState(filters.show_superadmin !== undefined ? Boolean(filters.show_superadmin) : true);
 
     useEffect(() => {
         const timer = setTimeout(() => {
-            router.get(route('logs.index'), { search, date, causer_id: causer, categorie }, {
+            const params = { search, date, causer_id: causer, categorie };
+            if (isSuperAdmin) {
+                params.show_superadmin = showSuperAdmin ? '1' : '0';
+            }
+            router.get(route('logs.index'), params, {
                 preserveState: true, preserveScroll: true, replace: true
             });
         }, 500);
         return () => clearTimeout(timer);
-    }, [search, date, causer, categorie]);
+    }, [search, date, causer, categorie, showSuperAdmin]);
 
     const formatDate = (d) => {
         if (!d) return '-';
@@ -141,9 +147,34 @@ export default function Index({ logs, filters, users }) {
                     </select>
                 </div>
 
-                {(search || date || causer || categorie) && (
-                    <button onClick={() => { setSearch(''); setDate(''); setCauser(''); setCategorie(''); }}
-                        className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-2xl text-sm font-semibold hover:bg-red-100 transition-colors whitespace-nowrap">
+                {isSuperAdmin && (
+                    <button
+                        type="button"
+                        onClick={() => setShowSuperAdmin(!showSuperAdmin)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold border transition-all shadow-sm whitespace-nowrap cursor-pointer ${
+                            showSuperAdmin
+                                ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 hover:bg-purple-100"
+                                : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700 hover:bg-amber-100 ring-2 ring-amber-400/30"
+                        }`}
+                        title={showSuperAdmin ? "Activer le mode incognito (masquer l'activité Super-Admin)" : "Désactiver le mode incognito (afficher l'activité Super-Admin)"}
+                    >
+                        {showSuperAdmin ? (
+                            <>
+                                <Eye className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                                <span>Super-Admin visibles</span>
+                            </>
+                        ) : (
+                            <>
+                                <EyeOff className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                                <span>Mode Incognito (Super-Admin masqué)</span>
+                            </>
+                        )}
+                    </button>
+                )}
+
+                {(search || date || causer || categorie || (isSuperAdmin && !showSuperAdmin)) && (
+                    <button onClick={() => { setSearch(''); setDate(''); setCauser(''); setCategorie(''); if (isSuperAdmin) setShowSuperAdmin(true); }}
+                        className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-2xl text-sm font-semibold hover:bg-red-100 transition-colors whitespace-nowrap cursor-pointer">
                         ✕ Réinitialiser
                     </button>
                 )}
@@ -173,6 +204,7 @@ export default function Index({ logs, filters, users }) {
                                     const causerName = log.causer 
                                         ? `${log.causer.prenom || ''} ${log.causer.nom || ''}`.trim() 
                                         : (isSecurite ? 'Visiteur / Anonyme' : 'Système');
+                                    const isCauserSuperAdmin = log.causer?.roles?.some(r => r.name === 'super-admin' || r.name === 'superadmin');
                                     const props = log.properties ?? {};
 
                                     return (
@@ -195,7 +227,14 @@ export default function Index({ logs, filters, users }) {
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <span className="text-sm font-semibold text-slate-800 dark:text-white block">{causerName}</span>
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="text-sm font-semibold text-slate-800 dark:text-white">{causerName}</span>
+                                                            {isSuperAdmin && isCauserSuperAdmin && (
+                                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                                                    Super-Admin
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         {log.causer?.email && (
                                                             <span className="text-[11px] text-slate-400 font-mono block">{log.causer.email}</span>
                                                         )}

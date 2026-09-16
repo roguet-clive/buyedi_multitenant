@@ -126,17 +126,20 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
             </div>
           </div>
 
-          {/* 3. Option A : Net en Caisse (Aujourd'hui) */}
+          {/* 3. Bilan du Jour (recettes - dépenses aujourd'hui) */}
           {todayStats?.can_see_finances ? (
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10 hover:bg-white/[0.09] transition-all group">
+            <div
+              className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10 hover:bg-white/[0.09] transition-all group"
+              title={`Bilan du jour = Recettes encaissées aujourd'hui (${new Intl.NumberFormat('fr-FR').format(todayStats?.recettes || 0)} F) moins les dépenses enregistrées aujourd'hui (${new Intl.NumberFormat('fr-FR').format(todayStats?.depenses || 0)} F). Ce montant ne représente PAS le solde total du mois.`}
+            >
               <div className={`p-2 rounded-lg border shrink-0 group-hover:scale-105 transition-transform ${(todayStats?.solde || 0) >= 0 ? 'bg-teal-500/20 text-teal-400 border-teal-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
                 <Wallet className="w-4.5 h-4.5" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Net en Caisse</p>
-                  <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md border ${(todayStats?.solde || 0) >= 0 ? 'bg-teal-500/30 text-teal-300 border-teal-500/30' : 'bg-rose-500/30 text-rose-300 border-rose-500/30'}`}>
-                    Solde Réel
+                  <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Bilan du Jour</p>
+                  <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md border bg-slate-500/30 text-slate-300 border-slate-500/30">
+                    Aujourd'hui
                   </span>
                 </div>
                 <p className="text-lg sm:text-xl font-black text-white mt-0.5 tracking-tight">
@@ -144,10 +147,10 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
                   {new Intl.NumberFormat('fr-FR').format(todayStats?.solde || 0)}{' '}
                   <span className={`text-[11px] font-bold ${(todayStats?.solde || 0) >= 0 ? 'text-teal-400' : 'text-rose-400'}`}>FCFA</span>
                 </p>
-                <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-300 truncate" title={`Recettes: ${new Intl.NumberFormat('fr-FR').format(todayStats?.recettes || 0)} F | Dépenses: ${new Intl.NumberFormat('fr-FR').format(todayStats?.depenses || 0)} F`}>
-                  <span className="text-emerald-300 font-semibold">+{new Intl.NumberFormat('fr-FR').format(todayStats?.recettes || 0)} F</span>
+                <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-slate-300 truncate">
+                  <span className="text-emerald-300 font-semibold">+{new Intl.NumberFormat('fr-FR').format(todayStats?.recettes || 0)} F entrées</span>
                   <span className="text-slate-500">•</span>
-                  <span className="text-rose-300 font-semibold">-{new Intl.NumberFormat('fr-FR').format(todayStats?.depenses || 0)} F sortis</span>
+                  <span className="text-rose-300 font-semibold">-{new Intl.NumberFormat('fr-FR').format(todayStats?.depenses || 0)} F sorties</span>
                 </div>
               </div>
             </div>
@@ -175,29 +178,136 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
         </div>
       </motion.div>
 
-      {/* Cartes KPI */}
+      {/* Cartes KPI Expressives */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-6">
-        {stats.map((stat, idx) => (
-          <motion.div
-            key={idx}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 shadow-lg shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 hover:shadow-xl transition-all duration-300 group"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">{stat.title}</p>
-                <h3 className="text-2xl sm:text-3xl font-extrabold text-[#0B1A2D] dark:text-white group-hover:text-green-500 transition-colors">
-                  {stat.value}
-                </h3>
-              </div>
-              <div className={`p-2.5 sm:p-3 rounded-xl ${stat.bg} ${stat.color} bg-opacity-50 ring-4 ring-white dark:ring-slate-800`}>
-                {stat.icon}
-              </div>
+        {/* KPI 1 : Effectif Global */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-lg shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Effectif Global
+            </span>
+            <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-2xl text-blue-600 dark:text-blue-400 shadow-inner">
+              <Users className="w-5 h-5" />
             </div>
-          </motion.div>
-        ))}
+          </div>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              {counts?.students || 0}
+            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">élèves inscrits</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+            <span className="inline-flex items-center gap-1 font-medium">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              {counts?.garcons || 0} G ({counts?.pct_garcons || 0}%)
+            </span>
+            <span className="inline-flex items-center gap-1 font-medium">
+              <span className="w-2 h-2 rounded-full bg-pink-500"></span>
+              {counts?.filles || 0} F ({counts?.pct_filles || 0}%)
+            </span>
+            <span className="text-[11px] bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 rounded-md font-semibold text-slate-600 dark:text-slate-300">
+              {counts?.reinscrits || 0} Réinscrits
+            </span>
+          </div>
+        </motion.div>
+
+        {/* KPI 2 : Classes & Groupes */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-lg shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Classes & Groupes
+            </span>
+            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl text-emerald-600 dark:text-emerald-400 shadow-inner">
+              <School className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              {counts?.classes || 0}
+            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">classes pédagogiques</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+              ~{counts?.moyenne_par_classe || 0} élèves / classe
+            </span>
+            <span className="text-[11px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-md font-semibold">
+              {counts?.cycles_count || 3} Cycles
+            </span>
+          </div>
+        </motion.div>
+
+        {/* KPI 3 : Corps Enseignant */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-lg shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Corps Enseignant
+            </span>
+            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl text-indigo-600 dark:text-indigo-400 shadow-inner">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              {counts?.teachers || 0}
+            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">professeurs actifs</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+            <span className="font-medium text-slate-600 dark:text-slate-400">Équipe pédagogique</span>
+            <span className="text-[11px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-md font-semibold">
+              En poste
+            </span>
+          </div>
+        </motion.div>
+
+        {/* KPI 4 : Parents & Responsables */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-lg shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              Parents & Tuteurs
+            </span>
+            <div className="p-2.5 bg-amber-50 dark:bg-amber-900/30 rounded-2xl text-amber-600 dark:text-amber-400 shadow-inner">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              {counts?.parents || 0}
+            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">familles suivies</span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+            <span className="font-medium text-slate-600 dark:text-slate-400">Liaison familles</span>
+            <span className="text-[11px] bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-md font-semibold">
+              Comptes tuteurs
+            </span>
+          </div>
+        </motion.div>
       </div>
 
 
@@ -215,7 +325,9 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
                 <Wallet className="w-5 h-5" />
               </div>
               Aperçu Financier
-              <span className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-2">(Mois en cours)</span>
+              <span className="text-sm font-medium text-slate-500 dark:text-slate-400 ml-2">
+                — cumul du mois en cours
+              </span>
             </h2>
             <Link href={route('finances.index')} className="text-sm font-bold text-green-600 hover:text-green-700 hover:underline">
               Voir tout
@@ -255,19 +367,23 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
                 </div>
               </div>
             </div>
-            {/* Solde */}
-            <div className="relative overflow-hidden bg-[#0B1A2D] dark:bg-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl shadow-blue-900/20 border border-[#1e293b] group text-white">
+            {/* Solde du Mois */}
+            <div
+              className="relative overflow-hidden bg-[#0B1A2D] dark:bg-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl shadow-blue-900/20 border border-[#1e293b] group text-white"
+              title={`Solde du mois = Total des recettes encaissées ce mois (${new Intl.NumberFormat('fr-FR').format(financialStats.income)} F) moins le total des dépenses de ce mois (${new Intl.NumberFormat('fr-FR').format(financialStats.expense)} F). Différent du bilan du jour visible dans le bandeau supérieur.`}
+            >
               <div className={`absolute top-0 right-0 p-4 opacity-10 bg-gradient-to-br from-white to-white/50 rounded-bl-3xl`}>
                 <Wallet className="w-16 h-16 text-white" />
               </div>
               <div className="relative z-10">
-                <p className="text-sm font-semibold text-blue-200 uppercase tracking-wider mb-2">Solde Net</p>
+                <p className="text-sm font-semibold text-blue-200 uppercase tracking-wider mb-1">Solde du Mois</p>
+                <p className="text-xs text-blue-300/70 mb-2">Recettes − Dépenses (mois en cours)</p>
                 <p className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${financialStats.balance >= 0 ? 'text-green-400' : 'text-orange-400'}`}>
                   {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(financialStats.balance)}
                 </p>
                 <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-white/80 bg-white/10 w-max px-3 py-1 rounded-full border border-white/5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${financialStats.balance >= 0 ? 'bg-green-400' : 'bg-orange-400'}`}></span>
-                  Cash flow mensuel
+                  <span className={`w-1.5 h-1.5 rounded-full ${financialStats.balance >= 0 ? 'bg-green-400' : 'bg-orange-400'} animate-pulse`}></span>
+                  Cash flow — {new Date().toLocaleString('fr-FR', { month: 'long' })}
                 </div>
               </div>
             </div>

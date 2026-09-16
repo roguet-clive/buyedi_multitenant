@@ -153,7 +153,7 @@ export default function Sidebar() {
         children: [
           { icon: <Users className="w-4 h-4" />, label: t("enseignants"), href: route("enseignants.index"), can: "voir_enseignants", routeName: "enseignants.index" },
           { icon: <IdCard className="w-4 h-4" />, label: t("employes"), href: route("personnels.index"), can: "voir_personnels", routeName: "personnels.index" },
-          { icon: <CreditCard className="w-4 h-4" />, label: "Salaires & Paie", href: route("rh.paie.index"), can: "voir_personnels", routeName: "rh.paie.index" },
+          { icon: <CreditCard className="w-4 h-4" />, label: "Salaires & Paie", href: route("rh.paie.index"), can: "voir_paie", routeName: "rh.paie.index" },
         ],
       },
 

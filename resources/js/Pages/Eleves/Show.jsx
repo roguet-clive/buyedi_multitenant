@@ -493,7 +493,7 @@ export default function ShowEleve({
                               3 Tranches Trimestrielles
                             </div>
                             <p className="text-[11px] text-purple-600/80 mt-1 font-medium">
-                              T1: 70 000 F • T2 & T3: {financeStats.is_examen ? '37 500 F' : '32 500 F'}
+                              T1: {financeStats.tranches_details?.[0]?.montant ? `${financeStats.tranches_details[0].montant.toLocaleString('fr-FR')} F` : '60 000 F'} • T2 & T3: {financeStats.tranches_details?.[1]?.montant ? `${financeStats.tranches_details[1].montant.toLocaleString('fr-FR')} F` : (financeStats.is_examen ? '42 500 F' : '37 500 F')}
                             </p>
                           </div>
                         ) : (

@@ -10,8 +10,8 @@ import { motion } from "framer-motion";
 export default function Index({ stats, totals, year, incomeBreakdown, expenseBreakdown }) {
     const { t } = useTranslation();
 
-    // Curated Premium Color Palette aligned with brand
-    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+    // 8 Curated Premium Harmonious Colors
+    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#6366f1', '#f43f5e'];
     const OTHER_COLOR = '#64748b'; // Slate 500
 
     const processChartData = (data, total) => {
@@ -24,11 +24,11 @@ export default function Index({ stats, totals, year, incomeBreakdown, expenseBre
         const sorted = [...numericData].sort((a, b) => b.value - a.value);
 
         let processedData = [];
-        if (sorted.length <= 5) {
+        if (sorted.length <= 8) {
             processedData = sorted;
         } else {
-            const top = sorted.slice(0, 4);
-            const others = sorted.slice(4);
+            const top = sorted.slice(0, 7);
+            const others = sorted.slice(7);
             const othersValue = others.reduce((acc, curr) => acc + curr.value, 0);
             processedData = [
                 ...top,
@@ -46,31 +46,21 @@ export default function Index({ stats, totals, year, incomeBreakdown, expenseBre
     const chartExpenseData = useMemo(() => processChartData(expenseBreakdown, totals.depenses), [expenseBreakdown, totals.depenses]);
 
     const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(amount);
-    };
-
-    const formatCompactCurrency = (amount) => {
-        if (amount >= 1000000) {
-            return new Intl.NumberFormat('fr-FR', {
-                style: 'currency',
-                currency: 'XOF',
-                notation: "compact",
-                maximumFractionDigits: 1
-            }).format(amount);
-        }
-        return formatCurrency(amount);
+        return Number(amount || 0).toLocaleString('fr-FR') + ' FCFA';
     };
 
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
+            const item = payload[0];
+            const title = label || item?.payload?.label || item?.name;
             return (
-                <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700/50">
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-3 pb-2 border-b border-slate-100 dark:border-slate-700/50">{label}</p>
+                <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700/50 text-xs">
+                    <p className="font-bold text-slate-700 dark:text-slate-200 mb-2 pb-1.5 border-b border-slate-100 dark:border-slate-700/50">{title}</p>
                     {payload.map((entry, index) => (
-                        <div key={index} className="flex items-center gap-3 text-sm mb-1.5 last:mb-0">
-                            <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
-                            <span className="text-slate-500 dark:text-slate-400 font-medium capitalize flex-1">{entry.name}:</span>
-                            <span className="font-extrabold text-slate-900 dark:text-white">{formatCurrency(entry.value)}</span>
+                        <div key={index} className="flex items-center gap-3 text-xs mb-1 last:mb-0">
+                            <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: entry.payload?.color || entry.color }} />
+                            <span className="text-slate-500 dark:text-slate-400 font-medium capitalize flex-1">{entry.name || entry.payload?.label}:</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white font-mono">{formatCurrency(entry.value)}</span>
                         </div>
                     ))}
                 </div>
@@ -266,130 +256,192 @@ export default function Index({ stats, totals, year, incomeBreakdown, expenseBre
 
                     {/* BREAKDOWN DONUT CHARTS */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Income */}
+                        {/* Income Breakdown */}
                         <motion.div variants={itemVariants} className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 flex flex-col h-full">
-                            <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
-                                <div className="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 rounded-xl border border-indigo-100 dark:border-indigo-500/20">
-                                    <PieIcon className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-extrabold text-[#0B1A2D] dark:text-white">Sources de Revenus</h3>
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Répartition</p>
-                                </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-8 flex-1">
-                                <div className="h-64 w-64 relative shrink-0">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={chartIncomeData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={75}
-                                                outerRadius={95}
-                                                paddingAngle={3}
-                                                dataKey="value"
-                                                stroke="none"
-                                                cornerRadius={4}
-                                            >
-                                                {chartIncomeData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col px-4 text-center">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-700">Total</span>
-                                        <span className="text-xl font-black text-[#0B1A2D] dark:text-white leading-none">
-                                            {formatCompactCurrency(totals.revenus)}
-                                        </span>
+                            <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 rounded-xl border border-indigo-100 dark:border-indigo-500/20">
+                                        <PieIcon className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-extrabold text-[#0B1A2D] dark:text-white">Sources de Revenus</h3>
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Répartition par types de frais</p>
                                     </div>
                                 </div>
-                                <div className="flex-1 w-full space-y-2.5">
-                                    {chartIncomeData.map((entry, index) => (
-                                        <div key={index} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 hover:bg-white hover:shadow-md dark:hover:bg-slate-700 transition-all group">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
-                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]" title={entry.label}>
-                                                    {entry.label}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-black text-slate-900 dark:text-white text-sm">
-                                                    {formatCurrency(entry.value)}
-                                                </span>
-                                                <span className="text-[10px] font-black w-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 rounded-md py-1">
-                                                    {((entry.value / totals.revenus) * 100).toFixed(1)}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <span className="text-xs font-black font-mono px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                                    {formatCurrency(totals.revenus)}
+                                </span>
                             </div>
+
+                            {chartIncomeData.length === 0 ? (
+                                <div className="py-16 text-center text-slate-400">
+                                    <PieIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                                    <p className="text-sm font-semibold">Aucun encaissement enregistré pour {year}</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-6 flex-1">
+                                    {/* Donut Chart */}
+                                    <div className="h-56 w-56 relative shrink-0 my-1">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={chartIncomeData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={70}
+                                                    outerRadius={92}
+                                                    paddingAngle={2}
+                                                    dataKey="value"
+                                                    stroke="none"
+                                                    cornerRadius={4}
+                                                >
+                                                    {chartIncomeData.map((entry, index) => (
+                                                        <Cell key={`cell-income-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip content={<CustomTooltip />} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col px-4 text-center">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Total</span>
+                                            <span className="text-sm font-black font-mono text-[#0B1A2D] dark:text-white leading-tight">
+                                                {formatCurrency(totals.revenus)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Legend / Breakdown List with Progress Bars */}
+                                    <div className="w-full space-y-2.5">
+                                        {chartIncomeData.map((entry, index) => {
+                                            const pct = totals.revenus > 0 ? ((entry.value / totals.revenus) * 100).toFixed(1) : 0;
+                                            return (
+                                                <div key={index} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 hover:bg-white hover:shadow-md dark:hover:bg-slate-700/60 transition-all">
+                                                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                            <div className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: entry.color }} />
+                                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate" title={entry.label}>
+                                                                {entry.label}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2.5 shrink-0">
+                                                            <span className="font-mono font-black text-slate-900 dark:text-white text-xs">
+                                                                {formatCurrency(entry.value)}
+                                                            </span>
+                                                            <span className="text-[10px] font-black min-w-[44px] text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-md py-0.5 px-1">
+                                                                {pct}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {/* Progress bar */}
+                                                    <div className="w-full bg-slate-200/70 dark:bg-slate-700/70 h-1.5 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="h-full rounded-full transition-all duration-500" 
+                                                            style={{ 
+                                                                width: `${Math.min(100, Math.max(1, pct))}%`, 
+                                                                backgroundColor: entry.color 
+                                                            }} 
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </motion.div>
 
-                        {/* Expenses */}
+                        {/* Expenses Breakdown */}
                         <motion.div variants={itemVariants} className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-3xl shadow-xl shadow-slate-200/40 dark:shadow-black/20 border border-slate-100 dark:border-slate-700/50 flex flex-col h-full">
-                            <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center gap-3">
-                                <div className="p-2.5 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-xl border border-red-100 dark:border-red-500/20">
-                                    <PieIcon className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-extrabold text-[#0B1A2D] dark:text-white">Répartition des Dépenses</h3>
-                                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Par catégories</p>
-                                </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-8 flex-1">
-                                <div className="h-64 w-64 relative shrink-0">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={chartExpenseData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={75}
-                                                outerRadius={95}
-                                                paddingAngle={3}
-                                                dataKey="value"
-                                                stroke="none"
-                                                cornerRadius={4}
-                                            >
-                                                {chartExpenseData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<CustomTooltip />} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col px-4 text-center">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-100 dark:border-slate-700">Total</span>
-                                        <span className="text-xl font-black text-[#0B1A2D] dark:text-white leading-none">
-                                            {formatCompactCurrency(totals.depenses)}
-                                        </span>
+                            <div className="mb-6 pb-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-xl border border-red-100 dark:border-red-500/20">
+                                        <PieIcon className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-extrabold text-[#0B1A2D] dark:text-white">Répartition des Dépenses</h3>
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">Par catégories</p>
                                     </div>
                                 </div>
-                                <div className="flex-1 w-full space-y-2.5">
-                                    {chartExpenseData.map((entry, index) => (
-                                        <div key={index} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 hover:bg-white hover:shadow-md dark:hover:bg-slate-700 transition-all group">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: entry.color }} />
-                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate max-w-[120px]" title={entry.label}>
-                                                    {entry.label}
-                                                </span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-black text-slate-900 dark:text-white text-sm">
-                                                    {formatCurrency(entry.value)}
-                                                </span>
-                                                <span className="text-[10px] font-black w-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 rounded-md py-1">
-                                                    {((entry.value / totals.depenses) * 100).toFixed(1)}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <span className="text-xs font-black font-mono px-3 py-1.5 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 rounded-xl border border-red-200 dark:border-red-800">
+                                    {formatCurrency(totals.depenses)}
+                                </span>
                             </div>
+
+                            {chartExpenseData.length === 0 ? (
+                                <div className="py-16 text-center text-slate-400">
+                                    <PieIcon className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                                    <p className="text-sm font-semibold">Aucune dépense enregistrée pour {year}</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-6 flex-1">
+                                    {/* Donut Chart */}
+                                    <div className="h-56 w-56 relative shrink-0 my-1">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={chartExpenseData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={70}
+                                                    outerRadius={92}
+                                                    paddingAngle={2}
+                                                    dataKey="value"
+                                                    stroke="none"
+                                                    cornerRadius={4}
+                                                >
+                                                    {chartExpenseData.map((entry, index) => (
+                                                        <Cell key={`cell-expense-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip content={<CustomTooltip />} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col px-4 text-center">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Total</span>
+                                            <span className="text-sm font-black font-mono text-[#0B1A2D] dark:text-white leading-tight">
+                                                {formatCurrency(totals.depenses)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Legend / Breakdown List with Progress Bars */}
+                                    <div className="w-full space-y-2.5">
+                                        {chartExpenseData.map((entry, index) => {
+                                            const pct = totals.depenses > 0 ? ((entry.value / totals.depenses) * 100).toFixed(1) : 0;
+                                            return (
+                                                <div key={index} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 hover:bg-white hover:shadow-md dark:hover:bg-slate-700/60 transition-all">
+                                                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                                            <div className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: entry.color }} />
+                                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate" title={entry.label}>
+                                                                {entry.label}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2.5 shrink-0">
+                                                            <span className="font-mono font-black text-slate-900 dark:text-white text-xs">
+                                                                {formatCurrency(entry.value)}
+                                                            </span>
+                                                            <span className="text-[10px] font-black min-w-[44px] text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-md py-0.5 px-1">
+                                                                {pct}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {/* Progress bar */}
+                                                    <div className="w-full bg-slate-200/70 dark:bg-slate-700/70 h-1.5 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="h-full rounded-full transition-all duration-500" 
+                                                            style={{ 
+                                                                width: `${Math.min(100, Math.max(1, pct))}%`, 
+                                                                backgroundColor: entry.color 
+                                                            }} 
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </motion.div>
                     </div>
 

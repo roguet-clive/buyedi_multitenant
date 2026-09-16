@@ -18,7 +18,7 @@ class PaiementController extends Controller
 
     public function __construct()
     {
-        $this->middleware('permission:voir_paiements')->only(['index', 'show']);
+        $this->middleware('permission:voir_paiements')->only(['index', 'show', 'journal']);
         $this->middleware('permission:ajouter_paiements')->only(['create', 'store']);
         // $this->middleware('permission:modifier_paiements')->only(['edit', 'update']);
         $this->middleware('permission:supprimer_paiements')->only(['destroy']);
@@ -62,6 +62,16 @@ class PaiementController extends Controller
 
         $resteApresPaiement = max(0, $montantAnnuel - $totalPayeJusquici);
 
+        $isForfaitScolarite = ($paiement->fraisType?->is_scolarite || $paiement->fraisType?->nom === 'Scolarité') && (
+            str_contains(strtolower($paiement->commentaire ?? ''), 'forfait') ||
+            ($inscription->classe?->isSecondaire() && in_array((int)$paiement->montant, [60000, 65000, 70000]))
+        );
+
+        $fraisTypeNom = $paiement->fraisType->nom ?? 'Frais Scolaires';
+        if ($isForfaitScolarite) {
+            $fraisTypeNom = '1ère Tranche de Scolarité';
+        }
+
         return Inertia::render('Paiements/Recu', [
             'paiement' => [
                 'id' => $paiement->id,
@@ -72,7 +82,7 @@ class PaiementController extends Controller
                 'mode_paiement' => $paiement->mode_paiement,
                 'mois' => $paiement->mois,
                 'commentaire' => $paiement->commentaire,
-                'frais_type_nom' => $paiement->fraisType->nom ?? 'Frais Scolaires',
+                'frais_type_nom' => $fraisTypeNom,
                 'is_scolarite' => (bool) ($paiement->fraisType->is_scolarite ?? false),
                 'caissier' => $paiement->user ? ($paiement->user->nom . ' ' . $paiement->user->prenom) : 'Caisse Principale',
                 'eleve_nom_complet' => ($paiement->inscription->eleve->user->nom ?? '') . ' ' . ($paiement->inscription->eleve->user->prenom ?? ''),
@@ -86,6 +96,148 @@ class PaiementController extends Controller
                 ]
             ],
             'url_verification' => url('/paiements/' . $paiement->id . '/recu'),
+        ]);
+    }
+ 
+    /**
+     * Bordereau et Journal de Caisse officiel imprimable.
+     */
+    public function journal(Request $request)
+    {
+        $currentYear = AnneeScolaire::where('en_cours', true)->first() ?? AnneeScolaire::latest()->first();
+        if (!$currentYear) {
+            return redirect()->back()->with('error', 'Aucune année scolaire configurée.');
+        }
+
+        $search = $request->input('search');
+        $anneeId = $request->input('annee_scolaire_id', $currentYear->id);
+        $modePaiement = $request->input('mode_paiement');
+        $classeId = $request->input('classe_id');
+        $dateDebut = $request->input('date_debut');
+        $dateFin = $request->input('date_fin');
+
+        $query = Paiement::query()
+            ->whereHas('inscription', function ($q) use ($anneeId) {
+                if ($anneeId) {
+                    $q->where('annee_scolaire_id', $anneeId);
+                }
+            })
+            ->with(['inscription.eleve.user', 'inscription.classe', 'fraisType', 'user'])
+            ->when($modePaiement, fn($q) => $q->where('mode_paiement', $modePaiement))
+            ->when($classeId, fn($q) => $q->whereHas('inscription', fn($sq) => $sq->where('classe_id', $classeId)))
+            ->when($dateDebut, fn($q) => $q->whereDate('date_paiement', '>=', $dateDebut))
+            ->when($dateFin, fn($q) => $q->whereDate('date_paiement', '<=', $dateFin))
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('commentaire', 'like', "%{$search}%")
+                      ->orWhere('mois', 'like', "%{$search}%")
+                      ->orWhereHas('inscription.eleve.user', function ($qu) use ($search) {
+                          $qu->where('nom', 'like', "%{$search}%")
+                             ->orWhere('prenom', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('inscription.eleve', function ($qe) use ($search) {
+                          $qe->where('matricule', 'like', "%{$search}%");
+                      });
+                });
+            });
+
+        $paiements = (clone $query)->orderBy('date_paiement', 'asc')->orderBy('id', 'asc')->get();
+
+        $totalGeneral = (float) $paiements->sum('montant');
+        $totalEspeces = (float) $paiements->where('mode_paiement', 'especes')->sum('montant');
+        $totalMobile = (float) $paiements->where('mode_paiement', 'mobile')->sum('montant');
+        $totalBanque = (float) $paiements->whereIn('mode_paiement', ['virement', 'cheque'])->sum('montant');
+
+        // Synthèse analytique par classe
+        $parClasse = $paiements->groupBy(function ($p) {
+            return $p->inscription?->classe_id ?? 0;
+        })->map(function ($items, $cid) use ($totalGeneral) {
+            $first = $items->first();
+            $classe = $first->inscription?->classe;
+            $classeNom = $classe ? $classe->nom : 'Classe non assignée';
+            $classeType = $classe ? $classe->type : 'autre';
+
+            $totalClasse = (float) $items->sum('montant');
+            $scolarite = (float) $items->filter(function ($p) {
+                return ($p->fraisType?->is_scolarite || strtolower($p->fraisType?->nom ?? '') === 'scolarité');
+            })->sum('montant');
+            $annexes = (float) ($totalClasse - $scolarite);
+
+            $nbOperations = $items->pluck('reference_recu')->filter()->unique()->count() ?: $items->count();
+            $nbFlux = $items->count();
+            $nbEleves = $items->pluck('inscription.eleve_id')->filter()->unique()->count();
+            $pourcentage = $totalGeneral > 0 ? round(($totalClasse / $totalGeneral) * 100, 1) : 0;
+
+            return [
+                'classe_id' => $cid ?: null,
+                'classe_nom' => $classeNom,
+                'classe_type' => $classeType,
+                'nb_operations' => $nbOperations,
+                'nb_flux' => $nbFlux,
+                'nb_eleves' => $nbEleves,
+                'scolarite' => $scolarite,
+                'annexes' => $annexes,
+                'total' => $totalClasse,
+                'pourcentage' => $pourcentage,
+            ];
+        })->sortByDesc('total')->values();
+
+        $annee = $anneeId ? AnneeScolaire::find($anneeId) : $currentYear;
+        $classe = $classeId ? \App\Models\Classe::find($classeId) : null;
+        $user = auth()->user();
+
+        return Inertia::render('Paiements/Journal', [
+            'paiements' => $paiements->map(function ($p) {
+                $isForfaitScolarite = ($p->fraisType?->is_scolarite || $p->fraisType?->nom === 'Scolarité') && (
+                    str_contains(strtolower($p->commentaire ?? ''), 'forfait') ||
+                    ($p->inscription?->classe?->isSecondaire() && in_array((int)$p->montant, [60000, 65000, 70000]))
+                );
+
+                $motif = $p->fraisType?->nom ?? 'Frais Scolaires';
+                if ($isForfaitScolarite) {
+                    $motif = '1ère Tranche Scolarité';
+                } elseif ($p->mois) {
+                    $motif .= ' (' . $p->mois . ')';
+                }
+
+                return [
+                    'id' => $p->id,
+                    'reference_recu' => $p->reference_recu ?: ('REC-' . str_pad($p->id, 6, '0', STR_PAD_LEFT)),
+                    'date_paiement' => $p->date_paiement ? \Carbon\Carbon::parse($p->date_paiement)->format('d/m/Y') : '',
+                    'created_at' => $p->created_at ? $p->created_at->format('d/m/Y H:i') : '',
+                    'montant' => (float) $p->montant,
+                    'mode_paiement' => $p->mode_paiement,
+                    'reference' => $p->reference,
+                    'motif' => $motif,
+                    'commentaire' => $p->commentaire,
+                    'eleve_nom' => ($p->inscription?->eleve?->user?->nom ?? '') . ' ' . ($p->inscription?->eleve?->user?->prenom ?? ''),
+                    'eleve_matricule' => $p->inscription?->eleve?->matricule ?? '-',
+                    'classe_nom' => $p->inscription?->classe?->nom ?? '-',
+                    'caissier' => $p->user ? ($p->user->nom . ' ' . ($p->user->prenom ? $p->user->prenom[0] . '.' : '')) : 'Caisse',
+                ];
+            }),
+            'par_classe' => $parClasse,
+            'stats' => [
+                'total' => $totalGeneral,
+                'especes' => $totalEspeces,
+                'mobile' => $totalMobile,
+                'banque' => $totalBanque,
+                'nb_operations' => $paiements->count(),
+                'nb_classes' => $parClasse->count(),
+                'total_scolarite' => (float) $parClasse->sum('scolarite'),
+                'total_annexes' => (float) $parClasse->sum('annexes'),
+            ],
+            'meta' => [
+                'annee' => $annee?->nom ?? 'N/A',
+                'classe' => $classe?->nom ?? 'Toutes les classes',
+                'mode' => $modePaiement ? strtoupper($modePaiement) : 'Tous les modes',
+                'date_debut' => $dateDebut ? \Carbon\Carbon::parse($dateDebut)->format('d/m/Y') : null,
+                'date_fin' => $dateFin ? \Carbon\Carbon::parse($dateFin)->format('d/m/Y') : null,
+                'search' => $search ?: null,
+                'vue_initiale' => $request->input('vue', 'details'),
+                'editeur' => ($user->nom ?? '') . ' ' . ($user->prenom ?? ''),
+                'date_edition' => now()->format('d/m/Y à H:i'),
+            ]
         ]);
     }
 
@@ -242,10 +394,10 @@ class PaiementController extends Controller
         // Requête filtrée pour le tableau
         $query = (clone $baseQuery)
             ->with(['inscription.eleve.user', 'inscription.classe', 'fraisType', 'user'])
-            ->when($modePaiement, fn($q) => $q->where('mode_paiement', $modePaiement))
+            ->when($modePaiement, fn($q) => $q->where('paiements.mode_paiement', $modePaiement))
             ->when($classeId, fn($q) => $q->whereHas('inscription', fn($sq) => $sq->where('classe_id', $classeId)))
-            ->when($dateDebut, fn($q) => $q->whereDate('date_paiement', '>=', $dateDebut))
-            ->when($dateFin, fn($q) => $q->whereDate('date_paiement', '<=', $dateFin))
+            ->when($dateDebut, fn($q) => $q->whereDate('paiements.date_paiement', '>=', $dateDebut))
+            ->when($dateFin, fn($q) => $q->whereDate('paiements.date_paiement', '<=', $dateFin))
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('commentaire', 'like', "%{$search}%")
@@ -272,8 +424,8 @@ class PaiementController extends Controller
         $stats['count_operations'] = (int) ($filteredData->count_operations ?? 0);
         $stats['count_flux'] = (int) ($filteredData->count_flux ?? 0);
 
-        $paiements = $query->latest('date_paiement')
-            ->latest('id')
+        $paiements = (clone $query)->latest('paiements.date_paiement')
+            ->latest('paiements.id')
             ->paginate(30)
             ->withQueryString();
 
@@ -323,8 +475,50 @@ class PaiementController extends Controller
             ->with(['echeances', 'classe'])
             ->get();
 
+        // Synthèse analytique par classe sur les critères de recherche actifs
+        $recapClasses = (clone $query)
+            ->reorder()
+            ->join('inscriptions', 'paiements.inscription_id', '=', 'inscriptions.id')
+            ->join('classes', 'inscriptions.classe_id', '=', 'classes.id')
+            ->leftJoin('frais_types', 'paiements.frais_type_id', '=', 'frais_types.id')
+            ->selectRaw('
+                classes.id as classe_id,
+                classes.nom as classe_nom,
+                classes.type as classe_type,
+                COUNT(paiements.id) as nb_flux,
+                COUNT(DISTINCT COALESCE(paiements.reference_recu, paiements.id)) as nb_operations,
+                COUNT(DISTINCT inscriptions.eleve_id) as nb_eleves,
+                COALESCE(SUM(CASE WHEN frais_types.is_scolarite = 1 OR LOWER(frais_types.nom) = "scolarité" THEN paiements.montant ELSE 0 END), 0) as scolarite,
+                COALESCE(SUM(CASE WHEN (frais_types.is_scolarite = 0 OR frais_types.is_scolarite IS NULL) AND LOWER(COALESCE(frais_types.nom, "")) != "scolarité" THEN paiements.montant ELSE 0 END), 0) as annexes,
+                COALESCE(SUM(paiements.montant), 0) as total
+            ')
+            ->groupBy('classes.id', 'classes.nom', 'classes.type')
+            ->orderByDesc('total')
+            ->get()
+            ->map(function ($row) use ($filteredData) {
+                $totalGeneral = (float) ($filteredData->total_filtre ?? 0);
+                $totalClasse = (float) $row->total;
+                return [
+                    'classe_id' => $row->classe_id,
+                    'classe_nom' => $row->classe_nom,
+                    'classe_type' => $row->classe_type,
+                    'nb_flux' => (int) $row->nb_flux,
+                    'nb_operations' => (int) $row->nb_operations,
+                    'nb_eleves' => (int) $row->nb_eleves,
+                    'scolarite' => (float) $row->scolarite,
+                    'annexes' => (float) $row->annexes,
+                    'total' => $totalClasse,
+                    'pourcentage' => $totalGeneral > 0 ? round(($totalClasse / $totalGeneral) * 100, 1) : 0,
+                ];
+            });
+
+        $stats['nb_classes_filtre'] = $recapClasses->count();
+        $stats['total_scolarite_filtre'] = (float) $recapClasses->sum('scolarite');
+        $stats['total_annexes_filtre'] = (float) $recapClasses->sum('annexes');
+
         return Inertia::render('Paiements/Index', [
             'paiements' => $paiements,
+            'recapClasses' => $recapClasses,
             'stats' => $stats,
             'annees' => $annees,
             'currentAnneeId' => (int) $anneeId,

@@ -17,6 +17,40 @@ function ReceiptVoucher({ inscription, etablissement, url_verification, copyLabe
         ? new Date(inscription.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         : new Date().toLocaleDateString('fr-FR');
 
+    const isSecondaire = classe.type === 'secondaire' || 
+        (classe.nom && !['maternelle', 'primaire'].includes(classe.type));
+
+    // Regrouper les paiements du forfait Tranche 1 (Admission + 1ère tranche de scolarité) pour le secondaire
+    const processedPaiements = React.useMemo(() => {
+        if (!isSecondaire) return paiements;
+
+        const admissionPayment = paiements.find(p => 
+            ['inscription', 'reinscription'].includes(p.frais_type?.code) ||
+            (p.frais_type?.nom && (p.frais_type.nom.toLowerCase().includes('inscription') || p.frais_type.nom.toLowerCase().includes('réinscription')))
+        );
+
+        const scolariteT1Payment = paiements.find(p => 
+            (p.frais_type?.is_scolarite || p.frais_type?.nom === 'Scolarité') &&
+            ((p.commentaire && p.commentaire.toLowerCase().includes('forfait')) || [60000, 65000, 70000].includes(Number(p.montant)))
+        );
+
+        if (admissionPayment && scolariteT1Payment && admissionPayment.id !== scolariteT1Payment.id) {
+            const combinedMontant = Number(admissionPayment.montant) + Number(scolariteT1Payment.montant);
+            const combinedRow = {
+                isForfaitGrouped: true,
+                montant: combinedMontant,
+                mode_paiement: scolariteT1Payment.mode_paiement || admissionPayment.mode_paiement || 'especes',
+                reference: scolariteT1Payment.reference || admissionPayment.reference,
+                commentaire: `Dont ${Number(admissionPayment.montant).toLocaleString('fr-FR')} F ${inscription.reinscription ? 'réinscription' : 'inscription'} inclus + ${Number(scolariteT1Payment.montant).toLocaleString('fr-FR')} F avance scolarité`,
+            };
+
+            const otherPayments = paiements.filter(p => p.id !== admissionPayment.id && p.id !== scolariteT1Payment.id);
+            return [combinedRow, ...otherPayments];
+        }
+
+        return paiements;
+    }, [paiements, isSecondaire, inscription.reinscription]);
+
     return (
         <div className="bg-white p-5 rounded-xl border border-slate-300 print:border-slate-400 print:p-4 text-slate-800 flex flex-col justify-between h-[138mm] box-border relative overflow-hidden">
             {/* Background Watermark */}
@@ -34,6 +68,7 @@ function ReceiptVoucher({ inscription, etablissement, url_verification, copyLabe
                                 src={`/storage/${etablissement.logo}`}
                                 alt="Logo"
                                 className="h-12 w-12 object-contain rounded-lg border border-slate-200 p-0.5"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
                         ) : (
                             <div className="h-12 w-12 rounded-lg bg-slate-900 text-white font-black text-xl flex items-center justify-center">
@@ -109,35 +144,68 @@ function ReceiptVoucher({ inscription, etablissement, url_verification, copyLabe
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                            {paiements.length > 0 ? (
-                                paiements.map((p, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50">
-                                        <td className="py-1 px-2.5 font-medium text-slate-800">
-                                            {p.frais_type?.nom || "Frais d'inscription"}
-                                        </td>
-                                        <td className="py-1 px-2.5 text-slate-500 text-[10px]">
-                                            <span className="capitalize">{p.mode_paiement || 'Espèces'}</span> {p.reference ? `(${p.reference})` : ''}
-                                        </td>
-                                        <td className="py-1 px-2.5 text-center">
-                                            <span className="inline-flex items-center text-[9px] font-bold text-emerald-700 uppercase bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                                Réglé
-                                            </span>
-                                        </td>
-                                        <td className="py-1 px-2.5 text-right font-mono font-bold text-slate-900">
-                                            {parseFloat(p.montant).toLocaleString('fr-FR')} FCFA
-                                        </td>
-                                    </tr>
-                                ))
+                            {processedPaiements.length > 0 ? (
+                                processedPaiements.map((p, idx) => {
+                                    const isForfait = p.isForfaitGrouped || ((p.frais_type?.is_scolarite || p.frais_type?.nom === 'Scolarité') && (
+                                        (p.commentaire && p.commentaire.toLowerCase().includes('forfait')) ||
+                                        (isSecondaire && [70000, 65000].includes(Number(p.montant)))
+                                    ));
+
+                                    const designation = isForfait
+                                        ? `Forfait Tranche 1 : ${inscription.reinscription ? 'Réinscription' : 'Inscription'} + 1ère tranche de la scolarité`
+                                        : (p.frais_type?.nom || "Frais d'inscription");
+
+                                    let subDetail = p.commentaire;
+                                    if (isForfait && subDetail && subDetail.includes('—')) {
+                                        subDetail = subDetail.split('—')[1].trim();
+                                    }
+
+                                    return (
+                                        <tr key={idx} className="hover:bg-slate-50">
+                                            <td className="py-1.5 px-2.5 font-medium text-slate-800">
+                                                <div className="font-bold text-slate-900 leading-snug">
+                                                    {designation}
+                                                </div>
+                                                {subDetail ? (
+                                                    <div className={`text-[9.5px] leading-tight mt-0.5 ${isForfait ? 'text-blue-700 font-semibold' : 'text-slate-500 font-normal'}`}>
+                                                        {subDetail}
+                                                    </div>
+                                                ) : (
+                                                    isForfait && (
+                                                        <div className="text-[9.5px] text-blue-700 font-semibold leading-tight mt-0.5">
+                                                            Dont frais d'admission inclus + avance scolarité
+                                                        </div>
+                                                    )
+                                                )}
+                                            </td>
+                                            <td className="py-1.5 px-2.5 text-slate-500 text-[10px]">
+                                                <span className="capitalize">{p.mode_paiement || 'Espèces'}</span> {p.reference ? `(${p.reference})` : ''}
+                                            </td>
+                                            <td className="py-1.5 px-2.5 text-center">
+                                                <span className="inline-flex items-center text-[9px] font-bold text-emerald-700 uppercase bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                                    Réglé
+                                                </span>
+                                            </td>
+                                            <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-900">
+                                                {parseFloat(p.montant).toLocaleString('fr-FR')} FCFA
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             ) : (
                                 <tr>
-                                    <td className="py-1 px-2.5 font-medium text-slate-800">Frais d'inscription académique</td>
-                                    <td className="py-1 px-2.5 text-slate-500 text-[10px]">Espèces</td>
-                                    <td className="py-1 px-2.5 text-center">
+                                    <td className="py-1.5 px-2.5 font-medium text-slate-800">
+                                        {isSecondaire && [70000, 65000].includes(Number(totalPaye))
+                                            ? `Forfait Tranche 1 : ${inscription.reinscription ? 'Réinscription' : 'Inscription'} + 1ère tranche de la scolarité`
+                                            : "Frais d'inscription académique"}
+                                    </td>
+                                    <td className="py-1.5 px-2.5 text-slate-500 text-[10px]">Espèces</td>
+                                    <td className="py-1.5 px-2.5 text-center">
                                         <span className="inline-flex items-center text-[9px] font-bold text-emerald-700 uppercase bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                                             Validé
                                         </span>
                                     </td>
-                                    <td className="py-1 px-2.5 text-right font-mono font-bold text-slate-900">
+                                    <td className="py-1.5 px-2.5 text-right font-mono font-bold text-slate-900">
                                         {totalPaye.toLocaleString('fr-FR')} FCFA
                                     </td>
                                 </tr>

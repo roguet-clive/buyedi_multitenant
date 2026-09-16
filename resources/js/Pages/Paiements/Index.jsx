@@ -5,7 +5,7 @@ import useTranslation from "@/Hooks/useTranslation";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import Select from "react-select";
 import Modal from "@/Components/Modal";
-import { Wallet, Search, Filter, Plus, Printer, Trash2, Calendar, User, BookOpen, Layers, CheckCircle2, Calculator, CalendarRange, Check, DollarSign, Clock, Sparkles, AlertCircle, ArrowRight, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Wallet, Search, Filter, Plus, Printer, Trash2, Calendar, User, BookOpen, Layers, CheckCircle2, Calculator, CalendarRange, Check, DollarSign, Clock, Sparkles, AlertCircle, ArrowRight, ChevronDown, ChevronUp, FileText, Building2 } from "lucide-react";
 
 // --- CUSTOM STYLES FOR REACT-SELECT ---
 const customSelectStyles = {
@@ -51,7 +51,7 @@ const customSelectStyles = {
 import StandardPaymentForm from "./Partials/StandardPaymentForm";
 import ScolaritePaymentForm from "./Partials/ScolaritePaymentForm";
 
-export default function Index({ paiements, stats, annees, currentAnneeId, inscriptions, classes, fraisTypes, fraisClasses, filters, auth }) {
+export default function Index({ paiements, recapClasses = [], stats, annees, currentAnneeId, inscriptions, classes, fraisTypes, fraisClasses, filters, auth }) {
     const { t } = useTranslation();
     const { etablissement } = usePage().props;
 
@@ -216,381 +216,515 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                 </div>
             </div>
 
-            {/* HEROBANNER INTERACTIF */}
-            <div className="bg-gradient-to-r from-[#0B1A2D] via-[#10233B] to-slate-900 rounded-3xl p-6 sm:p-8 mb-8 relative overflow-hidden shadow-2xl shadow-blue-900/20 no-print border border-slate-800">
-                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-72 h-72 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute bottom-0 left-1/3 -mb-10 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            {/* 1. EN-TÊTE COMPACT & ACTIONS DE CAISSE (STYLE FINTECH / ERP MODERNE) */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4 no-print bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20 shrink-0">
+                        <Wallet className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                                {t("journal_caisse", "Journal de Caisse")}
+                            </h1>
+                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                                {stats?.nb_operations || stats?.nb_transactions || 0} quittance(s) {stats?.nb_flux && stats.nb_flux !== (stats.nb_operations || stats.nb_transactions) ? `(${stats.nb_flux} flux)` : ''}
+                            </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                            Suivi financier en direct, clôtures de caisse et audit des encaissements.
+                        </p>
+                    </div>
+                </div>
 
-                <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                    <div className="flex items-center gap-4 sm:gap-5">
-                        <div className="p-4 bg-emerald-500/20 backdrop-blur-md rounded-2xl border border-emerald-500/30 shadow-inner">
-                            <Wallet className="w-8 h-8 text-emerald-400" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                                    {t("journal_caisse", "Journal de Caisse")}
-                                </h1>
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                    {stats?.nb_operations || stats?.nb_transactions || 0} encaissement(s) {stats?.nb_flux && stats.nb_flux !== (stats.nb_operations || stats.nb_transactions) ? `(${stats.nb_flux} flux)` : ''}
-                                </span>
-                            </div>
-                            <p className="text-slate-300 font-medium text-sm mt-1">
-                                Suivi financier en direct, clôtures de caisse et audit des règlements.
-                            </p>
-                        </div>
+                {/* Actions groupées à droite */}
+                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                    {/* Sélecteur Année Scolaire compact */}
+                    <div className="relative">
+                        <select
+                            value={selectedAnnee}
+                            onChange={(e) => setSelectedAnnee(e.target.value)}
+                            className="appearance-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-2 pl-3 pr-8 rounded-xl font-bold text-xs focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer"
+                        >
+                            {annees.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                    Année {a.nom} {a.en_cours ? "⭐️" : ""}
+                                </option>
+                            ))}
+                        </select>
+                        <Filter className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                        <button
-                            onClick={handlePrintJournal}
-                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl font-bold border border-white/20 shadow-sm transition-all active:scale-95 text-sm"
-                            title="Imprimer le bordereau de caisse"
-                        >
-                            <Printer className="w-4 h-4 text-emerald-300" />
-                            <span>Imprimer le Journal</span>
-                        </button>
+                    {/* Bouton Impression contextuel */}
+                    <a
+                        href={route('paiements.journal', {
+                            annee_scolaire_id: selectedAnnee,
+                            mode_paiement: selectedMode || undefined,
+                            classe_id: filterClasse || undefined,
+                            date_debut: dateDebut || undefined,
+                            date_fin: dateFin || undefined,
+                            search: search || undefined,
+                            vue: viewMode === 'classes' ? 'classe' : 'details',
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 transition-all border border-slate-200 dark:border-slate-600 shadow-sm active:scale-95"
+                        title="Ouvrir et imprimer le bordereau officiel A4"
+                    >
+                        <Printer className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="hidden sm:inline">{viewMode === 'classes' ? "Imprimer par Classe" : "Imprimer Journal"}</span>
+                        <span className="sm:hidden">Imprimer</span>
+                    </a>
 
-                        <button
-                            onClick={() => setGeneralModalOpen(true)}
-                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-all active:scale-95 text-sm"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span>Paiement Général</span>
-                        </button>
+                    {/* Bouton Autre Paiement / Frais Général */}
+                    <button
+                        onClick={() => setGeneralModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-sm transition-all active:scale-95 cursor-pointer"
+                    >
+                        <Plus className="w-3.5 h-3.5 text-blue-500" />
+                        <span>Autre Frais</span>
+                    </button>
 
-                        <button
-                            onClick={() => setScolariteModalOpen(true)}
-                            className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-500/30 transition-all active:scale-95 text-sm"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span>Encaisser Scolarité</span>
-                        </button>
-                    </div>
+                    {/* Bouton Encaisser Scolarité (Action Principale) */}
+                    <button
+                        onClick={() => setScolariteModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/30 transition-all active:scale-95 cursor-pointer"
+                    >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Encaisser Scolarité</span>
+                    </button>
                 </div>
             </div>
 
-            {/* CARTES DE SYNTHÈSE FINANCIÈRE (KPIs Caisse) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8 no-print">
-                {/* 1. Recettes Totales */}
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:border-blue-400 transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            Recettes Année
-                        </span>
-                        <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
-                            <Wallet className="w-5 h-5" />
+            {/* 2. RUBAN DES MÉTRIQUES FINANCIÈRES (CONDENSÉ SUR 1 LIGNE) */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-2.5 sm:p-3 mb-4 shadow-sm no-print">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-700">
+                    {/* 1. Recettes Année */}
+                    <div className="px-2 sm:px-3 py-1 flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 shrink-0">
+                            <Wallet className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">Recettes Année</div>
+                            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+                                {formatFCFA(stats?.total_annee)}
+                            </div>
                         </div>
                     </div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                        {formatFCFA(stats?.total_annee)}
-                    </div>
-                    <div className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                        {stats?.nb_operations || stats?.nb_transactions || 0} encaissement(s) validé(s) {stats?.nb_flux && stats.nb_flux !== (stats.nb_operations || stats.nb_transactions) ? `(${stats.nb_flux} flux)` : ''}
-                    </div>
-                </div>
 
-                {/* 2. Caisse du Jour */}
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:border-emerald-400 transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                Caisse Aujourd'hui
-                            </span>
+                    {/* 2. Caisse Aujourd'hui */}
+                    <div className="px-2 sm:px-3 py-1 flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 shrink-0 relative">
+                            <Calendar className="w-4 h-4" />
                             {stats?.total_today > 0 && (
-                                <span className="flex h-2 w-2 relative">
+                                <span className="absolute top-1 right-1 flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                 </span>
                             )}
                         </div>
-                        <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
-                            <Calendar className="w-5 h-5" />
+                        <div className="min-w-0">
+                            <div className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider flex items-center gap-1.5">
+                                <span>Aujourd'hui</span>
+                                {stats?.total_today > 0 && (
+                                    <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-1 rounded">
+                                        Actif
+                                    </span>
+                                )}
+                            </div>
+                            <div className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 truncate">
+                                {formatFCFA(stats?.total_today)}
+                            </div>
                         </div>
                     </div>
-                    <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-                        {formatFCFA(stats?.total_today)}
-                    </div>
-                    <div className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        Total encaissé ce jour
-                    </div>
-                </div>
 
-                {/* 3. Espèces Physiques en Coffre */}
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:border-amber-400 transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            Espèces (Cash)
-                        </span>
-                        <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 text-sm">
+                    {/* 3. Espèces en Coffre */}
+                    <div className="px-2 sm:px-3 py-1 flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 shrink-0 text-sm">
                             💵
                         </div>
-                    </div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                        {formatFCFA(stats?.total_especes)}
-                    </div>
-                    <div className="mt-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                        {stats?.total_annee > 0 ? `${Math.round((stats.total_especes / stats.total_annee) * 100)}% des versements` : '0%'}
-                    </div>
-                </div>
-
-                {/* 4. Mobile Money & Banque */}
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden group hover:border-purple-400 transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                            Mobile Money & Banque
-                        </span>
-                        <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 text-sm">
-                            📱
+                        <div className="min-w-0">
+                            <div className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">Espèces (Coffre)</div>
+                            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+                                {formatFCFA(stats?.total_especes)}
+                            </div>
                         </div>
                     </div>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                        {formatFCFA((stats?.total_mobile || 0) + (stats?.total_banque || 0))}
-                    </div>
-                    <div className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        Mobile: {formatFCFA(stats?.total_mobile)}
+
+                    {/* 4. Mobile Money & Banque */}
+                    <div className="px-2 sm:px-3 py-1 flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 shrink-0 text-sm">
+                            📱
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">Mobile & Banque</div>
+                            <div className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+                                {formatFCFA((stats?.total_mobile || 0) + (stats?.total_banque || 0))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* TOOLBAR DES ONGLETS & FILTRES AVANCÉS */}
-            <div className="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 no-print space-y-4">
-                
-                {/* Ligne 1 : Onglets et Année Scolaire */}
-                <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
-                    {/* Tabs */}
-                    <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-2xl overflow-x-auto hide-scrollbar border border-slate-200/80 dark:border-slate-800">
+            {/* 3. BARRE DE COMMANDE UNIQUE (VUES + FILTRES INTELLIGENTS) */}
+            <div className="bg-white dark:bg-slate-800 p-3 sm:p-4 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-700/80 mb-4 no-print space-y-3">
+                {/* Ligne 1 : Navigation des Vues et Catégories de flux */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    {/* Sélecteur de Vue Principale */}
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 w-full sm:w-auto overflow-x-auto">
                         <button
-                            onClick={() => setActiveTab('all')}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'all'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            type="button"
+                            onClick={() => setViewMode('operations')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                                viewMode === 'operations'
+                                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                             }`}
+                            title="Regrouper par quittance / reçu global"
                         >
-                            <span>Tous les flux</span>
-                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-extrabold">
-                                {paiements.total || 0}
+                            <span>📑 Par Quittance</span>
+                            <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                                viewMode === 'operations' 
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300' 
+                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            }`}>
+                                {groupedOperations.length}
                             </span>
                         </button>
 
                         <button
-                            onClick={() => setActiveTab('scolarite')}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'scolarite'
-                                ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            type="button"
+                            onClick={() => setViewMode('details')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                                viewMode === 'details'
+                                    ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                             }`}
+                            title="Afficher chaque ligne de paiement ventilée"
                         >
-                            <BookOpen className="w-4 h-4 text-emerald-500" />
-                            <span>Scolarités & Échéances</span>
+                            <span>🔍 Vue Ventilée</span>
+                            <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                                viewMode === 'details' 
+                                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300' 
+                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            }`}>
+                                {displayedPaiements.length}
+                            </span>
                         </button>
 
                         <button
-                            onClick={() => setActiveTab('general')}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === 'general'
-                                ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
-                                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                            type="button"
+                            onClick={() => setViewMode('classes')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${
+                                viewMode === 'classes'
+                                    ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                             }`}
+                            title="Synthèse analytique des recettes par classe"
                         >
-                            <Layers className="w-4 h-4 text-blue-500" />
-                            <span>Frais Généraux / Divers</span>
+                            <span>🏛️ Synthèse par Classe</span>
+                            <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                                viewMode === 'classes' 
+                                    ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300' 
+                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            }`}>
+                                {recapClasses.length}
+                            </span>
                         </button>
                     </div>
 
-                    {/* Sélecteur Année Scolaire, Vue & Raccourcis Dates */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        {/* Toggle Vue Opérations / Reçus vs Vue Ventilée */}
-                        <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                    {/* Filtre Catégorie de flux (Tous / Scolarités / Autres) */}
+                    <div className="flex items-center gap-1 text-xs">
+                        <span className="text-[11px] font-bold text-slate-400 mr-1 hidden sm:inline">Type :</span>
+                        <div className="inline-flex bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800">
                             <button
                                 type="button"
-                                onClick={() => setViewMode('operations')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
-                                    viewMode === 'operations'
-                                        ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                                onClick={() => setActiveTab('all')}
+                                className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all ${
+                                    activeTab === 'all'
+                                        ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm'
                                         : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                                 }`}
-                                title="Regrouper par quittance / facture globale (recommandé)"
                             >
-                                <span>📑 Par Reçu</span>
-                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
-                                    viewMode === 'operations' 
-                                        ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300' 
-                                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                                }`}>
-                                    {groupedOperations.length}
-                                </span>
+                                Tous ({paiements.total || 0})
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setViewMode('details')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs transition-all ${
-                                    viewMode === 'details'
-                                        ? 'bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
+                                onClick={() => setActiveTab('scolarite')}
+                                className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all ${
+                                    activeTab === 'scolarite'
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 shadow-sm'
                                         : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                                 }`}
-                                title="Afficher chaque flux individuel (comptabilité analytique)"
                             >
-                                <span>🔍 Vue Ventilée</span>
-                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-full ${
-                                    viewMode === 'details' 
-                                        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300' 
-                                        : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                                }`}>
-                                    {displayedPaiements.length}
-                                </span>
+                                Scolarités
                             </button>
-                        </div>
-
-                        <div className="relative">
-                            <select
-                                value={selectedAnnee}
-                                onChange={(e) => setSelectedAnnee(e.target.value)}
-                                className="appearance-none bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-2.5 pl-4 pr-10 rounded-xl font-bold text-xs sm:text-sm focus:ring-2 focus:ring-blue-500"
-                            >
-                                {annees.map((a) => (
-                                    <option key={a.id} value={a.id}>
-                                        Année {a.nom} {a.en_cours ? "⭐️" : ""}
-                                    </option>
-                                ))}
-                            </select>
-                            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                        </div>
-
-                        <button
-                            onClick={() => handleQuickDate("today")}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${dateDebut === new Date().toISOString().split("T")[0] && dateFin === new Date().toISOString().split("T")[0]
-                                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
-                                : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
-                            }`}
-                        >
-                            Aujourd'hui
-                        </button>
-
-                        <button
-                            onClick={() => handleQuickDate("month")}
-                            className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition-all"
-                        >
-                            Ce mois
-                        </button>
-
-                        {isFiltered && (
                             <button
-                                onClick={() => handleQuickDate("reset")}
-                                className="px-3 py-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
-                                title="Réinitialiser tous les filtres"
+                                type="button"
+                                onClick={() => setActiveTab('general')}
+                                className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all ${
+                                    activeTab === 'general'
+                                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                                }`}
                             >
-                                ✕ Effacer
+                                Autres Frais
                             </button>
-                        )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Ligne 2 : Filtres Détaillés (Recherche, Classe, Mode, Dates) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700/60">
-                    {/* Recherche */}
-                    <div className="relative">
+                {/* Ligne 2 : Filtres de Recherche et Périodes */}
+                <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs">
+                    {/* Champ de recherche */}
+                    <div className="relative flex-1 min-w-[200px]">
                         <input
                             type="text"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder={t("search_paiement", "Élève, Matricule, Réf...")}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-2.5 pl-9 pr-3 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 font-medium"
+                            placeholder={t("search_paiement", "Rechercher un élève, matricule, quittance...")}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-1.5 pl-8 pr-3 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 font-medium"
                         />
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                     </div>
 
-                    {/* Mode de règlement */}
-                    <div>
-                        <select
-                            value={selectedMode}
-                            onChange={(e) => setSelectedMode(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-2.5 px-3 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 font-medium"
-                        >
-                            <option value="">-- Tous les modes --</option>
-                            <option value="especes">💵 Espèces</option>
-                            <option value="mobile">📱 Mobile Money</option>
-                            <option value="virement">🏦 Virement Bancaire</option>
-                            <option value="cheque">📝 Chèque</option>
-                        </select>
-                    </div>
-
-                    {/* Classe */}
-                    <div>
+                    {/* Filtre Classe */}
+                    <div className="w-auto min-w-[140px]">
                         <select
                             value={filterClasse}
                             onChange={(e) => setFilterClasse(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-2.5 px-3 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 font-medium"
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-1.5 px-2.5 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer"
                         >
-                            <option value="">-- Toutes les classes --</option>
+                            <option value="">Toutes les classes</option>
                             {classes.map((c) => (
                                 <option key={c.id} value={c.id}>{c.nom}</option>
                             ))}
                         </select>
                     </div>
 
-                    {/* Date précise */}
-                    <div className="flex items-center gap-2">
+                    {/* Filtre Mode de Règlement */}
+                    <div className="w-auto min-w-[130px]">
+                        <select
+                            value={selectedMode}
+                            onChange={(e) => setSelectedMode(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-1.5 px-2.5 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 font-medium cursor-pointer"
+                        >
+                            <option value="">Tous les modes</option>
+                            <option value="especes">💵 Espèces</option>
+                            <option value="mobile">📱 Mobile Money</option>
+                            <option value="virement">🏦 Virement</option>
+                            <option value="cheque">📝 Chèque</option>
+                        </select>
+                    </div>
+
+                    {/* Raccourcis de dates rapides */}
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => handleQuickDate("today")}
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                                dateDebut === new Date().toISOString().split("T")[0] && dateFin === new Date().toISOString().split("T")[0]
+                                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                                    : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                            }`}
+                        >
+                            Aujourd'hui
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleQuickDate("month")}
+                            className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 transition-all"
+                        >
+                            Ce mois
+                        </button>
+                    </div>
+
+                    {/* Sélecteur de date précise */}
+                    <div className="flex items-center gap-1">
                         <input
                             type="date"
                             value={dateDebut}
                             onChange={(e) => setDateDebut(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-2 px-2.5 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 font-medium"
-                            title="Filtrer par date"
+                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-1 px-2 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 font-medium"
+                            title="Date début"
+                        />
+                        <span className="text-slate-400 text-xs">à</span>
+                        <input
+                            type="date"
+                            value={dateFin}
+                            onChange={(e) => setDateFin(e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 py-1 px-2 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 font-medium"
+                            title="Date fin"
                         />
                     </div>
-                </div>
 
-                {/* Bannière récapitulative du filtre actif */}
-                {isFiltered && (
-                    <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800/50 flex flex-wrap items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                        <div className="flex items-center gap-2">
-                            <span>🔍 Résultat du filtre :</span>
-                            <span className="font-extrabold">{stats?.count_filtre || displayedPaiements.length} transaction(s)</span>
-                        </div>
-                        <div>
-                            <span>Total Encaissé : </span>
-                            <span className="font-black text-sm text-emerald-700 dark:text-emerald-300">
-                                {formatFCFA(stats?.total_filtre)}
+                    {/* Badge de réinitialisation si filtre actif */}
+                    {isFiltered && (
+                        <div className="flex items-center gap-2 ml-auto">
+                            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                {stats?.count_filtre || displayedPaiements.length} flux • {formatFCFA(stats?.total_filtre)}
                             </span>
+                            <button
+                                type="button"
+                                onClick={() => handleQuickDate("reset")}
+                                className="px-2 py-1 rounded-lg text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer"
+                                title="Réinitialiser tous les filtres"
+                            >
+                                ✕ Effacer
+                            </button>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
-
-            {/* MODALS DE SAISIE */}
-            <Modal show={generalModalOpen} onClose={() => setGeneralModalOpen(false)} maxWidth="5xl">
-                <StandardPaymentForm
-                    inscriptions={inscriptions}
-                    fraisTypes={fraisTypes}
-                    onClose={() => setGeneralModalOpen(false)}
-                />
-            </Modal>
-
-            <Modal show={scolariteModalOpen} onClose={() => setScolariteModalOpen(false)} maxWidth="5xl">
-                <ScolaritePaymentForm
-                    inscriptions={inscriptions}
-                    classes={classes}
-                    fraisTypes={fraisTypes}
-                    fraisClasses={fraisClasses}
-                    onClose={() => setScolariteModalOpen(false)}
-                />
-            </Modal>
-
             {/* TABLEAU PRINCIPAL DU JOURNAL DE CAISSE */}
             <div className="bg-white dark:bg-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-black/20 rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-[#0B1A2D] text-slate-300 uppercase text-[10px] font-black tracking-wider">
-                            <tr>
-                                <th className="p-4 sm:p-5 font-semibold rounded-tl-3xl">{t("date", "Date & Heure")}</th>
-                                <th className="p-4 sm:p-5 font-semibold text-white">{t("student", "Élève (Débiteur)")}</th>
-                                <th className="p-4 sm:p-5 font-semibold">{t("frais_type", "Motif / Période")}</th>
-                                <th className="p-4 sm:p-5 font-semibold">{t("mode", "Règlement")}</th>
-                                <th className="p-4 sm:p-5 font-semibold">{t("cashier", "Encaissé par")}</th>
-                                <th className="p-4 sm:p-5 font-semibold text-right text-white">{t("amount", "Montant")}</th>
-                                <th className="p-4 sm:p-5 font-semibold text-center rounded-tr-3xl no-print">{t("actions", "Actions")}</th>
-                            </tr>
-                        </thead>
+                {viewMode === 'classes' ? (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-[#0B1A2D] text-slate-300 uppercase text-[10px] font-black tracking-wider">
+                                <tr>
+                                    <th className="p-4 sm:p-5 font-semibold rounded-tl-3xl w-12 text-center">Rang</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-white">Classe</th>
+                                    <th className="p-4 sm:p-5 font-semibold">Cycle / Niveau</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-center">Élèves Cotisants</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-center">Nbre Quittances</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-right">Scolarité (FCFA)</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-right">Frais Annexes (FCFA)</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-right text-white">Total Encaissé</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-center w-36">Part / Poids</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-center rounded-tr-3xl no-print">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                {recapClasses && recapClasses.length > 0 ? (
+                                    recapClasses.map((c, idx) => (
+                                        <tr key={c.classe_id || idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors text-xs sm:text-sm">
+                                            <td className="p-4 sm:p-5 text-center font-black text-slate-400">
+                                                #{idx + 1}
+                                            </td>
+                                            <td className="p-4 sm:p-5 font-extrabold text-slate-900 dark:text-white">
+                                                <div className="flex items-center gap-2">
+                                                    <Building2 className="w-4 h-4 text-purple-500 shrink-0" />
+                                                    <span>{c.classe_nom}</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4 sm:p-5 capitalize">
+                                                <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600">
+                                                    {c.classe_type}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 sm:p-5 text-center font-bold text-slate-700 dark:text-slate-300">
+                                                {c.nb_eleves}
+                                            </td>
+                                            <td className="p-4 sm:p-5 text-center font-bold text-slate-700 dark:text-slate-300">
+                                                {c.nb_operations} ({c.nb_flux} flux)
+                                            </td>
+                                            <td className="p-4 sm:p-5 text-right font-mono font-bold text-blue-600 dark:text-blue-400">
+                                                {Number(c.scolarite).toLocaleString('fr-FR')}
+                                            </td>
+                                            <td className="p-4 sm:p-5 text-right font-mono font-bold text-purple-600 dark:text-purple-400">
+                                                {Number(c.annexes).toLocaleString('fr-FR')}
+                                            </td>
+                                            <td className="p-4 sm:p-5 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm sm:text-base whitespace-nowrap">
+                                                {formatFCFA(c.total)}
+                                            </td>
+                                            <td className="p-4 sm:p-5 text-center">
+                                                <div className="space-y-1">
+                                                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                                        <span>{c.pourcentage}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                                                        <div 
+                                                            className="bg-purple-600 h-full rounded-full transition-all duration-500" 
+                                                            style={{ width: `${Math.min(100, Math.max(3, c.pourcentage))}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-4 sm:p-5 text-center no-print whitespace-nowrap">
+                                                <button
+                                                    onClick={() => {
+                                                        setFilterClasse(String(c.classe_id));
+                                                        setViewMode('operations');
+                                                    }}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:hover:bg-purple-900/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition-all cursor-pointer"
+                                                    title="Filtrer et afficher tous les flux de cette classe"
+                                                >
+                                                    <Filter className="w-3.5 h-3.5" />
+                                                    <span>Détails flux</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="10" className="p-8 text-center text-slate-400 italic">
+                                            Aucun encaissement trouvé par classe pour ces critères de recherche.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                            {recapClasses && recapClasses.length > 0 && (
+                                <tfoot className="bg-slate-50 dark:bg-slate-900/80 border-t-2 border-slate-200 dark:border-slate-700 font-bold text-slate-900 dark:text-white">
+                                    <tr>
+                                        <td colSpan="3" className="p-4 sm:p-5 uppercase text-xs tracking-wider">
+                                            Totaux Généraux :
+                                        </td>
+                                        <td className="p-4 sm:p-5 text-center font-mono font-black text-slate-900 dark:text-white">
+                                            {recapClasses.reduce((acc, c) => acc + (c.nb_eleves || 0), 0)} élève(s)
+                                        </td>
+                                        <td className="p-4 sm:p-5 text-center font-mono font-black text-slate-900 dark:text-white">
+                                            {recapClasses.reduce((acc, c) => acc + (c.nb_operations || 0), 0)} quittance(s)
+                                        </td>
+                                        <td className="p-4 sm:p-5 text-right font-mono font-black text-blue-600 dark:text-blue-400">
+                                            {formatFCFA(recapClasses.reduce((acc, c) => acc + (c.scolarite || 0), 0))}
+                                        </td>
+                                        <td className="p-4 sm:p-5 text-right font-mono font-black text-purple-600 dark:text-purple-400">
+                                            {formatFCFA(recapClasses.reduce((acc, c) => acc + (c.annexes || 0), 0))}
+                                        </td>
+                                        <td className="p-4 sm:p-5 text-right font-mono text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                                            {formatFCFA(recapClasses.reduce((acc, c) => acc + (c.total || 0), 0))}
+                                        </td>
+                                        <td className="p-4 sm:p-5 text-center font-black text-emerald-600 dark:text-emerald-400">
+                                            100%
+                                        </td>
+                                        <td className="p-4 sm:p-5 text-center no-print">
+                                            <a
+                                                href={route('paiements.journal', {
+                                                    annee_scolaire_id: selectedAnnee,
+                                                    mode_paiement: selectedMode || undefined,
+                                                    date_debut: dateDebut || undefined,
+                                                    date_fin: dateFin || undefined,
+                                                    search: search || undefined,
+                                                    vue: 'classe',
+                                                })}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-bold hover:underline"
+                                            >
+                                                <Printer className="w-3.5 h-3.5" />
+                                                <span>Imprimer A4</span>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            )}
+                        </table>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-[#0B1A2D] text-slate-300 uppercase text-[10px] font-black tracking-wider">
+                                <tr>
+                                    <th className="p-4 sm:p-5 font-semibold rounded-tl-3xl">{t("date", "Date & Heure")}</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-white">{t("student", "Élève (Débiteur)")}</th>
+                                    <th className="p-4 sm:p-5 font-semibold">{t("frais_type", "Motif / Période")}</th>
+                                    <th className="p-4 sm:p-5 font-semibold">{t("mode", "Règlement")}</th>
+                                    <th className="p-4 sm:p-5 font-semibold">{t("cashier", "Encaissé par")}</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-right text-white">{t("amount", "Montant")}</th>
+                                    <th className="p-4 sm:p-5 font-semibold text-center rounded-tr-3xl no-print">{t("actions", "Actions")}</th>
+                                </tr>
+                            </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                             {viewMode === 'operations' ? (
                                 groupedOperations.length > 0 ? (
@@ -960,9 +1094,10 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
                         </tbody>
                     </table>
                 </div>
+            )}
 
                 {/* PIED DU TABLEAU : TOTAL ENCAISSÉ DE LA SÉLECTION */}
-                {displayedPaiements.length > 0 && (
+                {viewMode !== 'classes' && displayedPaiements.length > 0 && (
                     <div className="bg-slate-900 text-white p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div className="text-xs font-semibold text-slate-300">
                             Page {paiements.current_page || 1} sur {paiements.last_page || 1} • {viewMode === 'operations' ? `${groupedOperations.length} quittance(s) (${displayedPaiements.length} flux ventilés)` : `${displayedPaiements.length} flux au total`}
@@ -978,7 +1113,7 @@ export default function Index({ paiements, stats, annees, currentAnneeId, inscri
             </div>
 
             {/* Pagination */}
-            {paiements.links && paiements.links.length > 3 && (
+            {viewMode !== 'classes' && paiements.links && paiements.links.length > 3 && (
                 <div className="mt-8 flex flex-wrap gap-2 justify-center no-print">
                     {paiements.links.map((link, i) => (
                         <Link

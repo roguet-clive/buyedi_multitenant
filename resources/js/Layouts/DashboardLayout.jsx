@@ -61,15 +61,21 @@ export default function DashboardLayout({ children, title }) {
         }}
       />
       <Head title={title} />
-      <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900 dark:text-white transition-colors duration-300">
+      <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900 dark:text-white transition-colors duration-300 print:bg-white print:min-h-0">
         {/* Sidebar sticky */}
-        <Sidebar />
+        <div className="print:hidden">
+          <Sidebar />
+        </div>
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col min-h-screen overflow-hidden bg-slate-50 dark:bg-[#060b13]">
-          <Header />
-          <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-6 overflow-auto">{children}</main>
-          <Footer />
+        <div className="flex-1 flex flex-col min-h-screen overflow-hidden bg-slate-50 dark:bg-[#060b13] print:bg-white print:min-h-0 print:overflow-visible">
+          <div className="print:hidden">
+            <Header />
+          </div>
+          <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-6 overflow-auto print:p-0 print:space-y-0 print:overflow-visible">{children}</main>
+          <div className="print:hidden">
+            <Footer />
+          </div>
         </div>
       </div>
     </>

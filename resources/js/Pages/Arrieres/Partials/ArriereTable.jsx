@@ -10,7 +10,8 @@ export default function ArriereTable({
     openEditModal,
     setHistoryTarget,
     setDeleteTarget,
-    setIsCreateModalOpen
+    setIsCreateModalOpen,
+    can = () => true
 }) {
     const { t } = useTranslation();
 
@@ -53,13 +54,15 @@ export default function ArriereTable({
                     <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
                         {t("no_arrears_help", "Il n'y a pas d'arriéré correspondant aux critères sélectionnés. Ajoutez les créances antérieures lors de la configuration initiale.")}
                     </p>
-                    <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-3 rounded-xl text-sm font-bold shadow-md transition-all"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>{t("add_first_arrear", "Ajouter un premier dossier débiteur")}</span>
-                    </button>
+                    {can('ajouter_arrieres') && (
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-3 rounded-xl text-sm font-bold shadow-md transition-all"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>{t("add_first_arrear", "Ajouter un premier dossier débiteur")}</span>
+                        </button>
+                    )}
                 </div>
             ) : (
                 <div className="overflow-x-auto">
@@ -112,7 +115,7 @@ export default function ArriereTable({
                                     <td className="py-4 px-6 text-right">
                                         <div className="flex items-center justify-end gap-1.5">
                                             {/* Bouton Encaisser */}
-                                            {item.statut !== 'solde' && (
+                                            {item.statut !== 'solde' && can('encaisser_arrieres') && (
                                                 <button
                                                     onClick={() => openPayModal(item)}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
@@ -133,22 +136,26 @@ export default function ArriereTable({
                                             </button>
 
                                             {/* Modifier */}
-                                            <button
-                                                onClick={() => openEditModal(item)}
-                                                className="p-2 text-slate-600 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-blue-950/40 rounded-xl transition-all"
-                                                title={t("edit", "Modifier")}
-                                            >
-                                                <Edit3 className="w-4 h-4" />
-                                            </button>
+                                            {can('modifier_arrieres') && (
+                                                <button
+                                                    onClick={() => openEditModal(item)}
+                                                    className="p-2 text-slate-600 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-blue-950/40 rounded-xl transition-all"
+                                                    title={t("edit", "Modifier")}
+                                                >
+                                                    <Edit3 className="w-4 h-4" />
+                                                </button>
+                                            )}
 
                                             {/* Supprimer */}
-                                            <button
-                                                onClick={() => setDeleteTarget(item)}
-                                                className="p-2 text-slate-600 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/40 rounded-xl transition-all"
-                                                title={t("delete", "Supprimer")}
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            {can('supprimer_arrieres') && (
+                                                <button
+                                                    onClick={() => setDeleteTarget(item)}
+                                                    className="p-2 text-slate-600 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 bg-slate-100 hover:bg-red-50 dark:bg-slate-800 dark:hover:bg-red-950/40 rounded-xl transition-all"
+                                                    title={t("delete", "Supprimer")}
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

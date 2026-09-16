@@ -15,7 +15,8 @@ export default function Create(props) {
     classes = [],
     annee_en_cours,
     fraisTypes = [],
-    flash
+    flash,
+    forfait_config = { montant_forfait: 70000, frais_inscription: 10000, frais_reinscription: 5000 },
   } = props;
 
   // Helper to safely format date for input (YYYY-MM-DD)
@@ -30,10 +31,36 @@ export default function Create(props) {
   }, [fraisTypes]);
 
   const typeReinscription = useMemo(() => {
-    return fraisTypes.find(ft => ft.code === 'reinscription') || { id: 10, code: 'reinscription', nom: "Frais de Réinscription", montant: 5000 };
+    return fraisTypes.find(ft => ft.code === 'reinscription') || { id: 11, code: 'reinscription', nom: "Frais de Réinscription", montant: 5000 };
   }, [fraisTypes]);
 
-  // Frais annexes (excluant inscription et réinscription)
+  // Frais annexes spécifiques au SECONDAIRE (Tenue 15 000 + Carte 1 500 + Assurance 1 000 + APE 2 000 = 19 500 FCFA)
+  // Les frais d'inscription et réinscription sont DÉJÀ inclus dans le forfait de 70 000 FCFA
+  const fraisAnnexesSecondaire = useMemo(() => {
+    return fraisTypes.filter(ft => {
+      if (ft.is_scolarite) return false;
+      if (ft.code === 'inscription' || ft.code === 'reinscription') return false;
+      if (ft.nom?.toLowerCase().includes('inscription')) return false;
+      if (ft.code === 'bulletin' || ft.nom?.toLowerCase().includes('bulletin')) return false;
+      if (ft.nom?.toLowerCase().includes('primaire')) return false;
+      if (ft.code?.startsWith('arriere')) return false;
+      return true;
+    });
+  }, [fraisTypes]);
+
+  // Frais annexes spécifiques à la MATERNELLE / PRIMAIRE
+  const fraisAnnexesPrimaire = useMemo(() => {
+    return fraisTypes.filter(ft => {
+      if (ft.is_scolarite) return false;
+      if (ft.code === 'inscription' || ft.code === 'reinscription') return false;
+      if (ft.nom?.toLowerCase().includes('inscription')) return false;
+      if (ft.nom?.toLowerCase().includes('secondaire')) return false;
+      if (ft.code?.startsWith('arriere')) return false;
+      return true;
+    });
+  }, [fraisTypes]);
+
+  // Frais annexes génériques (compatibilité)
   const fraisAnnexes = useMemo(() => {
     return fraisTypes.filter(ft => ft.code !== 'inscription' && ft.code !== 'reinscription');
   }, [fraisTypes]);
@@ -49,7 +76,7 @@ export default function Create(props) {
     return 'inscription';
   }, [inscription, elevePreSelectionne]);
 
-  // Initialiser les frais avec calcul dynamique de la tenue et remise de 50% UNIQUEMENT sur l'inscription (10 000 F -> 5 000 F)
+  // Initialiser les frais avec calcul dynamique selon le cycle
   const initializeFees = (admType = defaultAdmissionType, initialClasseId = '', withRemise = false) => {
     const feesState = {};
     const paidFeeIds = (inscription?.paiements || []).map(p => p.frais_type_id);
@@ -62,9 +89,12 @@ export default function Create(props) {
       let isSelected = isPaid;
       let baseMontant = type.montant || 0;
 
-      // Montant spécifique tenue et bulletin selon la classe (JAMAIS remisé)
+      const isNomPrimaire = type.nom?.toLowerCase().includes('primaire');
+      const isNomSecondaire = type.nom?.toLowerCase().includes('secondaire');
+
+      // Montant spécifique tenue et bulletin selon la classe
       if (type.code === 'tenue' || type.nom?.toLowerCase().includes('tenue')) {
-        baseMontant = isSecondaire ? 15000 : 10000;
+        baseMontant = isNomSecondaire ? 15000 : (isNomPrimaire ? 10000 : (isSecondaire ? 15000 : 10000));
       } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
         baseMontant = isSecondaire ? 0 : Number(type.montant || 1000);
       } else if (type.code === 'carte' || type.nom?.toLowerCase().includes('carte')) {
@@ -72,14 +102,14 @@ export default function Create(props) {
       } else if (type.nom?.toLowerCase().includes('assurance')) {
         baseMontant = Number(type.montant || 1000);
       } else if (type.nom?.toLowerCase().includes('ape')) {
-        baseMontant = Number(type.montant || 5000);
+        baseMontant = 2000;
       } else if (type.code === 'inscription') {
         baseMontant = type.montant || 10000;
       } else if (type.code === 'reinscription') {
         baseMontant = type.montant || 5000;
       }
 
-      // Remise de 50% UNIQUEMENT sur la nouvelle inscription (10 000 F -> 5 000 F), nul part ailleurs
+      // Remise de 50% UNIQUEMENT sur la nouvelle inscription
       let montant = baseMontant;
       if (type.code === 'inscription') {
         montant = (withRemise && admType === 'inscription') ? Math.round(baseMontant * 0.5) : baseMontant;
@@ -89,15 +119,36 @@ export default function Create(props) {
         montant = paiementsMap[type.id].montant;
       }
 
-      // Exclusion mutuelle pour les frais d'admission et règle bulletin secondaire
-      if (type.code === 'inscription') {
-        isSelected = isPaid || (admType === 'inscription');
-      } else if (type.code === 'reinscription') {
-        isSelected = isPaid || (admType === 'reinscription');
-      } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
-        isSelected = isPaid || (!isSecondaire && !inscription);
-      } else if (!inscription) {
-        isSelected = isPaid || true;
+      // Règles de sélection par défaut
+      if (isSecondaire) {
+        // Au secondaire : les frais d'inscription et de réinscription sont DÉJÀ inclus dans le forfait 70 000 F
+        // Ne JAMAIS les cocher dans les frais annexes
+        if (type.code === 'inscription' || type.code === 'reinscription' || type.nom?.toLowerCase().includes('inscription')) {
+          isSelected = false;
+        } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
+          isSelected = false;
+        } else if (isNomPrimaire) {
+          isSelected = false;
+        } else if (type.code?.startsWith('arriere')) {
+          isSelected = false;
+        } else {
+          isSelected = isPaid || !inscription;
+        }
+      } else {
+        // Au primaire / maternelle : exclusion mutuelle classique inscription / réinscription
+        if (type.code === 'inscription') {
+          isSelected = isPaid || (admType === 'inscription');
+        } else if (type.code === 'reinscription') {
+          isSelected = isPaid || (admType === 'reinscription');
+        } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
+          isSelected = isPaid || !inscription;
+        } else if (isNomSecondaire) {
+          isSelected = false;
+        } else if (type.code?.startsWith('arriere')) {
+          isSelected = false;
+        } else {
+          isSelected = isPaid || !inscription;
+        }
       }
 
       feesState[type.id] = {
@@ -188,29 +239,40 @@ export default function Create(props) {
     });
   };
 
-  // Gestion du changement de type d'admission (EXCLUSION MUTUELLE STRICTE)
+  // Gestion du changement de type d'admission
   const handleAdmissionChange = (newType) => {
+    const isSec = classes.find(c => String(c.id) === String(data.classe_id))?.type === 'secondaire';
+
     setData(prev => {
       const updatedFrais = { ...prev.frais };
       
-      // Inscription : remise de 50% si active (5 000 F au lieu de 10 000 F)
-      if (typeInscription?.id && updatedFrais[typeInscription.id]) {
-        const base = Number(typeInscription.montant || 10000);
-        updatedFrais[typeInscription.id] = {
-          ...updatedFrais[typeInscription.id],
-          selected: newType === 'inscription',
-          montant: (prev.has_remise && newType === 'inscription') ? Math.round(base * 0.5) : base,
-        };
-      }
+      // Au secondaire, l'inscription et la réinscription ne sont PAS sélectionnées dans les annexes (incluses dans forfait 70k)
+      if (isSec) {
+        if (typeInscription?.id && updatedFrais[typeInscription.id]) {
+          updatedFrais[typeInscription.id] = { ...updatedFrais[typeInscription.id], selected: false };
+        }
+        if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
+          updatedFrais[typeReinscription.id] = { ...updatedFrais[typeReinscription.id], selected: false };
+        }
+      } else {
+        // Maternelle / Primaire : sélection exclusive classique
+        if (typeInscription?.id && updatedFrais[typeInscription.id]) {
+          const base = Number(typeInscription.montant || 10000);
+          updatedFrais[typeInscription.id] = {
+            ...updatedFrais[typeInscription.id],
+            selected: newType === 'inscription',
+            montant: (prev.has_remise && newType === 'inscription') ? Math.round(base * 0.5) : base,
+          };
+        }
 
-      // Réinscription : TOUJOURS 5 000 F, JAMAIS REMISÉE
-      if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
-        const base = Number(typeReinscription.montant || 5000);
-        updatedFrais[typeReinscription.id] = {
-          ...updatedFrais[typeReinscription.id],
-          selected: newType === 'reinscription',
-          montant: base,
-        };
+        if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
+          const base = Number(typeReinscription.montant || 5000);
+          updatedFrais[typeReinscription.id] = {
+            ...updatedFrais[typeReinscription.id],
+            selected: newType === 'reinscription',
+            montant: base,
+          };
+        }
       }
 
       return {
@@ -227,25 +289,35 @@ export default function Create(props) {
     const selected = elevesProp.find(e => String(e.id) === String(eleveId));
     const isReturning = selected?.is_reinscription;
     const nextAdmission = isReturning ? 'reinscription' : 'inscription';
+    const isSec = classes.find(c => String(c.id) === String(data.classe_id))?.type === 'secondaire';
 
     setData(prev => {
       const updatedFrais = { ...prev.frais };
 
-      if (typeInscription?.id && updatedFrais[typeInscription.id]) {
-        const base = Number(typeInscription.montant || 10000);
-        updatedFrais[typeInscription.id] = {
-          ...updatedFrais[typeInscription.id],
-          selected: nextAdmission === 'inscription',
-          montant: (prev.has_remise && nextAdmission === 'inscription') ? Math.round(base * 0.5) : base,
-        };
-      }
-      if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
-        const base = Number(typeReinscription.montant || 5000);
-        updatedFrais[typeReinscription.id] = {
-          ...updatedFrais[typeReinscription.id],
-          selected: nextAdmission === 'reinscription',
-          montant: base,
-        };
+      if (isSec) {
+        if (typeInscription?.id && updatedFrais[typeInscription.id]) {
+          updatedFrais[typeInscription.id] = { ...updatedFrais[typeInscription.id], selected: false };
+        }
+        if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
+          updatedFrais[typeReinscription.id] = { ...updatedFrais[typeReinscription.id], selected: false };
+        }
+      } else {
+        if (typeInscription?.id && updatedFrais[typeInscription.id]) {
+          const base = Number(typeInscription.montant || 10000);
+          updatedFrais[typeInscription.id] = {
+            ...updatedFrais[typeInscription.id],
+            selected: nextAdmission === 'inscription',
+            montant: (prev.has_remise && nextAdmission === 'inscription') ? Math.round(base * 0.5) : base,
+          };
+        }
+        if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
+          const base = Number(typeReinscription.montant || 5000);
+          updatedFrais[typeReinscription.id] = {
+            ...updatedFrais[typeReinscription.id],
+            selected: nextAdmission === 'reinscription',
+            montant: base,
+          };
+        }
       }
       return {
         ...prev,
@@ -257,31 +329,46 @@ export default function Create(props) {
     });
   };
 
-  // Changement de classe : ajuste automatiquement le montant de la tenue et du bulletin (Secondaire ne paie pas le bulletin : 0F)
+  // Changement de classe : bascule automatique des annexes selon le cycle (Secondaire vs Primaire)
   const handleClasseChange = (classeId) => {
     const selected = classes.find(c => String(c.id) === String(classeId));
     const isSecondaire = selected?.type === 'secondaire';
-    const baseTenue = isSecondaire ? 15000 : 10000;
 
     setData(prev => {
       const updatedFrais = { ...prev.frais };
-      const tenueFee = fraisAnnexes.find(ft => ft.code === 'tenue' || ft.nom?.toLowerCase().includes('tenue'));
-      
-      if (tenueFee && updatedFrais[tenueFee.id] && !updatedFrais[tenueFee.id].already_paid) {
-        updatedFrais[tenueFee.id] = {
-          ...updatedFrais[tenueFee.id],
-          montant: baseTenue // Strictly 15 000 or 10 000, never discounted
-        };
-      }
 
-      const bulletinFee = fraisAnnexes.find(ft => ft.code === 'bulletin' || ft.nom?.toLowerCase().includes('bulletin'));
-      if (bulletinFee && updatedFrais[bulletinFee.id] && !updatedFrais[bulletinFee.id].already_paid) {
-        updatedFrais[bulletinFee.id] = {
-          ...updatedFrais[bulletinFee.id],
-          montant: isSecondaire ? 0 : Number(bulletinFee.montant || 1000),
-          selected: isSecondaire ? false : true,
-        };
-      }
+      fraisTypes.forEach(type => {
+        if (!updatedFrais[type.id] || updatedFrais[type.id].already_paid) return;
+
+        const isNomPrimaire = type.nom?.toLowerCase().includes('primaire');
+        const isNomSecondaire = type.nom?.toLowerCase().includes('secondaire');
+
+        if (isSecondaire) {
+          // Au secondaire : pas d'inscription/réinscription dans les annexes (incluses dans forfait 70k)
+          if (type.code === 'inscription' || type.code === 'reinscription' || type.nom?.toLowerCase().includes('inscription')) {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: false };
+          } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: false, montant: 0 };
+          } else if (isNomPrimaire) {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: false };
+          } else if (isNomSecondaire) {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: true, montant: 15000 };
+          }
+        } else {
+          // Au primaire / maternelle
+          if (type.code === 'inscription') {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: prev.admission_type === 'inscription' };
+          } else if (type.code === 'reinscription') {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: prev.admission_type === 'reinscription' };
+          } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: true, montant: Number(type.montant || 1000) };
+          } else if (isNomPrimaire) {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: true, montant: 10000 };
+          } else if (isNomSecondaire) {
+            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: false };
+          }
+        }
+      });
 
       return {
         ...prev,
@@ -301,9 +388,8 @@ export default function Create(props) {
     const isApe = feeType?.nom?.toLowerCase().includes('ape');
     const isSecondaire = selectedClasseObj?.type === 'secondaire';
 
-    // Frais au montant strictement fixe et non négociable (Carte: 1500, Assurance: 1000, Tenue: 10000/15000, Bulletin: 1000/0)
-    // L'APE est le SEUL frais annexe modifiable par l'opérateur ou le parent
-    const isFixedAmountFee = isCarte || isAssurance || isTenue || isBulletin;
+    // Frais au montant strictement fixe et non négociable (Carte: 1500, Assurance: 1000, Tenue: 10000/15000, Bulletin: 1000/0, APE: 2000)
+    const isFixedAmountFee = isCarte || isAssurance || isTenue || isBulletin || isApe;
 
     // Si le montant est fixe pour tous, interdire sa modification manuelle
     if (field === 'montant' && isFixedAmountFee) {
@@ -332,8 +418,8 @@ export default function Create(props) {
         updatedItem.montant = Number(feeType?.montant || 1500);
       } else if (isAssurance) {
         updatedItem.montant = Number(feeType?.montant || 1000);
-      } else if (isApe && (!updatedItem.montant || Number(updatedItem.montant) <= 0)) {
-        updatedItem.montant = Number(feeType?.montant || 5000);
+      } else if (isApe) {
+        updatedItem.montant = 2000;
       }
     }
 
@@ -397,6 +483,49 @@ export default function Create(props) {
   const selectedClasseObj = useMemo(() => {
     return classes.find(c => String(c.id) === String(data.classe_id));
   }, [data.classe_id, classes]);
+
+  // ─── Calculs spécifiques SECONDAIRE (Forfait Tranche 1) ───────────────────
+  const isSecondaireSelected = selectedClasseObj?.type === 'secondaire';
+
+  const forfaitSecondaire = useMemo(() => {
+    const FORFAIT     = forfait_config.montant_forfait;     // 70 000
+    const INSCRIPTION = forfait_config.frais_inscription;   // 10 000
+    const REINSCRIPTION = forfait_config.frais_reinscription; // 5 000
+
+    const admissionBase     = data.admission_type === 'reinscription' ? REINSCRIPTION : INSCRIPTION;
+    const admissionEffectif = (data.has_remise && data.admission_type === 'inscription')
+      ? Math.round(admissionBase * 0.5)
+      : admissionBase;
+    const montantForfait    = FORFAIT - (admissionBase - admissionEffectif); // 70 000 ou 65 000
+    const avanceScolarite   = montantForfait - admissionEffectif;
+
+    // Solde scolarité restant après Tranche 1
+    const scolariteAnnuelle = selectedClasseFrais?.montant || 0;
+    const soldeScolarite    = Math.max(0, scolariteAnnuelle - avanceScolarite);
+    const tranche2          = Math.round(soldeScolarite / 2);
+    const tranche3          = soldeScolarite - tranche2;
+
+    return {
+      admissionBase,
+      admissionEffectif,
+      montantForfait,
+      avanceScolarite,
+      scolariteAnnuelle,
+      soldeScolarite,
+      tranche2,
+      tranche3,
+    };
+  }, [data.admission_type, data.has_remise, forfait_config, selectedClasseFrais]);
+
+  // Total frais annexes sélectionnés pour le Secondaire (Tenue 15k + Carte 1.5k + Assurance 1k + APE 2k = 19 500 FCFA)
+  // Les frais d'inscription/réinscription sont déjà inclus dans le forfait 70 000 FCFA
+  const totalAnnexesSecondaire = useMemo(() => {
+    if (!isSecondaireSelected) return 0;
+    return fraisAnnexesSecondaire.reduce((acc, ft) => {
+      const item = data.frais[ft.id];
+      return item?.selected ? acc + Number(item.montant || 0) : acc;
+    }, 0);
+  }, [data.frais, fraisAnnexesSecondaire, isSecondaireSelected]);
 
   return (
     <DashboardLayout title={inscription ? t('edit_inscription', 'Modifier') : t('create_inscription', 'Nouvelle Inscription')}>
@@ -605,6 +734,363 @@ export default function Create(props) {
             )}
           </div>
 
+          {/* ══════════════════════════════════════════════════════════════
+              🎓 SECONDAIRE : FORFAIT TRANCHE 1 (70 000 FCFA global)
+              ══════════════════════════════════════════════════════════════ */}
+          {isSecondaireSelected ? (
+            <>
+              {/* Sélection Inscription / Réinscription (masquée visuellement, gardée fonctionnelle) */}
+              <div className="mb-6">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+                  <span>1. Type d'Admission</span>
+                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 font-sans bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                    (Inclus dans le forfait)
+                  </span>
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* INSCRIPTION */}
+                  <div
+                    onClick={() => isValidee && handleAdmissionChange('inscription')}
+                    className={`relative p-4 rounded-2xl border-2 transition-all duration-300 cursor-pointer flex items-center gap-3
+                      ${data.admission_type === 'inscription'
+                        ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800'
+                      }
+                      ${!isValidee ? 'cursor-not-allowed opacity-60' : ''}
+                    `}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0
+                      ${data.admission_type === 'inscription' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 dark:border-slate-600'}
+                    `}>
+                      {data.admission_type === 'inscription' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-sm text-slate-800 dark:text-white">Nouvelle Inscription</p>
+                      <p className="text-xs text-slate-500">Dont {formatAmount(forfait_config.frais_inscription)} inclus dans le forfait</p>
+                    </div>
+                    <span className="text-[10px] font-black uppercase bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded-lg">Nouveau</span>
+                  </div>
+
+                  {/* RÉINSCRIPTION */}
+                  <div
+                    onClick={() => isValidee && handleAdmissionChange('reinscription')}
+                    className={`relative p-4 rounded-2xl border-2 transition-all duration-300 cursor-pointer flex items-center gap-3
+                      ${data.admission_type === 'reinscription'
+                        ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800'
+                      }
+                      ${!isValidee ? 'cursor-not-allowed opacity-60' : ''}
+                    `}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0
+                      ${data.admission_type === 'reinscription' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 dark:border-slate-600'}
+                    `}>
+                      {data.admission_type === 'reinscription' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-sm text-slate-800 dark:text-white">Réinscription</p>
+                      <p className="text-xs text-slate-500">Dont {formatAmount(forfait_config.frais_reinscription)} inclus dans le forfait</p>
+                    </div>
+                    <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-0.5 rounded-lg">Ancien</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── BLOC FORFAIT TRANCHE 1 ── */}
+              <div className="mb-6 rounded-2xl overflow-hidden border-2 border-amber-400 dark:border-amber-600 shadow-lg shadow-amber-500/10">
+                {/* En-tête forfait */}
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <SparklesIcon className="w-5 h-5 text-white" />
+                    <span className="font-black text-white text-base tracking-wide">Forfait Tranche 1 — Secondaire</span>
+                  </div>
+                  <span className="text-[11px] font-black bg-white/20 text-white px-3 py-1 rounded-full border border-white/30">
+                    Paiement unique à l'inscription
+                  </span>
+                </div>
+
+                <div className="bg-amber-50/60 dark:bg-amber-950/20 p-5">
+                  {/* Montant total forfait */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 mb-0.5">Montant total forfait</p>
+                      <p className="text-xs text-amber-700/70 dark:text-amber-400/70">
+                        Frais d'admission ({data.admission_type === 'reinscription' ? 'réinscription' : 'inscription'}) + Avance scolarité
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {data.has_remise && data.admission_type === 'inscription' && (
+                        <span className="text-xs text-amber-500 line-through block">{formatAmount(forfait_config.montant_forfait)}</span>
+                      )}
+                      <span className="text-3xl font-black text-amber-900 dark:text-amber-200">
+                        {formatAmount(forfaitSecondaire.montantForfait)}
+                      </span>
+                      {data.has_remise && data.admission_type === 'inscription' && (
+                        <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 px-1.5 py-0.5 rounded ml-1">
+                          Remise 50% appliquée
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Ventilation détaillée */}
+                  <div className="space-y-2 border-t border-amber-200 dark:border-amber-800 pt-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-2">Décomposition du forfait :</p>
+
+                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl px-4 py-2.5 border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          Frais {data.admission_type === 'reinscription' ? 'de réinscription' : "d'inscription"}
+                        </span>
+                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+                          Inclus
+                        </span>
+                      </div>
+                      <span className="font-black text-sm text-blue-700 dark:text-blue-400">
+                        {formatAmount(forfaitSecondaire.admissionEffectif)}
+                        {data.has_remise && data.admission_type === 'inscription' && (
+                          <span className="text-[9px] font-bold text-emerald-600 ml-1">(remisé)</span>
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl px-4 py-2.5 border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Avance sur scolarité</span>
+                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                          Déduit de la scolarité
+                        </span>
+                      </div>
+                      <span className="font-black text-sm text-emerald-700 dark:text-emerald-400">{formatAmount(forfaitSecondaire.avanceScolarite)}</span>
+                    </div>
+                  </div>
+
+                  {/* Plan de paiement scolarité restante */}
+                  {forfaitSecondaire.scolariteAnnuelle > 0 && (
+                    <div className="mt-4 pt-4 border-t border-amber-200 dark:border-amber-800">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Plan de paiement — Solde scolarité restant :</p>
+                      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <div className="grid grid-cols-3 text-center">
+                          <div className="px-3 py-3 border-r border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1">Tranche 1</p>
+                            <p className="font-black text-base text-amber-800 dark:text-amber-300">{formatAmount(forfaitSecondaire.montantForfait)}</p>
+                            <p className="text-[9px] text-slate-400 mt-0.5">Payée aujourd'hui ✅</p>
+                          </div>
+                          <div className="px-3 py-3 border-r border-slate-200 dark:border-slate-700">
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Tranche 2</p>
+                            <p className="font-black text-base text-slate-700 dark:text-slate-300">
+                              {forfaitSecondaire.soldeScolarite > 0 ? formatAmount(forfaitSecondaire.tranche2) : '—'}
+                            </p>
+                            <p className="text-[9px] text-slate-400 mt-0.5">À venir</p>
+                          </div>
+                          <div className="px-3 py-3">
+                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Tranche 3</p>
+                            <p className="font-black text-base text-slate-700 dark:text-slate-300">
+                              {forfaitSecondaire.soldeScolarite > 0 ? formatAmount(forfaitSecondaire.tranche3) : '—'}
+                            </p>
+                            <p className="text-[9px] text-slate-400 mt-0.5">À venir</p>
+                          </div>
+                        </div>
+                        {forfaitSecondaire.scolariteAnnuelle > 0 && (
+                          <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                            <span className="text-xs text-slate-500">Scolarité annuelle totale</span>
+                            <span className="text-sm font-black text-slate-700 dark:text-slate-300">{formatAmount(forfaitSecondaire.scolariteAnnuelle)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Info si scolarité non définie */}
+                  {!forfaitSecondaire.scolariteAnnuelle && (
+                    <div className="mt-3 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-3 py-2 rounded-xl">
+                      <InformationCircleIcon className="w-4 h-4 shrink-0" />
+                      <span>La scolarité annuelle de cette classe n'est pas encore définie. Le plan de tranches ne peut pas être calculé.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── FRAIS ANNEXES SECONDAIRE (tenue, carte, APE, assurance) ── */}
+              <div className="mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-1">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <span>2. Fournitures & Frais Annexes</span>
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
+                      (Non inclus dans le forfait)
+                    </span>
+                  </label>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Cochez les fournitures réglées immédiatement par le parent.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {fraisAnnexesSecondaire.map((type) => {
+                    const feeState = data.frais[type.id] || { selected: false, montant: type.montant || 0 };
+                    const isTenue = type.code === 'tenue' || type.nom.toLowerCase().includes('tenue');
+                    const isCarte = type.code === 'carte' || type.nom.toLowerCase().includes('carte');
+                    const isAssurance = type.nom.toLowerCase().includes('assurance');
+                    const isApe = type.nom.toLowerCase().includes('ape');
+                    const isFixedFee = isCarte || isAssurance || isTenue || isApe;
+
+                    return (
+                      <div
+                        key={type.id}
+                        className={`p-4 rounded-2xl border transition-all duration-300 flex flex-col justify-between gap-3
+                          ${feeState.selected
+                            ? 'bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-800 shadow-sm'
+                            : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }
+                          ${isTenue ? 'relative border-l-4 border-l-purple-500' : ''}
+                          ${isCarte ? 'relative border-l-4 border-l-blue-400' : ''}
+                          ${isAssurance ? 'relative border-l-4 border-l-teal-500' : ''}
+                          ${isApe ? 'relative border-l-4 border-l-indigo-400' : ''}
+                        `}
+                      >
+                        {isTenue && (
+                          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800 w-fit">
+                            👕 Tenue Scolaire • Secondaire (15 000 FCFA)
+                          </span>
+                        )}
+                        {isCarte && (
+                          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-blue-50 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800 w-fit">
+                            💳 Carte Scolaire • Tarif Fixe (1 500 FCFA)
+                          </span>
+                        )}
+                        {isAssurance && (
+                          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-teal-50 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 border-teal-200 dark:border-teal-800 w-fit">
+                            🛡️ Assurance Scolaire • Tarif Fixe (1 000 FCFA)
+                          </span>
+                        )}
+                        {isApe && (
+                          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-indigo-50 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 w-fit">
+                            👨‍👩‍👧 Cotisation APE • Tarif Fixe (2 000 FCFA)
+                          </span>
+                        )}
+
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="flex items-start gap-3 cursor-pointer flex-1">
+                            <input
+                              type="checkbox"
+                              checked={feeState.selected}
+                              onChange={(e) => handleFeeChange(type.id, 'selected', e.target.checked)}
+                              className="mt-1 w-5 h-5 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 dark:bg-slate-900 dark:border-slate-600 cursor-pointer"
+                              disabled={!isValidee || feeState.already_paid}
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-bold text-sm block ${feeState.selected ? 'text-emerald-900 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200'}`}>
+                                  {type.nom}
+                                </span>
+                                {feeState.already_paid && (
+                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">✓ Déjà Réglé</span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-500 font-mono uppercase mt-0.5 block">{type.code || 'ANNEXE'}</span>
+                              {isTenue && !feeState.selected && (
+                                <p className="text-[11px] text-purple-700 dark:text-purple-400 font-semibold mt-1 bg-purple-50 dark:bg-purple-900/20 p-1.5 rounded-lg border border-purple-200/50">
+                                  ℹ️ Non réglée aujourd'hui : le parent pourra la payer ultérieurement (15 000 FCFA).
+                                </p>
+                              )}
+                              {isApe && feeState.selected && (
+                                <p className="text-[11px] text-indigo-700 dark:text-indigo-300 font-medium mt-1 bg-indigo-50 dark:bg-indigo-950/30 p-1.5 rounded-lg border border-indigo-200/50">
+                                  💡 Cotisation APE fixée à 2 000 FCFA.
+                                </p>
+                              )}
+                            </div>
+                          </label>
+
+                          <div className="w-28 shrink-0">
+                            <div className="relative">
+                              <input
+                                type="number"
+                                readOnly={isFixedFee}
+                                className={`w-full text-right py-1.5 px-2.5 rounded-xl border text-sm font-black transition-colors
+                                  ${isFixedFee
+                                    ? 'bg-slate-100 border-slate-300 text-slate-800 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200 cursor-not-allowed'
+                                    : 'bg-white border-indigo-300 dark:bg-slate-800 text-indigo-950 dark:text-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                                  }
+                                `}
+                                value={feeState.montant}
+                                onChange={(e) => !isFixedFee && handleFeeChange(type.id, 'montant', e.target.value)}
+                                disabled={!feeState.selected || !isValidee || feeState.already_paid}
+                              />
+                              <div className="flex items-center justify-end gap-1 mt-0.5">
+                                <span className={`text-[9px] font-bold uppercase tracking-wider px-1 rounded border
+                                  ${isFixedFee ? 'text-slate-500 bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700' : 'text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800'}
+                                `}>
+                                  {isFixedFee ? 'Fixe' : 'Modifiable'}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-bold">FCFA</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── OPTION REMISE 50% (uniquement nouvelle inscription) ── */}
+              <div className={`mt-4 p-4 sm:p-5 rounded-2xl border-2 transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm
+                ${data.has_remise
+                  ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/20 border-emerald-400 dark:border-emerald-700 ring-2 ring-emerald-500/20'
+                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
+                }
+                ${data.admission_type === 'reinscription' ? 'opacity-60 cursor-not-allowed' : ''}
+              `}>
+                <div className="flex items-start sm:items-center gap-3.5">
+                  <input
+                    type="checkbox"
+                    id="remise_checkbox_sec"
+                    checked={data.has_remise && data.admission_type === 'inscription'}
+                    onChange={(e) => handleRemiseToggle(e.target.checked)}
+                    disabled={!isValidee || data.admission_type === 'reinscription'}
+                    className="w-5 h-5 mt-0.5 sm:mt-0 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                  <label htmlFor="remise_checkbox_sec" className={data.admission_type === 'reinscription' ? 'cursor-not-allowed' : 'cursor-pointer'}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-slate-800 dark:text-white text-sm">Remise 50% sur les frais d'inscription</span>
+                      <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 text-xs font-black px-2.5 py-0.5 rounded-full border border-emerald-300">
+                        Forfait → {formatAmount(data.has_remise && data.admission_type === 'inscription' ? forfaitSecondaire.montantForfait : forfait_config.montant_forfait)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {data.admission_type === 'reinscription'
+                        ? 'Remise réservée exclusivement aux nouvelles inscriptions.'
+                        : `La remise de 50% s'applique sur les frais d'inscription (${formatAmount(forfait_config.frais_inscription)} -> ${formatAmount(Math.round(forfait_config.frais_inscription * 0.5))}), reduisant le forfait a ${formatAmount(forfaitSecondaire.montantForfait)}.`}
+                    </p>
+                  </label>
+                </div>
+              </div>
+
+              {/* ── RÉCAPITULATIF FINANCIER (secondaire) ── */}
+              <div className="mt-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B1A2D] to-blue-950 p-[2px]">
+                <div className="bg-[#0B1A2D] rounded-[14px] p-6 flex flex-col sm:flex-row justify-between items-center sm:items-end gap-4">
+                  <div>
+                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total Encaissé Aujourd'hui</p>
+                    <p className="text-emerald-400 text-sm font-medium">
+                      Forfait Tranche 1 : {formatAmount(forfaitSecondaire.montantForfait)} + Annexes : {formatAmount(totalAnnexesSecondaire)}
+                    </p>
+                  </div>
+                  <div className="text-right w-full sm:w-auto">
+                    <span className="block text-4xl sm:text-5xl font-black text-white tracking-tight">
+                      {formatAmount(forfaitSecondaire.montantForfait + totalAnnexesSecondaire)}
+                    </span>
+                    <span className="text-[11px] text-slate-400 font-medium block mt-0.5">
+                      Forfait Tranche 1 ({formatAmount(forfaitSecondaire.montantForfait)}) + Annexes ({formatAmount(totalAnnexesSecondaire)})
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+          <>
+          {/* ══════════════════════════════════════════════════════════════
+              📚 MATERNELLE / PRIMAIRE : Comportement original inchangé
+              ══════════════════════════════════════════════════════════════ */}
           {/* 1. SÉLECTION EXCLUSIVE : INSCRIPTION (10 000 FCFA) vs RÉINSCRIPTION (5 000 FCFA) */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
@@ -735,7 +1221,7 @@ export default function Create(props) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {fraisAnnexes.map((type) => {
+              {fraisAnnexesPrimaire.map((type) => {
                 const feeState = data.frais[type.id] || { selected: false, montant: type.montant || 0 };
                 const isTenue = type.code === 'tenue' || type.nom.toLowerCase().includes('tenue');
                 const isBulletin = type.code === 'bulletin' || type.nom.toLowerCase().includes('bulletin');
@@ -743,8 +1229,7 @@ export default function Create(props) {
                 const isAssurance = type.nom.toLowerCase().includes('assurance');
                 const isApe = type.nom.toLowerCase().includes('ape');
                 const isSecondaire = selectedClasseObj?.type === 'secondaire';
-                // L'APE est le SEUL frais modifiable par le parent ou l'opérateur
-                const isFixedFee = isCarte || isAssurance || isTenue || isBulletin;
+                const isFixedFee = isCarte || isAssurance || isTenue || isBulletin || isApe;
 
                 return (
                   <div
@@ -829,7 +1314,7 @@ export default function Create(props) {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-indigo-50 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
                           <span>👨‍👩‍👧 Cotisation APE</span>
-                          <span>• Montant indicatif (5 000 FCFA) - Modifiable</span>
+                          <span>• Tarif Fixe (2 000 FCFA)</span>
                         </span>
                         <span className="text-[10px] font-semibold text-slate-400">
                           {feeState.selected ? 'Payée à l\'inscription' : 'Non cochée'}
@@ -872,13 +1357,13 @@ export default function Create(props) {
                           )}
                           {isApe && feeState.selected && (
                             <p className="text-[11px] text-indigo-700 dark:text-indigo-300 font-medium mt-1 bg-indigo-50 dark:bg-indigo-950/30 p-1.5 rounded-lg border border-indigo-200/50">
-                              💡 Cotisation APE libre ou ajustable selon le parent (5 000 FCFA par défaut).
+                              💡 Cotisation APE fixée à 2 000 FCFA.
                             </p>
                           )}
                         </div>
                       </label>
 
-                      {/* CHAMP MONTANT (SEUL L'APE EST MODIFIABLE) */}
+                      {/* CHAMP MONTANT (MONTANTS FIXES ET NON MODIFIABLES) */}
                       <div className="w-28 shrink-0">
                         <div className="relative">
                           <input
@@ -1000,6 +1485,8 @@ export default function Create(props) {
               </div>
             </div>
           </div>
+          </>
+          )}
         </motion.div>
 
         {/* BUTTON BAR */}

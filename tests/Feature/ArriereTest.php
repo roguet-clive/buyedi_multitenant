@@ -171,4 +171,61 @@ class ArriereTest extends TestCase
         $this->assertEquals(0, (float) $arriere->montant_restant);
         $this->assertEquals('solde', $arriere->statut);
     }
+
+    public function test_unauthorized_user_cannot_access_arrieres_or_recu(): void
+    {
+        $unauthorizedUser = User::factory()->create([
+            'nom' => 'Lambda',
+            'prenom' => 'User',
+            'email' => 'lambda@buyedi.ga',
+        ]);
+        // Sans permission voir_arrieres
+
+        // Index 403
+        $this->actingAs($unauthorizedUser)->get(route('arrieres.index'))
+            ->assertStatus(403);
+
+        // Store 403
+        $this->actingAs($unauthorizedUser)->post(route('arrieres.store'), [
+            'nom_eleve' => 'TEST',
+            'annee_scolaire_dette' => '2023-2024',
+            'montant_total' => 50000,
+        ])->assertStatus(403);
+
+        // Créer un versement pour tester le reçu
+        $fraisType = FraisType::create([
+            'nom' => "Arriéré 2023-2024",
+            'code' => 'arr_test_recu',
+            'montant' => 0,
+            'globale' => true,
+            'is_scolarite' => false,
+        ]);
+        $arriere = Arriere::create([
+            'nom_eleve' => 'TEST',
+            'annee_scolaire_dette' => '2023-2024',
+            'montant_total' => 50000,
+            'montant_paye' => 50000,
+            'montant_restant' => 0,
+            'statut' => 'solde',
+            'frais_type_id' => $fraisType->id,
+            'created_by' => $this->user->id,
+        ]);
+        $paiement = ArrierePaiement::create([
+            'arriere_id' => $arriere->id,
+            'user_id' => $this->user->id,
+            'numero_recu' => 'REC-ARR-000099',
+            'montant' => 50000,
+            'date_paiement' => now(),
+            'mode_paiement' => 'especes',
+        ]);
+
+        // Reçu inaccessible sans permission (403)
+        $this->actingAs($unauthorizedUser)->get(route('arrieres.recu', $paiement->id))
+            ->assertStatus(403);
+
+        // Reçu accessible pour le comptable autorisé (200)
+        $this->actingAs($this->user)->get(route('arrieres.recu', $paiement->id))
+            ->assertStatus(200);
+    }
 }
+

@@ -421,41 +421,61 @@ export default function Show({ inscription, fraisAnnexes = [], tenueFraisType })
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                                            {paiements.map((p) => (
-                                                <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <div className="font-bold text-slate-800 dark:text-slate-200">
-                                                            {p.frais_type?.nom || 'Frais'}
-                                                        </div>
-                                                        <span className="text-[10px] font-mono text-slate-400 uppercase">
-                                                            {p.frais_type?.code || 'N/A'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
-                                                        <div>{formatDate(p.date_paiement)}</div>
-                                                        <span className="text-[10px] font-bold uppercase text-slate-400">
-                                                            {p.mode_paiement}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-xs text-slate-500">
-                                                        {p.user ? `${p.user.nom} ${p.user.prenom}` : 'Caisse'}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                                                        {formatPrice(p.montant)}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <a
-                                                            href={route('paiements.recu', p.id)}
-                                                            target="_blank"
-                                                            className="p-1.5 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                            title="Imprimer ce reçu spécifique"
-                                                        >
-                                                            <PrinterIcon className="w-4 h-4" />
-                                                            <span>Reçu #{p.id}</span>
-                                                        </a>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {paiements.map((p) => {
+                                                const isForfaitLegacy = (p.frais_type?.is_scolarite || p.frais_type?.nom === 'Scolarité') && 
+                                                    (isSecondaire && Number(p.montant) === 70000 && p.commentaire && p.commentaire.includes("Forfait d'entrée"));
+
+                                                const isTranche1Scolarite = (p.frais_type?.is_scolarite || p.frais_type?.nom === 'Scolarité') && 
+                                                    (p.mois === '1ère Tranche' || (isSecondaire && [60000, 65000].includes(Number(p.montant))));
+
+                                                const designation = isForfaitLegacy
+                                                    ? `Forfait Tranche 1 : ${inscription.reinscription ? 'Réinscription' : 'Inscription'} + 1ère tranche de la scolarité`
+                                                    : isTranche1Scolarite
+                                                    ? '1ère Tranche de Scolarité'
+                                                    : (p.frais_type?.nom || 'Frais');
+
+                                                return (
+                                                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                                                        <td className="px-6 py-4">
+                                                            <div className="font-bold text-slate-800 dark:text-slate-200">
+                                                                {designation}
+                                                            </div>
+                                                            {p.commentaire ? (
+                                                                <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium block mt-0.5">
+                                                                    {p.commentaire}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] font-mono text-slate-400 uppercase">
+                                                                    {p.frais_type?.code || 'N/A'}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
+                                                            <div>{formatDate(p.date_paiement)}</div>
+                                                            <span className="text-[10px] font-bold uppercase text-slate-400">
+                                                                {p.mode_paiement}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-xs text-slate-500">
+                                                            {p.user ? `${p.user.nom} ${p.user.prenom}` : 'Caisse'}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                                                            {formatPrice(p.montant)}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <a
+                                                                href={route('paiements.recu', p.id)}
+                                                                target="_blank"
+                                                                className="p-1.5 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                title="Imprimer ce reçu spécifique"
+                                                            >
+                                                                <PrinterIcon className="w-4 h-4" />
+                                                                <span>Reçu #{p.id}</span>
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                         <tfoot>
                                             <tr className="bg-green-50 dark:bg-green-900/10 border-t-2 border-green-200 dark:border-green-800/50">

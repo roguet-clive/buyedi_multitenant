@@ -155,6 +155,7 @@ Route::middleware([SetLocale::class])->group(function () {
 
 
         // Gestion des paiements (Caisse)
+        Route::get('/paiements/journal', [PaiementController::class, 'journal'])->name('paiements.journal');
         Route::get('/paiements/{paiement}/recu', [PaiementController::class, 'recu'])->name('paiements.recu');
         Route::resource('paiements', PaiementController::class);
 
@@ -178,7 +179,8 @@ Route::middleware([SetLocale::class])->group(function () {
             ->name('arrieres.search-eleves')
             ->middleware('permission:voir_arrieres|ajouter_arrieres');
         Route::get('/arrieres/paiements/{arrierePaiement}/recu', [\App\Http\Controllers\ArriereController::class, 'recu'])
-            ->name('arrieres.recu');
+            ->name('arrieres.recu')
+            ->middleware('permission:voir_arrieres|encaisser_arrieres');
 
         Route::resource('depenses', \App\Http\Controllers\DepenseController::class)
              ->only(['index', 'store', 'destroy']);
@@ -235,6 +237,8 @@ Route::middleware([SetLocale::class])->group(function () {
         Route::get('/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
         Route::post('/notifications/{id}/read', [App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('notifications.read');
         Route::post('/notifications/read-all', [App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
+        Route::delete('/notifications/destroy-all-read', [App\Http\Controllers\NotificationController::class, 'destroyAllRead'])->name('notifications.destroyAllRead');
+        Route::delete('/notifications/{id}', [App\Http\Controllers\NotificationController::class, 'destroy'])->name('notifications.destroy');
 
         // 🤖 IA DASHBOARD
         Route::get('/ia', [App\Http\Controllers\IAController::class, 'index'])->name('ia.index')
@@ -288,10 +292,27 @@ Route::middleware([SetLocale::class])->group(function () {
              ->only(['index', 'store', 'destroy']);
         
         // 💼 RH & Paie
-        Route::get('rh/paie', [App\Http\Controllers\PaieController::class, 'index'])->name('rh.paie.index');
-        Route::post('rh/paie', [App\Http\Controllers\PaieController::class, 'store'])->name('rh.paie.store');
-        Route::post('rh/contrat', [App\Http\Controllers\PaieController::class, 'contract'])->name('rh.contrat.store'); // Corrected method name
-        Route::get('rh/bulletin/{paiement}', [App\Http\Controllers\PaieController::class, 'bulletin'])->name('rh.bulletin.download');
+        Route::get('rh/paie', [App\Http\Controllers\PaieController::class, 'index'])
+            ->name('rh.paie.index')
+            ->middleware('permission:voir_paie');
+        Route::post('rh/paie', [App\Http\Controllers\PaieController::class, 'store'])
+            ->name('rh.paie.store')
+            ->middleware('permission:gerer_paie');
+        Route::put('rh/paie/{paiement}', [App\Http\Controllers\PaieController::class, 'update'])
+            ->name('rh.paie.update')
+            ->middleware('permission:gerer_paie|modifier_paie');
+        Route::delete('rh/paie/{paiement}', [App\Http\Controllers\PaieController::class, 'destroy'])
+            ->name('rh.paie.destroy')
+            ->middleware('permission:gerer_paie|supprimer_paie');
+        Route::post('rh/contrat', [App\Http\Controllers\PaieController::class, 'contract'])
+            ->name('rh.contrat.store')
+            ->middleware('permission:gerer_paie');
+        Route::delete('rh/contrat/{contrat}', [App\Http\Controllers\PaieController::class, 'destroyContract'])
+            ->name('rh.contrat.destroy')
+            ->middleware('permission:gerer_paie|supprimer_paie');
+        Route::get('rh/bulletin/{paiement}', [App\Http\Controllers\PaieController::class, 'bulletin'])
+            ->name('rh.bulletin.download')
+            ->middleware('permission:voir_paie');
 
         // 📚 Documents Pédagogiques (Cours/Exos)
         Route::get('documents/download/{id}', [App\Http\Controllers\DocumentPedagogiqueController::class, 'download'])->name('documents.download');

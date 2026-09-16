@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, useForm, router } from '@inertiajs/react'; // Add router import here
-import { Briefcase, CreditCard, FileText, Plus, Save, User, Download, ExternalLink, History } from 'lucide-react';
+import { Head, useForm, router } from '@inertiajs/react';
+import { Briefcase, CreditCard, FileText, Plus, Save, User, Download, ExternalLink, History, Pencil, Trash2 } from 'lucide-react';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
-import InputError from '@/Components/InputError'; // Assuming you have this component
+import InputError from '@/Components/InputError';
 
 export default function Index({ employees }) {
     const [selectedUser, setSelectedUser] = useState(null);
     const [showPayModal, setShowPayModal] = useState(false);
+    const [showEditPayModal, setShowEditPayModal] = useState(false);
+    const [editingPayment, setEditingPayment] = useState(null);
     const [showContractModal, setShowContractModal] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [historyEmployee, setHistoryEmployee] = useState(null);
@@ -21,11 +23,21 @@ export default function Index({ employees }) {
         setShowHistoryModal(true);
     };
 
-    // Form Paiement
+    // Form Paiement (Création)
     const { data: payData, setData: setPayData, post: postPay, processing: processingPay, reset: resetPay, errors: payErrors } = useForm({
         user_id: '',
         mois: new Date().getMonth() + 1,
         annee: new Date().getFullYear(),
+        salaire_brut: '',
+        primes: 0,
+        retenues: 0,
+        commentaire: ''
+    });
+
+    // Form Paiement (Édition / Modification)
+    const { data: editPayData, setData: setEditPayData, put: putEditPay, processing: processingEditPay, reset: resetEditPay, errors: editPayErrors } = useForm({
+        mois: 1,
+        annee: 2026,
         salaire_brut: '',
         primes: 0,
         retenues: 0,
@@ -53,6 +65,20 @@ export default function Index({ employees }) {
         setShowPayModal(true);
     };
 
+    const openEditPayModal = (user, payment) => {
+        setSelectedUser(user);
+        setEditingPayment(payment);
+        setEditPayData({
+            mois: payment.mois,
+            annee: payment.annee,
+            salaire_brut: payment.salaire_brut || '',
+            primes: payment.primes || 0,
+            retenues: payment.retenues || 0,
+            commentaire: payment.commentaire || ''
+        });
+        setShowEditPayModal(true);
+    };
+
     const openContractModal = (user) => {
         setSelectedUser(user);
         setContractData({
@@ -60,7 +86,7 @@ export default function Index({ employees }) {
             type: user.contrat?.type || 'CDI',
             salaire_base: user.contrat?.salaire_base || '',
             taux_horaire: user.contrat?.taux_horaire || '',
-            date_debut: user.contrat?.date_debut || '' // Format handled in backend usually, need YYYY-MM-DD here
+            date_debut: user.contrat?.date_debut || ''
         });
         setShowContractModal(true);
     };
@@ -83,6 +109,42 @@ export default function Index({ employees }) {
                 resetContract();
             }
         });
+    };
+
+    const submitEditPay = (e) => {
+        e.preventDefault();
+        if (!editingPayment) return;
+        putEditPay(route('rh.paie.update', editingPayment.id), {
+            onSuccess: () => {
+                setShowEditPayModal(false);
+                resetEditPay();
+                setEditingPayment(null);
+            }
+        });
+    };
+
+    const handleDeletePay = (paymentId, periodLabel) => {
+        if (confirm(`Êtes-vous certain de vouloir supprimer le bulletin de paie de ${periodLabel} ?\nCette opération annulera également la dépense associée en comptabilité.`)) {
+            router.delete(route('rh.paie.destroy', paymentId), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    if (showHistoryModal && historyEmployee) {
+                        setShowHistoryModal(false);
+                    }
+                }
+            });
+        }
+    };
+
+    const handleDeleteContract = (contratId, employeeName) => {
+        if (confirm(`Êtes-vous sûr de vouloir supprimer le contrat de ${employeeName} ?\nL'employé reviendra à l'état "Aucun contrat".`)) {
+            router.delete(route('rh.contrat.destroy', contratId), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setShowContractModal(false);
+                }
+            });
+        }
     };
 
     return (
@@ -182,7 +244,7 @@ export default function Index({ employees }) {
                                                             {new Date(emp.last_payment.annee, emp.last_payment.mois - 1).toLocaleString('fr-FR', { month: 'short', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
                                                         </span>
                                                     </div>
-                                                    <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-slate-200/70 dark:border-slate-700">
+                                                    <div className="flex items-center justify-between gap-1.5 mt-2 pt-1.5 border-t border-slate-200/70 dark:border-slate-700">
                                                         <a
                                                             href={route('rh.bulletin.download', emp.last_payment.id)}
                                                             target="_blank"
@@ -191,18 +253,38 @@ export default function Index({ employees }) {
                                                             title="Ouvrir le bulletin de paie officiel en PDF"
                                                         >
                                                             <FileText className="w-3.5 h-3.5" />
-                                                            <span>Bulletin (PDF)</span>
+                                                            <span>Bulletin</span>
                                                         </a>
-                                                        {emp.all_payments && emp.all_payments.length > 1 && (
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openEditPayModal(emp, emp.last_payment)}
+                                                                className="p-1 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                                                                title="Modifier ce bulletin de paie"
+                                                            >
+                                                                <Pencil className="w-3.5 h-3.5" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeletePay(emp.last_payment.id, `${new Date(emp.last_payment.annee, emp.last_payment.mois - 1).toLocaleString('fr-FR', { month: 'long', year: 'numeric' })} (${emp.full_name || emp.nom})`)}
+                                                                className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                                                title="Supprimer ce bulletin de paie"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    {emp.all_payments && emp.all_payments.length > 1 && (
+                                                        <div className="mt-1 pt-1 text-right border-t border-slate-100 dark:border-slate-800">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => openHistoryModal(emp)}
-                                                                className="text-[10px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 font-medium underline"
+                                                                className="text-[10px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium underline"
                                                             >
                                                                 Historique ({emp.all_payments.length})
                                                             </button>
-                                                        )}
-                                                    </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-50 text-amber-600 border border-amber-200">
@@ -336,16 +418,30 @@ export default function Index({ employees }) {
                             </div>
                         </div>
 
-                        <div className="mt-2 pt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
-                            <button type="button" onClick={() => setShowContractModal(false)}
-                                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                                Annuler
-                            </button>
-                            <button type="submit" disabled={processingContract}
-                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-70">
-                                <Save className="w-4 h-4" />
-                                Sauvegarder le Contrat
-                            </button>
+                        <div className="mt-2 pt-4 flex flex-col-reverse sm:flex-row items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                            <div>
+                                {selectedUser?.contrat?.id && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteContract(selectedUser.contrat.id, selectedUser.full_name || selectedUser.nom)}
+                                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800/60 transition-all"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <span>Supprimer le Contrat</span>
+                                    </button>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                <button type="button" onClick={() => setShowContractModal(false)}
+                                    className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                                    Annuler
+                                </button>
+                                <button type="submit" disabled={processingContract}
+                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-70">
+                                    <Save className="w-4 h-4" />
+                                    Sauvegarder le Contrat
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -552,7 +648,7 @@ export default function Index({ employees }) {
                                                 Versé le {payment.date} • Brut : {parseInt(payment.salaire_brut).toLocaleString()} XAF
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-2">
                                             <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
                                                 {parseInt(payment.net).toLocaleString()} XAF
                                             </span>
@@ -560,11 +656,31 @@ export default function Index({ employees }) {
                                                 href={route('rh.bulletin.download', payment.id)}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm"
+                                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm"
+                                                title="Télécharger le bulletin PDF"
                                             >
                                                 <Download className="w-3.5 h-3.5" />
-                                                <span>PDF</span>
+                                                <span className="hidden sm:inline">PDF</span>
                                             </a>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowHistoryModal(false);
+                                                    openEditPayModal(historyEmployee, payment);
+                                                }}
+                                                className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 border border-amber-200 dark:border-amber-800 transition-colors"
+                                                title="Modifier ce bulletin"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeletePay(payment.id, `${new Date(payment.annee, payment.mois - 1).toLocaleString('fr-FR', { month: 'long', year: 'numeric' })} (${historyEmployee.full_name || historyEmployee.nom})`)}
+                                                className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-800 transition-colors"
+                                                title="Supprimer ce bulletin"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -581,6 +697,153 @@ export default function Index({ employees }) {
                             Fermer
                         </button>
                     </div>
+                </div>
+            </Modal>
+
+            {/* MODAL MODIFIER PAIE */}
+            <Modal show={showEditPayModal} onClose={() => setShowEditPayModal(false)} maxWidth="5xl">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border-t-4 border-amber-500 max-h-[88vh] flex flex-col">
+                    {/* EN-TÊTE MODALE */}
+                    <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-xl shadow-sm border border-amber-100 dark:border-amber-800">
+                                <Pencil className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight">
+                                    Modifier le Bulletin de Paie
+                                </h2>
+                                <p className="text-slate-500 text-xs">Correction et ajustement pour {selectedUser?.full_name || selectedUser?.nom}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowEditPayModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold p-1">
+                            ✕
+                        </button>
+                    </div>
+
+                    <form onSubmit={submitEditPay} className="p-4 sm:p-5 overflow-y-auto flex-1 flex flex-col gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                            {/* Période */}
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 md:col-span-2">
+                                <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Période concernée</h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block mb-1 text-xs font-bold text-slate-700 dark:text-slate-300">Mois</label>
+                                        <select
+                                            className="w-full border-slate-200 dark:border-slate-700 p-2 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-xs sm:text-sm shadow-sm"
+                                            value={editPayData.mois}
+                                            onChange={e => setEditPayData('mois', parseInt(e.target.value))}
+                                            required
+                                        >
+                                            {Array.from({ length: 12 }, (_, i) => (
+                                                <option key={i + 1} value={i + 1}>
+                                                    {new Date(0, i).toLocaleString('fr-FR', { month: 'long' })}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <InputError message={editPayErrors.mois} className="mt-1" />
+                                    </div>
+                                    <div>
+                                        <label className="block mb-1 text-xs font-bold text-slate-700 dark:text-slate-300">Année</label>
+                                        <input
+                                            type="number"
+                                            className="w-full border-slate-200 dark:border-slate-700 p-2 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-xs sm:text-sm shadow-sm"
+                                            value={editPayData.annee}
+                                            onChange={e => setEditPayData('annee', parseInt(e.target.value))}
+                                            required
+                                        />
+                                        <InputError message={editPayErrors.annee} className="mt-1" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Base de calcul */}
+                            <div className="bg-amber-50/50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-100 dark:border-amber-800/50 md:col-span-1">
+                                <h3 className="text-xs font-bold uppercase text-amber-600 dark:text-amber-400 tracking-wider mb-2">Rémunération Brute</h3>
+                                <div>
+                                    <label className="block mb-1 text-xs font-bold text-slate-700 dark:text-slate-300">Salaire Brut (Base + Vacations)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            className="w-full border-amber-200 dark:border-amber-700 p-2 pl-9 rounded-xl bg-white dark:bg-slate-900 font-bold text-amber-700 dark:text-amber-300 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm shadow-sm"
+                                            value={editPayData.salaire_brut}
+                                            onChange={e => setEditPayData('salaire_brut', e.target.value)}
+                                            required
+                                        />
+                                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500 font-bold text-[10px]">XAF</span>
+                                    </div>
+                                    <InputError message={editPayErrors.salaire_brut} className="mt-1" />
+                                </div>
+                            </div>
+
+                            {/* Ajustements */}
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 md:col-span-1">
+                                <h3 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Ajustements</h3>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block mb-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">Primes / Bonus (+)</label>
+                                        <input
+                                            type="number"
+                                            className="w-full border-slate-200 dark:border-slate-700 p-2 rounded-xl bg-white dark:bg-slate-900 text-emerald-600 font-bold text-xs sm:text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm"
+                                            value={editPayData.primes}
+                                            onChange={e => setEditPayData('primes', e.target.value)}
+                                        />
+                                        <InputError message={editPayErrors.primes} className="mt-1" />
+                                    </div>
+                                    <div>
+                                        <label className="block mb-1 text-xs font-bold text-red-600 dark:text-red-400">Retenues / Avances (-)</label>
+                                        <input
+                                            type="number"
+                                            className="w-full border-slate-200 dark:border-slate-700 p-2 rounded-xl bg-white dark:bg-slate-900 text-red-600 font-bold text-xs sm:text-sm focus:ring-2 focus:ring-red-500/20 focus:border-red-500 shadow-sm"
+                                            value={editPayData.retenues}
+                                            onChange={e => setEditPayData('retenues', e.target.value)}
+                                        />
+                                        <InputError message={editPayErrors.retenues} className="mt-1" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Net a payer et commentaire */}
+                            <div className="md:col-span-2 space-y-3">
+                                <div className="p-3.5 bg-[#0B1A2D] dark:bg-slate-950 rounded-xl border border-slate-800 shadow-md flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-1.5 bg-amber-500/20 rounded-lg">
+                                            <CreditCard className="w-5 h-5 text-amber-400" />
+                                        </div>
+                                        <span className="text-xs text-slate-300 font-bold uppercase tracking-wider">Nouveau Net à Payer</span>
+                                    </div>
+                                    <span className="text-xl sm:text-2xl font-bold text-emerald-400 tracking-tight">
+                                        {(parseFloat(editPayData.salaire_brut || 0) + parseFloat(editPayData.primes || 0) - parseFloat(editPayData.retenues || 0)).toLocaleString()} <span className="text-xs text-emerald-600">XAF</span>
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <label className="block mb-1 text-xs font-bold text-slate-700 dark:text-slate-300">Commentaire / Motif de la modification</label>
+                                    <input
+                                        className="w-full border-slate-200 dark:border-slate-700 p-2 rounded-xl bg-white dark:bg-slate-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-xs sm:text-sm shadow-sm"
+                                        value={editPayData.commentaire || ''}
+                                        onChange={e => setEditPayData('commentaire', e.target.value)}
+                                        placeholder="Ex: Correction prime de transport, ajustement d'heures..."
+                                    />
+                                    <InputError message={editPayErrors.commentaire} className="mt-1" />
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div className="mt-2 pt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                            <button type="button" onClick={() => setShowEditPayModal(false)}
+                                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                                Annuler
+                            </button>
+                            <button type="submit" disabled={processingEditPay}
+                                className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-500/20 transition-all active:scale-95 disabled:opacity-70">
+                                <Save className="w-4 h-4" />
+                                Enregistrer les Modifications
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </Modal>
         </DashboardLayout>

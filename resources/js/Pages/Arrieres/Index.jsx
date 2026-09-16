@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Clock, Wallet, Plus } from 'lucide-react';
 import useTranslation from "@/Hooks/useTranslation";
 
@@ -15,6 +15,10 @@ import ArriereDeleteModal from './Partials/ArriereDeleteModal';
 
 export default function Index({ arrieres, filters, stats, anneesDisponibles }) {
     const { t } = useTranslation();
+    const { auth } = usePage().props;
+    const permissions = auth?.permissions || [];
+    const isSuperAdmin = auth?.roles?.some(role => role.toLowerCase() === 'super-admin' || role.toLowerCase() === 'superadmin');
+    const can = (permission) => isSuperAdmin || permissions.includes(permission);
 
     // Filters state
     const [search, setSearch] = useState(filters.search || '');
@@ -100,13 +104,15 @@ export default function Index({ arrieres, filters, stats, anneesDisponibles }) {
                         </div>
                     </div>
 
-                    <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="flex-shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-7 py-4 rounded-2xl font-bold shadow-lg shadow-amber-500/25 transition-all active:scale-95"
-                    >
-                        <Plus className="w-5 h-5" />
-                        <span>{t("new_arrear_btn", "Ajouter un Arriéré")}</span>
-                    </button>
+                    {can('ajouter_arrieres') && (
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="flex-shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white px-7 py-4 rounded-2xl font-bold shadow-lg shadow-amber-500/25 transition-all active:scale-95 cursor-pointer"
+                        >
+                            <Plus className="w-5 h-5" />
+                            <span>{t("new_arrear_btn", "Ajouter un Arriéré")}</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -137,6 +143,7 @@ export default function Index({ arrieres, filters, stats, anneesDisponibles }) {
                 setHistoryTarget={(item) => setHistoryTarget(item)}
                 setDeleteTarget={(item) => setDeleteTarget(item)}
                 setIsCreateModalOpen={setIsCreateModalOpen}
+                can={can}
             />
 
             {/* 4. MODALES DÉCOUPÉES */}

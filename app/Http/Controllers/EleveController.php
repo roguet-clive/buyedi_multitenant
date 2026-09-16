@@ -404,10 +404,16 @@ class EleveController extends Controller
                 }
 
                 // Tranches trimestrielles pour Secondaire
+                $isReinscription = (bool)($currentInscription->reinscription ?? false);
+                $t1Montant = $isReinscription ? 65000 : 60000;
+                $resteScolarite = max(0, $montantAnnuel - $t1Montant);
+                $t2Montant = round($resteScolarite / 2);
+                $t3Montant = $resteScolarite - $t2Montant;
+
                 $tranchesConfig = [
-                    ['nom' => '1ère Tranche', 'montant' => 70000, 'date_limite' => 'Septembre'],
-                    ['nom' => '2ème Tranche', 'montant' => ($isExamen ? 37500 : 32500), 'date_limite' => 'Fin Novembre'],
-                    ['nom' => '3ème Tranche', 'montant' => ($isExamen ? 37500 : 32500), 'date_limite' => 'Fin Janvier'],
+                    ['nom' => '1ère Tranche', 'montant' => $t1Montant, 'date_limite' => 'Septembre'],
+                    ['nom' => '2ème Tranche', 'montant' => $t2Montant, 'date_limite' => 'Fin Novembre'],
+                    ['nom' => '3ème Tranche', 'montant' => $t3Montant, 'date_limite' => 'Fin Janvier'],
                 ];
 
                 $tranchesDetails = [];

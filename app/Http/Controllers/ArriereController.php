@@ -22,6 +22,13 @@ class ArriereController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
+        $this->middleware('permission:voir_arrieres')->only(['index']);
+        $this->middleware('permission:ajouter_arrieres')->only(['store']);
+        $this->middleware('permission:modifier_arrieres')->only(['update']);
+        $this->middleware('permission:supprimer_arrieres')->only(['destroy']);
+        $this->middleware('permission:encaisser_arrieres')->only(['payer']);
+        $this->middleware('permission:voir_arrieres|ajouter_arrieres')->only(['searchEleves']);
+        $this->middleware('permission:voir_arrieres|encaisser_arrieres')->only(['recu']);
     }
 
     /**

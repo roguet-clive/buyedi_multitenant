@@ -147,9 +147,11 @@ export default function ScolaritePaymentForm({
                 date_limite: e.date_limite ? new Date(e.date_limite).toLocaleDateString('fr-FR') : (idx === 0 ? "Septembre" : idx === 1 ? "Fin Novembre" : "Fin Janvier")
             }));
         } else {
-            const t1Amount = 70000;
-            const t2Amount = isExamen ? 37500 : 32500;
-            const t3Amount = isExamen ? 37500 : 32500;
+            const isReinscription = selectedStudent?.reinscription || selectedStudent?.is_reinscription;
+            const t1Amount = isReinscription ? 65000 : 60000;
+            const resteScolarite = Math.max(0, montantAnnuel - t1Amount);
+            const t2Amount = Math.round(resteScolarite / 2);
+            const t3Amount = resteScolarite - t2Amount;
             tranches = [
                 { num: 1, nom: "1ère Tranche", montant: t1Amount, date_limite: "Septembre" },
                 { num: 2, nom: "2ème Tranche", montant: t2Amount, date_limite: "Fin Novembre" },
@@ -157,7 +159,7 @@ export default function ScolaritePaymentForm({
             ];
         }
 
-        const montantTrimestriel = tranches[0]?.montant || 70000;
+        const montantTrimestriel = tranches[0]?.montant || 60000;
         const pourcentage = montantAnnuel > 0 ? Math.min(100, Math.round((totalDejaPaye / montantAnnuel) * 100)) : 0;
 
         return {

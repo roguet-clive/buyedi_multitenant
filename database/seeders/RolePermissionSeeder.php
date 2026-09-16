@@ -56,6 +56,9 @@ class RolePermissionSeeder extends Seeder
             // 👉 Périodes
             'periodes' => ['voir', 'ajouter', 'modifier', 'supprimer'],
 
+            // 👉 RH & Paie (Salaires) — ACCÈS RESTREINT
+            'paie' => ['voir', 'gerer'], // voir_paie = consulter les salaires, gerer_paie = payer/modifier contrats
+
             // 👉 Modules avancés
             'cours' => ['voir', 'ajouter', 'modifier', 'supprimer'],
             'evaluations' => ['voir', 'ajouter', 'modifier', 'supprimer'],
@@ -106,6 +109,7 @@ class RolePermissionSeeder extends Seeder
             'voir_classes',
             'voir_parents',
             'voir_personnels',
+            'voir_paie', // Le comptable peut CONSULTER les salaires
             'voir_communications', 'creer_communications', 'expedier_communications',
             'voir_documents', 'telecharger_documents',
             'voir_annee_scolaire',
@@ -128,6 +132,7 @@ class RolePermissionSeeder extends Seeder
             'voir_paiements',
             'voir_personnels',
             'voir_enseignants',
+            // PAS de voir_paie : le personnel admin ne voit PAS les salaires
             'voir_communications', 'creer_communications', 'expedier_communications',
             'voir_annee_scolaire',
             'voir_periodes',
