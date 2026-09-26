@@ -30,11 +30,12 @@ class FraisClasseController extends Controller
         $fraisTypes = FraisType::where('is_scolarite', true)->get(['id', 'nom', 'montant']);
 
         // 2. Get Sections structure (grouped by type)
-        $classes = Classe::orderBy('nom')->get();
+        $classes = Classe::orderBy('id')->get();
         $sections = [
-            ['id' => 'maternelle', 'nom' => 'Maternelle', 'classes' => $classes->where('type', 'maternelle')->values()],
-            ['id' => 'primaire', 'nom' => 'Primaire', 'classes' => $classes->where('type', 'primaire')->values()],
-            ['id' => 'secondaire', 'nom' => 'Secondaire', 'classes' => $classes->where('type', 'secondaire')->values()],
+            ['id' => 'creche', 'nom' => 'Crèche', 'classes' => $classes->filter(fn($c) => $c->isCreche())->values()],
+            ['id' => 'maternelle', 'nom' => 'Maternelle (3-5 ans)', 'classes' => $classes->filter(fn($c) => $c->isMaternelle() && !$c->isCreche())->values()],
+            ['id' => 'primaire', 'nom' => 'Primaire', 'classes' => $classes->filter(fn($c) => $c->isPrimaire())->values()],
+            ['id' => 'secondaire', 'nom' => 'Secondaire', 'classes' => $classes->filter(fn($c) => $c->isSecondaire())->values()],
         ];
         $sections = array_values(array_filter($sections, fn($s) => count($s['classes']) > 0));
 
@@ -57,10 +58,13 @@ class FraisClasseController extends Controller
     }
 
     /**
-     * Applique en 1 clic la grille tarifaire officielle et génère les échéanciers :
-     * - Maternelle & Primaire : 13 000 FCFA / mois de Septembre à Mai (9 mois = 117 000 FCFA)
-     * - Secondaire Général (6e à 1ère hors 3e) : 3 Tranches (70 000, 32 500, 32 500 = 135 000 FCFA)
-     * - Secondaire Examen (3e et Terminale) : 3 Tranches (70 000, 37 500, 37 500 = 145 000 FCFA)
+     * Applique en 1 clic la grille tarifaire officielle du Complexe Scolaire Sagesse Divine :
+     * - Crèche (8h - 13h) : 20 000 FCFA / mois (9 mois = 180 000 FCFA)
+     * - Crèche (8h - 16h) : 30 000 FCFA / mois (9 mois = 270 000 FCFA)
+     * - Maternelle (3 ans, 4 ans, 5 ans) : 20 000 FCFA / mois (9 mois = 180 000 FCFA)
+     * - Primaire (1ère, 2ème, 3ème Année) : 20 000 FCFA / mois (9 mois = 180 000 FCFA)
+     * - Primaire (4ème Année) : 25 000 FCFA / mois (9 mois = 225 000 FCFA)
+     * - Primaire (5ème Année) : 30 000 FCFA / mois (9 mois = 270 000 FCFA)
      */
     public function appliquerBaremeOfficiel(Request $request)
     {
@@ -91,22 +95,23 @@ class FraisClasseController extends Controller
         DB::beginTransaction();
         try {
             foreach ($classes as $classe) {
-                if ($classe->isMaternelle()) {
-                    // Maternelle (Petite, Moyenne, Grande Section) : 13 000 FCFA / mois × 9 = 117 000 FCFA
-                    $montantTotal = 117000;
+                $nom = mb_strtolower($classe->nom);
+
+                if ($classe->isCreche()) {
+                    $montantTotal = str_contains($nom, '16h') ? 270000 : 180000;
+                } elseif ($classe->isMaternelle()) {
+                    $montantTotal = 180000;
                 } elseif ($classe->isPrimaire()) {
                     if ($classe->isCinquiemeAnneePrimaire()) {
-                        // 5ème Année : 15 000 FCFA / mois × 9 = 135 000 FCFA
-                        $montantTotal = 135000;
+                        $montantTotal = 270000;
+                    } elseif ($classe->isQuatriemeAnneePrimaire()) {
+                        $montantTotal = 225000;
                     } else {
-                        // 1ère Année à 4ème Année : 13 500 FCFA / mois × 9 = 121 500 FCFA
-                        $montantTotal = 121500;
+                        $montantTotal = 180000;
                     }
                 } elseif ($classe->isClasseExamen()) {
-                    // Secondaire Examen (3e et Terminale) : 145 000 FCFA
                     $montantTotal = 145000;
                 } else {
-                    // Secondaire Général (6e, 5e, 4e, 2nde, 1ère) : 135 000 FCFA
                     $montantTotal = 135000;
                 }
 
@@ -198,18 +203,18 @@ class FraisClasseController extends Controller
         $echeances = [];
 
         if ($classe->isMaternelleOuPrimaire()) {
-            // Modèle Mensuel : 9 mois de Septembre à Mai
+            // Modèle Mensuel : 9 mois de Septembre à Mai (échéance chaque 10 du mois)
             $mensualite = $montant > 0 ? round($montant / 9) : 0;
             $moisNoms = [
-                ['nom' => 'Septembre', 'date' => "{$startYear}-09-30"],
-                ['nom' => 'Octobre', 'date' => "{$startYear}-10-31"],
-                ['nom' => 'Novembre', 'date' => "{$startYear}-11-30"],
-                ['nom' => 'Décembre', 'date' => "{$startYear}-12-31"],
-                ['nom' => 'Janvier', 'date' => "{$nextYear}-01-31"],
-                ['nom' => 'Février', 'date' => "{$nextYear}-02-28"],
-                ['nom' => 'Mars', 'date' => "{$nextYear}-03-31"],
-                ['nom' => 'Avril', 'date' => "{$nextYear}-04-30"],
-                ['nom' => 'Mai', 'date' => "{$nextYear}-05-31"],
+                ['nom' => 'Septembre', 'date' => "{$startYear}-09-10"],
+                ['nom' => 'Octobre', 'date' => "{$startYear}-10-10"],
+                ['nom' => 'Novembre', 'date' => "{$startYear}-11-10"],
+                ['nom' => 'Décembre', 'date' => "{$startYear}-12-10"],
+                ['nom' => 'Janvier', 'date' => "{$nextYear}-01-10"],
+                ['nom' => 'Février', 'date' => "{$nextYear}-02-10"],
+                ['nom' => 'Mars', 'date' => "{$nextYear}-03-10"],
+                ['nom' => 'Avril', 'date' => "{$nextYear}-04-10"],
+                ['nom' => 'Mai', 'date' => "{$nextYear}-05-10"],
             ];
 
             foreach ($moisNoms as $idx => $m) {
@@ -223,17 +228,16 @@ class FraisClasseController extends Controller
             }
         } else {
             // Modèle Secondaire : 3 Tranches
-            // Le forfait d'entrée est de 70 000 F dont 10 000 F d'inscription et 60 000 F pour la 1ère tranche de scolarité
             if ($montant == 145000 && $classe->isClasseExamen()) {
-                $t1 = 60000;
-                $t2 = 42500;
-                $t3 = 42500;
-            } elseif ($montant == 135000) {
-                $t1 = 60000;
+                $t1 = 70000;
                 $t2 = 37500;
                 $t3 = 37500;
+            } elseif ($montant == 135000) {
+                $t1 = 70000;
+                $t2 = 32500;
+                $t3 = 32500;
             } else {
-                $t1 = min(60000, $montant);
+                $t1 = min(70000, $montant);
                 $reste = max(0, $montant - $t1);
                 $t2 = round($reste / 2);
                 $t3 = $reste - $t2;

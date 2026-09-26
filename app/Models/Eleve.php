@@ -33,13 +33,13 @@ class Eleve extends Model
     ];
 
     /**
-     * Auto-génération du matricule officiel selon la nomenclature : CSPBO-{YEAR}-{NUM:04d}
-     * Exemple : CSPBO-2026-0001
+     * Auto-génération du matricule officiel selon la nomenclature : CSSD-{YEAR}-{NUM:04d}
+     * Exemple : CSSD-2026-0001
      */
     public static function generateMatricule(?int $year = null): string
     {
         $year = $year ?? (int) date('Y');
-        $prefix = "CSPBO-{$year}-";
+        $prefix = "CSSD-{$year}-";
 
         // Récupérer le dernier matricule pour l'année
         $latest = self::where('matricule', 'like', "{$prefix}%")
@@ -47,7 +47,7 @@ class Eleve extends Model
             ->value('matricule');
 
         $nextNumber = 1;
-        if ($latest && preg_match('/^CSPBO-\d{4}-(\d+)$/', $latest, $matches)) {
+        if ($latest && preg_match('/^CSSD-\d{4}-(\d+)$/', $latest, $matches)) {
             $nextNumber = ((int) $matches[1]) + 1;
         }
 

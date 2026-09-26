@@ -33,8 +33,10 @@ export default function Show({ inscription, fraisAnnexes = [], tenueFraisType })
     const annee = inscription.annee_scolaire;
     const paiements = inscription.paiements || [];
 
-    const isSecondaire = classe?.type === 'secondaire';
-    const montantTenueAttendu = inscription.montant_tenue_exigible || (isSecondaire ? 15000 : 10000);
+    const isSecondaire = classe?.type === 'secondaire' || 
+        (classe?.nom && !['maternelle', 'primaire', 'creche'].includes(classe?.type?.toLowerCase()));
+
+    const montantTenueAttendu = inscription.montant_tenue_exigible || tenueFraisType?.montant || 0;
 
     const [isTenueModalOpen, setIsTenueModalOpen] = useState(false);
 
@@ -45,7 +47,7 @@ export default function Show({ inscription, fraisAnnexes = [], tenueFraisType })
         montant: montantTenueAttendu,
         mode_paiement: 'especes',
         date_paiement: new Date().toISOString().split('T')[0],
-        commentaire: `Règlement Tenue Scolaire (${isSecondaire ? 'Secondaire' : 'Maternelle/Primaire'})`,
+        commentaire: 'Règlement Tenue Scolaire',
     });
 
     const handlePayTenue = (e) => {

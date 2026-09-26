@@ -286,9 +286,10 @@ class EleveController extends Controller
                 $currentInscription->loadMissing(['classe', 'anneeScolaire', 'eleve.user']);
                 $classe = $currentInscription->classe;
                 $classeNom = $classe ? $classe->nom : '';
+                $isCreche = $classe ? $classe->isCreche() : false;
                 $isSecondaire = $classe ? $classe->isSecondaire() : false;
-                $isMaternelle = $classe ? ($classe->type === 'maternelle') : false;
-                $isPrimaire = $classe ? ($classe->type === 'primaire') : false;
+                $isMaternelle = $classe ? ($classe->isMaternelle() && !$classe->isCreche()) : false;
+                $isPrimaire = $classe ? $classe->isPrimaire() : false;
                 $isCinquiemePrimaire = $isPrimaire && (
                     (method_exists($classe, 'isCinquiemeAnneePrimaire') && $classe->isCinquiemeAnneePrimaire()) ||
                     \Illuminate\Support\Str::contains(mb_strtolower($classeNom), ['5', 'cinquieme', 'cinquième', 'cm2'])
@@ -310,26 +311,33 @@ class EleveController extends Controller
                     })
                     ->first();
 
-                // Barème officiel de scolarité
-                $defaultMontant = $isMaternelle
-                    ? 117000
-                    : ($isCinquiemePrimaire
-                        ? 135000
-                        : ($isPrimaire
-                            ? 121500
-                            : ($isExamen ? 145000 : 135000)));
+                // Barème officiel CSSD de scolarité
+                $mensuelOfficiel = $classe?->montant_mensuel_officiel ?? 20000;
+                $defaultMontant = $isSecondaire
+                    ? ($isExamen ? 200000 : 180000)
+                    : ($mensuelOfficiel * 9);
 
                 $montantAnnuel = $fraisClasse ? (float)$fraisClasse->montant : ($fraisTypeScolarite ? (float)$fraisTypeScolarite->montant : $defaultMontant);
                 
+                // Prise en compte de la remise accordée à l'élève
+                if ($currentInscription->has_remise) {
+                    if ($currentInscription->remise_pourcentage > 0) {
+                        $montantAnnuel = round($montantAnnuel * (1 - $currentInscription->remise_pourcentage / 100));
+                    } elseif ($currentInscription->remise_montant > 0) {
+                        $montantAnnuel = max(0, $montantAnnuel - $currentInscription->remise_montant);
+                    }
+                }
+
                 // Paiements de scolarité de cette inscription
                 $paiementsScolarite = $paiements->filter(fn($p) => $p->inscription_id == $currentInscription->id && $p->fraisType && $p->fraisType->is_scolarite);
                 $totalScolaritePayee = (float)$paiementsScolarite->sum('montant');
                 $resteAPayer = max(0, $montantAnnuel - $totalScolaritePayee);
                 $pourcentage = $montantAnnuel > 0 ? min(100, round(($totalScolaritePayee / $montantAnnuel) * 100)) : 0;
 
-                // Mensualité de référence (pour Maternelle & Primaire : sur 9 mois de Septembre à Mai)
-                $defaultMensuel = $isMaternelle ? 13000 : ($isCinquiemePrimaire ? 15000 : 13500);
-                $montantMensuel = $montantAnnuel > 0 ? (int)round($montantAnnuel / 9) : $defaultMensuel;
+                // Mensualité de référence (pour Crèche, Maternelle & Primaire : sur 9 mois de Septembre à Mai)
+                $montantMensuel = $isSecondaire 
+                    ? (int)round($montantAnnuel / 3) 
+                    : ($montantAnnuel > 0 ? (int)round($montantAnnuel / 9) : $mensuelOfficiel);
 
                 // Extraire tous les mois / tranches enregistrés dans les règlements
                 $moisPayesMap = [];
@@ -459,11 +467,15 @@ class EleveController extends Controller
                 }
 
                 $financeStats = [
+                    'is_creche' => $isCreche,
                     'is_secondaire' => $isSecondaire,
                     'is_maternelle' => $isMaternelle,
                     'is_primaire' => $isPrimaire,
                     'is_cinquieme_primaire' => $isCinquiemePrimaire,
                     'is_examen' => $isExamen,
+                    'has_remise' => (bool)$currentInscription->has_remise,
+                    'remise_pourcentage' => (float)$currentInscription->remise_pourcentage,
+                    'remise_montant' => (float)$currentInscription->remise_montant,
                     'regime' => $isSecondaire ? 'tranches' : 'mensuel',
                     'montant_annuel' => $montantAnnuel,
                     'total_paye' => $totalScolaritePayee,

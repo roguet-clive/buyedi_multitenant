@@ -11,17 +11,17 @@ export default function ArriereHistoryModal({ target, onClose, formatFCFA, forma
             <Dialog as="div" className="relative z-50" onClose={onClose}>
                 <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity" />
                 <div className="fixed inset-0 z-10 overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 md:p-6">
-                        <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-8 text-left align-middle shadow-2xl transition-all border border-slate-100 dark:border-slate-800">
+                    <div className="flex min-h-full items-center justify-center p-3 sm:p-4 md:p-6">
+                        <Dialog.Panel className="w-full max-w-6xl xl:max-w-7xl transform overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 sm:p-7 text-left align-middle shadow-2xl transition-all border border-slate-200/80 dark:border-slate-800">
                             {/* HEADER */}
-                            <div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800 mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-3 bg-indigo-100 dark:bg-indigo-950 rounded-2xl text-indigo-600 dark:text-indigo-400">
+                            <div className="flex items-center justify-between pb-5 border-b border-slate-100 dark:border-slate-800 mb-5">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="p-3 bg-indigo-100 dark:bg-indigo-950/60 rounded-2xl text-indigo-600 dark:text-indigo-400 shadow-sm shadow-indigo-500/10">
                                         <History className="w-6 h-6" />
                                     </div>
                                     <div>
-                                        <Dialog.Title as="h3" className="text-xl font-bold text-slate-900 dark:text-white">
-                                            {t("installments_history", "Historique des Versements & Reçus")}
+                                        <Dialog.Title as="h3" className="text-xl font-black text-slate-900 dark:text-white">
+                                            {t("installments_history", "Historique des Versements & Quittances")}
                                         </Dialog.Title>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                             Dossier de {target?.nom_complet} • Arriéré {target?.annee_scolaire_dette}
@@ -124,10 +124,11 @@ export default function ArriereHistoryModal({ target, onClose, formatFCFA, forma
                                                                     href={route('arrieres.recu', p.id)}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 dark:text-indigo-300 rounded-xl font-bold transition-all shadow-sm"
+                                                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-all shadow-sm shadow-indigo-600/25 active:scale-95"
+                                                                    title={`Imprimer la quittance ${p.numero_recu}`}
                                                                 >
                                                                     <Printer className="w-3.5 h-3.5" />
-                                                                    <span>Imprimer</span>
+                                                                    <span>Imprimer Reçu</span>
                                                                 </a>
                                                             </td>
                                                         </tr>

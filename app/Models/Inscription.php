@@ -125,11 +125,11 @@ class Inscription extends Model
     }
 
     /**
-     * Montant exigible pour la tenue scolaire selon la classe (10 000 ou 15 000 FCFA)
+     * Montant exigible pour la tenue scolaire : 12 000 FCFA pour tous
      */
     public function getMontantTenueExigibleAttribute(): float
     {
-        return $this->classe ? (float) $this->classe->montant_tenue : 10000.00;
+        return $this->classe ? (float) $this->classe->montant_tenue : 12000.00;
     }
 
     /**

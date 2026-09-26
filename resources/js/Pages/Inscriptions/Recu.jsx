@@ -104,29 +104,29 @@ function ReceiptVoucher({ inscription, etablissement, url_verification, copyLabe
                     </div>
                 </div>
 
-                {/* INFOS ÉLÈVE & INSCRIPTION (Grille compacte) */}
-                <div className="grid grid-cols-4 gap-2 bg-slate-50 print:bg-slate-100/60 p-2 rounded-lg border border-slate-200 text-[11px] mb-2">
-                    <div>
+                {/* INFOS ÉLÈVE & INSCRIPTION (Grille compacte optimisée) */}
+                <div className="flex items-start gap-3 bg-slate-50 print:bg-slate-100/60 p-2 rounded-lg border border-slate-200 text-[11px] mb-2">
+                    <div className="flex-1 min-w-0">
                         <span className="text-[9px] font-bold uppercase text-slate-600 block">Élève</span>
-                        <span className="font-extrabold text-slate-900 uppercase truncate block">
+                        <span className="font-extrabold text-slate-900 uppercase truncate block" title={`${eleve.nom || ''} ${eleve.prenom || ''}`}>
                             {eleve.nom} {eleve.prenom}
                         </span>
                     </div>
-                    <div>
+                    <div className="shrink-0">
                         <span className="text-[9px] font-bold uppercase text-slate-600 block">Matricule</span>
                         <span className="font-mono font-bold text-slate-800 block">
                             {inscription.eleve?.matricule || 'N/A'}
                         </span>
                     </div>
-                    <div>
+                    <div className="shrink-0 max-w-[210px]">
                         <span className="text-[9px] font-bold uppercase text-slate-600 block">Classe & Année</span>
                         <span className="font-bold text-slate-900 block truncate">
                             {classe.nom || '-'} <span className="text-slate-500 font-normal">({annee.nom || '-'})</span>
                         </span>
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                         <span className="text-[9px] font-bold uppercase text-slate-600 block">Date d'émission</span>
-                        <span className="font-medium text-slate-800 block">
+                        <span className="font-medium text-slate-800 block whitespace-nowrap">
                             {dateRecu}
                         </span>
                     </div>
@@ -216,7 +216,10 @@ function ReceiptVoucher({ inscription, etablissement, url_verification, copyLabe
             </div>
 
             {/* FOOTER : TOTAL, SIGNATURES & QR CODE */}
-            <div className="border-t border-slate-300 pt-2">
+            <div className="border-t border-slate-300 pt-1.5">
+                <div className="mb-1 text-[9px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-center uppercase tracking-wide">
+                    NB : Les frais d'inscription et de réinscription ne sont pas remboursables.
+                </div>
                 <div className="flex items-end justify-between gap-4">
                     {/* QR Code & Sécurité */}
                     <div className="flex items-center gap-2">

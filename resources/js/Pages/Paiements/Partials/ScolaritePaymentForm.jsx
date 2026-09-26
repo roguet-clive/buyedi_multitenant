@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "@inertiajs/react";
 import useTranslation from "@/Hooks/useTranslation";
 import Select from "react-select";
-import { BookOpen, CalendarRange, Layers, Wallet, Calculator, Check, CheckCircle2, User } from "lucide-react";
+import { CalendarRange, Layers, Wallet, Calculator, Check, CheckCircle2, User, BookOpen } from "lucide-react";
 
 // --- CUSTOM STYLES FOR REACT-SELECT ---
 const customSelectStyles = {
@@ -99,43 +99,53 @@ export default function ScolaritePaymentForm({
     const isSecondaire = studentClasse ? (studentClasse.type === 'secondaire') : (selectedStudent?.is_secondaire || selectedStudent?.classe_type === 'secondaire');
     const isExamen = studentClasse ? (studentClasse.is_examen || ['3e', 'tle'].includes((studentClasse?.nom || selectedStudent?.classe_nom)?.toLowerCase()?.trim())) : false;
 
-    // Basculer automatiquement le mode selon le cycle de l'élève
-    useEffect(() => {
-        if (selectedStudent) {
-            if (isSecondaire) {
-                setPaymentPlanMode("tranche");
-                setSelectedMonths([]);
-            } else {
-                setPaymentPlanMode("mensuel");
-            }
-        }
-    }, [form.data.inscription_id, isSecondaire]);
+    // 3 Trimestres (3 mois chacun)
+    const trimestres = useMemo(() => [
+        { id: 'T1', num: 1, nom: '1er Trimestre', mois: ['Septembre', 'Octobre', 'Novembre'], label: 'Sept - Nov (3 mois)' },
+        { id: 'T2', num: 2, nom: '2ème Trimestre', mois: ['Décembre', 'Janvier', 'Février'], label: 'Déc - Fév (3 mois)' },
+        { id: 'T3', num: 3, nom: '3ème Trimestre', mois: ['Mars', 'Avril', 'Mai'], label: 'Mar - Mai (3 mois)' },
+    ], []);
+
+    // 2 Semestres (Observations 1 & 6)
+    const semestres = useMemo(() => [
+        { id: 'S1', num: 1, nom: '1er Semestre', mois: ['Septembre', 'Octobre', 'Novembre', 'Décembre', 'Janvier'], label: 'Sept - Janv (5 mois)' },
+        { id: 'S2', num: 2, nom: '2ème Semestre', mois: ['Février', 'Mars', 'Avril', 'Mai'], label: 'Fév - Mai (4 mois)' },
+    ], []);
 
     // Calculs financiers de scolarité
-    const studentFinancials = (() => {
+    const studentFinancials = useMemo(() => {
         if (!selectedStudent) return null;
 
         const classeId = selectedStudent.classe_id;
         const override = fraisClasses?.find(fc => String(fc.classe_id) === String(classeId));
-        const feeType = tuitionFees.find(ft => String(ft.id) === String(form.data.frais_type_id)) || tuitionFees[0];
         
-        const defaultMontant = isMaternelle
-            ? 117000
-            : (isCinquiemePrimaire
-                ? 135000
-                : (isPrimaire
-                    ? 121500
-                    : (isExamen ? 145000 : 135000)));
+        let officialMonthly = 20000;
+        if (studentClasse?.montant_mensuel_officiel) {
+            officialMonthly = Number(studentClasse.montant_mensuel_officiel);
+        } else if (override?.montant) {
+            officialMonthly = Math.round(Number(override.montant) / 9);
+        } else if (isPrimaire) {
+            const nom = (studentClasse?.nom || selectedStudent?.classe_nom || '').toLowerCase();
+            if (nom.includes('5') || nom.includes('cinquieme') || nom.includes('cm2')) {
+                officialMonthly = 30000;
+            } else if (nom.includes('4') || nom.includes('quatrieme')) {
+                officialMonthly = 25000;
+            } else {
+                officialMonthly = 20000;
+            }
+        }
 
-        const montantAnnuel = override ? parseFloat(override.montant) : (feeType ? parseFloat(feeType.montant) : defaultMontant);
+        const hasRemise = Boolean(selectedStudent?.has_remise);
+        const remisePct = Number(selectedStudent?.remise_pourcentage || 0);
+        const montantMensuel = (hasRemise && remisePct > 0)
+            ? Math.round(officialMonthly * (1 - remisePct / 100))
+            : officialMonthly;
+
+        const montantAnnuel = override ? parseFloat(override.montant) : (montantMensuel * 9);
         const totalDejaPaye = parseFloat(selectedStudent.total_scolarite_payee) || 0;
         const resteAPayer = Math.max(0, montantAnnuel - totalDejaPaye);
-        
-        // Mensualité : 13 000 F (Maternelle), 13 500 F (Primaire 1-4), 15 000 F (Primaire 5)
-        const defaultMensuel = isMaternelle ? 13000 : (isCinquiemePrimaire ? 15000 : 13500);
-        const montantMensuel = isMaternelleOrPrimaire ? (montantAnnuel > 0 ? Math.round(montantAnnuel / 9) : defaultMensuel) : Math.round(montantAnnuel / 9);
 
-        // Tranches officielles
+        // Tranches officielles (Secondaire)
         const echeancesFromDb = override?.echeances || [];
         let tranches = [];
         if (echeancesFromDb.length === 3 && echeancesFromDb[0].type === 'tranche') {
@@ -159,75 +169,228 @@ export default function ScolaritePaymentForm({
             ];
         }
 
-        const montantTrimestriel = tranches[0]?.montant || 60000;
+        const montantTrimestriel = montantMensuel * 3;
         const pourcentage = montantAnnuel > 0 ? Math.min(100, Math.round((totalDejaPaye / montantAnnuel) * 100)) : 0;
 
         return {
             montantAnnuel,
             totalDejaPaye,
             resteAPayer,
+            officialMonthly,
+            hasRemise,
+            remisePct,
             montantMensuel,
             montantTrimestriel,
             tranches,
             pourcentage,
             moisRegles: selectedStudent.mois_regles || []
         };
-    })();
+    }, [selectedStudent, studentClasse, fraisClasses, isPrimaire]);
 
-    // Synchronisation automatique des modes de règlement
+    // Helper : vérifier si un mois spécifique est déjà réglé
+    const isMonthPaid = useCallback((monthName) => {
+        if (!studentFinancials?.moisRegles || !Array.isArray(studentFinancials.moisRegles)) return false;
+        const target = monthName.toLowerCase().trim();
+        return studentFinancials.moisRegles.some(mr => {
+            if (!mr) return false;
+            const clean = String(mr).toLowerCase().trim();
+            return clean === target || clean.includes(target);
+        });
+    }, [studentFinancials?.moisRegles]);
+
+    // Action 1 : Sélectionner le mode MENSUEL (auto-coche le 1er mois impayé)
+    const handleSelectMensuel = useCallback((customMonths = null) => {
+        if (!studentFinancials) return;
+
+        let targetMonths = [];
+        if (customMonths && Array.isArray(customMonths)) {
+            // Filtrer strictement pour ne jamais sélectionner de mois déjà payé
+            targetMonths = customMonths.filter(m => !isMonthPaid(m));
+        } else {
+            // Sélectionner automatiquement le premier mois impayé
+            const nextUnpaid = schoolMonths.find(m => !isMonthPaid(m));
+            targetMonths = nextUnpaid ? [nextUnpaid] : [];
+        }
+
+        targetMonths.sort((a, b) => schoolMonths.indexOf(a) - schoolMonths.indexOf(b));
+        setSelectedMonths(targetMonths);
+
+        const calculatedAmount = targetMonths.length * studentFinancials.montantMensuel;
+        const labelMois = targetMonths.join(", ");
+        const comm = targetMonths.length > 0
+            ? (targetMonths.length === 1 ? `Scolarité ${targetMonths[0]}` : `Scolarité (${labelMois})`)
+            : "";
+
+        form.setData(data => ({
+            ...data,
+            montant: calculatedAmount > 0 ? calculatedAmount : "",
+            mois: labelMois,
+            commentaire: comm
+        }));
+    }, [studentFinancials, isMonthPaid, schoolMonths]);
+
+    // Action 2 : Clic/Bascule manuelle sur un mois dans la grille
     const handleSelectMonth = (month) => {
+        if (!studentFinancials || isMonthPaid(month)) return; // Interdit de cocher un mois déjà soldé
+
         let newMonths;
         if (selectedMonths.includes(month)) {
             newMonths = selectedMonths.filter(m => m !== month);
         } else {
             newMonths = [...selectedMonths, month];
         }
+
+        // Nettoyage strict anti-mois déjà payé
+        newMonths = newMonths.filter(m => !isMonthPaid(m));
+        newMonths.sort((a, b) => schoolMonths.indexOf(a) - schoolMonths.indexOf(b));
+
         setSelectedMonths(newMonths);
 
-        if (studentFinancials) {
-            const calculatedAmount = newMonths.length * studentFinancials.montantMensuel;
-            form.setData({
-                ...form.data,
-                montant: calculatedAmount > 0 ? calculatedAmount : "",
-                mois: newMonths.join(", "),
-                commentaire: newMonths.length > 0 ? `Scolarité (${newMonths.join(", ")})` : ""
-            });
-        }
+        const calculatedAmount = newMonths.length * studentFinancials.montantMensuel;
+        const labelMois = newMonths.join(", ");
+        const comm = newMonths.length > 0
+            ? (newMonths.length === 1 ? `Scolarité ${newMonths[0]}` : `Scolarité (${labelMois})`)
+            : "";
+
+        form.setData(data => ({
+            ...data,
+            montant: calculatedAmount > 0 ? calculatedAmount : "",
+            mois: labelMois,
+            commentaire: comm
+        }));
     };
 
-    const handleSelectTranche = (tranche) => {
-        form.setData({
-            ...form.data,
+    // Action 3 : Sélection d'un trimestre
+    const handleSelectTrimestre = useCallback((t) => {
+        if (!studentFinancials) return;
+        const payableMonths = t.mois.filter(m => !isMonthPaid(m));
+        setSelectedMonths(payableMonths);
+
+        const calculatedAmount = payableMonths.length * studentFinancials.montantMensuel;
+        const isFull = payableMonths.length === t.mois.length;
+        const moisLabel = payableMonths.length === 0
+            ? `${t.nom} (Soldé)`
+            : isFull
+            ? `${t.nom} (${t.mois.join(', ')})`
+            : `${t.nom} (${payableMonths.join(', ')})`;
+
+        const comm = payableMonths.length === 0
+            ? `${t.nom} entièrement soldé`
+            : isFull
+            ? `Règlement ${t.nom} Scolarité (${t.mois.join(', ')})`
+            : `Règlement ${t.nom} Scolarité (Reste : ${payableMonths.join(', ')})`;
+
+        form.setData(data => ({
+            ...data,
+            montant: calculatedAmount > 0 ? calculatedAmount : "",
+            mois: moisLabel,
+            commentaire: comm,
+        }));
+    }, [studentFinancials, isMonthPaid]);
+
+    // Action 4 : Sélection d'un semestre
+    const handleSelectSemestre = useCallback((s) => {
+        if (!studentFinancials) return;
+        const payableMonths = s.mois.filter(m => !isMonthPaid(m));
+        setSelectedMonths(payableMonths);
+
+        const calculatedAmount = payableMonths.length * studentFinancials.montantMensuel;
+        const isFull = payableMonths.length === s.mois.length;
+        const moisLabel = payableMonths.length === 0
+            ? `${s.nom} (Soldé)`
+            : isFull
+            ? `${s.nom} (${s.mois.join(', ')})`
+            : `${s.nom} (${payableMonths.join(', ')})`;
+
+        const comm = payableMonths.length === 0
+            ? `${s.nom} entièrement soldé`
+            : isFull
+            ? `Règlement ${s.nom} Scolarité (${s.mois.join(', ')})`
+            : `Règlement ${s.nom} Scolarité (Reste : ${payableMonths.join(', ')})`;
+
+        form.setData(data => ({
+            ...data,
+            montant: calculatedAmount > 0 ? calculatedAmount : "",
+            mois: moisLabel,
+            commentaire: comm,
+        }));
+    }, [studentFinancials, isMonthPaid]);
+
+    // Action 5 : Sélection d'une tranche (Secondaire)
+    const handleSelectTranche = useCallback((tranche) => {
+        form.setData(data => ({
+            ...data,
             montant: tranche.montant,
             mois: tranche.nom,
             commentaire: `Règlement ${tranche.nom} Scolarité (Échéance ${tranche.date_limite})`
-        });
-    };
+        }));
+    }, []);
 
-    const handleSelectTotal = () => {
+    // Action 6 : Solde Annuel
+    const handleSelectTotal = useCallback(() => {
         if (!studentFinancials) return;
-        form.setData({
-            ...form.data,
+        const remainingUnpaid = schoolMonths.filter(m => !isMonthPaid(m));
+        setSelectedMonths(remainingUnpaid);
+        form.setData(data => ({
+            ...data,
             montant: studentFinancials.resteAPayer,
             mois: "Année Complète (Solde)",
             commentaire: "Solde tout compte Scolarité Annuelle"
-        });
-    };
+        }));
+    }, [studentFinancials, schoolMonths, isMonthPaid]);
 
+    // Action 7 : Acompte Libre
+    const handleSelectLibre = useCallback(() => {
+        setSelectedMonths([]);
+        form.setData(data => ({
+            ...data,
+            montant: "",
+            mois: "Acompte Libre",
+            commentaire: "Acompte sur scolarité"
+        }));
+    }, []);
+
+    // Action 8 : Basculer entre les modes de règlement globaux
     const handleSelectMode = (mode) => {
         setPaymentPlanMode(mode);
-        if (mode === "total") {
+        if (mode === "mensuel") {
+            handleSelectMensuel();
+        } else if (mode === "trimestre") {
+            const activeTrimestre = trimestres.find(t => t.mois.some(m => !isMonthPaid(m))) || trimestres[0];
+            handleSelectTrimestre(activeTrimestre);
+        } else if (mode === "semestre") {
+            const activeSemestre = semestres.find(s => s.mois.some(m => !isMonthPaid(m))) || semestres[0];
+            handleSelectSemestre(activeSemestre);
+        } else if (mode === "total") {
             handleSelectTotal();
         } else if (mode === "tranche" && studentFinancials?.tranches?.length > 0) {
-            handleSelectTranche(studentFinancials.tranches[0]);
+            const firstUnpaidTranche = studentFinancials.tranches.find(t => 
+                !studentFinancials.moisRegles.some(mr => mr.toLowerCase().includes(t.nom.toLowerCase()))
+            ) || studentFinancials.tranches[0];
+            handleSelectTranche(firstUnpaidTranche);
         } else if (mode === "libre") {
-            form.setData({
-                ...form.data,
-                mois: "Acompte Libre",
-                commentaire: "Acompte sur scolarité"
-            });
+            handleSelectLibre();
         }
     };
+
+    // Initialisation et synchronisation automatique lors du chargement ou changement d'élève
+    useEffect(() => {
+        if (selectedStudent && studentFinancials) {
+            if (isSecondaire) {
+                setPaymentPlanMode("tranche");
+                setSelectedMonths([]);
+                const firstUnpaidTranche = studentFinancials.tranches.find(t => 
+                    !studentFinancials.moisRegles.some(mr => mr.toLowerCase().includes(t.nom.toLowerCase()))
+                ) || studentFinancials.tranches[0];
+                if (firstUnpaidTranche) {
+                    handleSelectTranche(firstUnpaidTranche);
+                }
+            } else {
+                setPaymentPlanMode("mensuel");
+                handleSelectMensuel();
+            }
+        }
+    }, [form.data.inscription_id, selectedStudent?.id, Boolean(studentFinancials), isSecondaire]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -435,12 +598,20 @@ export default function ScolaritePaymentForm({
                 {/* 3. SELECTION DU MODE DE PAIEMENT SOUHAITE PAR LE PARENT */}
                 {studentFinancials && (
                     <div>
-                        <label className="block mb-3 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                            Choisir l'Option de Règlement du Parent :
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {/* Option 1: Mensuel (pour Maternelle/Primaire) OU Tranche (pour Secondaire) */}
-                            {isMaternelleOrPrimaire ? (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <label className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                                Choisir l'Option de Règlement du Parent :
+                            </label>
+                            {studentFinancials.hasRemise && studentFinancials.remisePct > 0 && (
+                                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 rounded-full">
+                                    🏷️ Remise active : -{studentFinancials.remisePct}% ({studentFinancials.montantMensuel.toLocaleString('fr-FR')} F/mois au lieu de {studentFinancials.officialMonthly.toLocaleString('fr-FR')} F)
+                                </span>
+                            )}
+                        </div>
+
+                        {isMaternelleOrPrimaire ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                                {/* Option 1: Mensuel */}
                                 <button
                                     type="button"
                                     onClick={() => handleSelectMode("mensuel")}
@@ -450,10 +621,68 @@ export default function ScolaritePaymentForm({
                                             : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400"
                                     }`}
                                 >
-                                    <span className="flex items-center gap-1"><CalendarRange className="w-4 h-4" /> Par Mensualité</span>
-                                    <span className="font-mono text-[11px] opacity-90">{studentFinancials.montantMensuel.toLocaleString('fr-FR')} FCFA / mois (9 mois)</span>
+                                    <span className="flex items-center gap-1"><CalendarRange className="w-3.5 h-3.5" /> Par Mois</span>
+                                    <span className="font-mono text-[11px] opacity-90">{studentFinancials.montantMensuel.toLocaleString('fr-FR')} F / mois</span>
                                 </button>
-                            ) : (
+
+                                {/* Option 2: Trimestriel */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode("trimestre")}
+                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
+                                        paymentPlanMode === "trimestre"
+                                            ? "bg-teal-600 text-white border-teal-600 shadow-md shadow-teal-600/20 ring-2 ring-teal-400/30"
+                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-400"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> Trimestre</span>
+                                    <span className="font-mono text-[11px] opacity-90">{(studentFinancials.montantMensuel * 3).toLocaleString('fr-FR')} F (3 mois)</span>
+                                </button>
+
+                                {/* Option 3: Semestriel */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode("semestre")}
+                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
+                                        paymentPlanMode === "semestre"
+                                            ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20 ring-2 ring-indigo-400/30"
+                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> Semestre</span>
+                                    <span className="font-mono text-[11px] opacity-90">S1 (5m) / S2 (4m)</span>
+                                </button>
+
+                                {/* Option 4: Solde Total */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode("total")}
+                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
+                                        paymentPlanMode === "total"
+                                            ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 ring-2 ring-blue-400/30"
+                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1"><Wallet className="w-3.5 h-3.5" /> Solde Annuel</span>
+                                    <span className="font-mono text-[11px] opacity-90">{studentFinancials.resteAPayer.toLocaleString('fr-FR')} F</span>
+                                </button>
+
+                                {/* Option 5: Montant Libre */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode("libre")}
+                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
+                                        paymentPlanMode === "libre"
+                                            ? "bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20 ring-2 ring-amber-400/30"
+                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1"><Calculator className="w-3.5 h-3.5" /> Acompte Libre</span>
+                                    <span className="font-mono text-[11px] opacity-90">Saisie échelon</span>
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <button
                                     type="button"
                                     onClick={() => handleSelectMode("tranche")}
@@ -466,47 +695,43 @@ export default function ScolaritePaymentForm({
                                     <span className="flex items-center gap-1"><Layers className="w-4 h-4" /> Par Tranche</span>
                                     <span className="font-mono text-[11px] opacity-90">3 Tranches Officielles</span>
                                 </button>
-                            )}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode("total")}
+                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
+                                        paymentPlanMode === "total"
+                                            ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 ring-2 ring-blue-400/30"
+                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1"><Wallet className="w-4 h-4" /> Solde Tout Compte</span>
+                                    <span className="font-mono text-[11px] opacity-90">{studentFinancials.resteAPayer.toLocaleString('fr-FR')} FCFA</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectMode("libre")}
+                                    className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
+                                        paymentPlanMode === "libre"
+                                            ? "bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20 ring-2 ring-amber-400/30"
+                                            : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1"><Calculator className="w-4 h-4" /> Acompte Libre</span>
+                                    <span className="font-mono text-[11px] opacity-90">Saisie personnalisée</span>
+                                </button>
+                            </div>
+                        )}
 
-                            {/* Option 2: Solde Total */}
-                            <button
-                                type="button"
-                                onClick={() => handleSelectMode("total")}
-                                className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
-                                    paymentPlanMode === "total"
-                                        ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 ring-2 ring-blue-400/30"
-                                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400"
-                                }`}
-                            >
-                                <span className="flex items-center gap-1"><Wallet className="w-4 h-4" /> Solde Tout Compte</span>
-                                <span className="font-mono text-[11px] opacity-90">{studentFinancials.resteAPayer.toLocaleString('fr-FR')} FCFA</span>
-                            </button>
-
-                            {/* Option 3: Montant Libre */}
-                            <button
-                                type="button"
-                                onClick={() => handleSelectMode("libre")}
-                                className={`p-3 rounded-xl border text-left font-bold transition-all flex flex-col justify-between gap-1 text-xs ${
-                                    paymentPlanMode === "libre"
-                                        ? "bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20 ring-2 ring-amber-400/30"
-                                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400"
-                                }`}
-                            >
-                                <span className="flex items-center gap-1"><Calculator className="w-4 h-4" /> Acompte Libre</span>
-                                <span className="font-mono text-[11px] opacity-90">Saisie personnalisée</span>
-                            </button>
-                        </div>
-
-                        {/* DETAIL DU MODE MENSUALITES (MATERNELLE & PRIMAIRE : 9 MOIS) */}
+                        {/* DETAIL DU MODE MENSUALITES (9 MOIS : SEPTEMBRE A MAI) */}
                         {paymentPlanMode === "mensuel" && isMaternelleOrPrimaire && (
                             <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-                                <div className="flex items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-200 dark:border-slate-700/60">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-200 dark:border-slate-700/60">
                                     <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                         <CalendarRange className="w-4 h-4 text-emerald-600" />
-                                        Maternelle & Primaire : Calendrier des 9 Mensualités
+                                        Mois Scolaires (9 mois : Septembre à Mai • Règlements réguliers Octobre à Mai)
                                     </span>
                                     <span className="text-xs font-black text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/40">
-                                        {studentFinancials.montantMensuel.toLocaleString('fr-FR')} FCFA / mois
+                                        {studentFinancials.montantMensuel.toLocaleString('fr-FR')} FCFA / mois (Échéance le 10)
                                     </span>
                                 </div>
 
@@ -515,7 +740,7 @@ export default function ScolaritePaymentForm({
                                 </span>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                                     {schoolMonths.map((m) => {
-                                        const isAlreadyPaid = studentFinancials.moisRegles.some(mr => mr.toLowerCase().includes(m.toLowerCase()));
+                                        const isAlreadyPaid = isMonthPaid(m);
                                         const isSelected = selectedMonths.includes(m);
 
                                         return (
@@ -591,8 +816,122 @@ export default function ScolaritePaymentForm({
                                 </div>
                             </div>
                         )}
-                    </div>
-                )}
+
+                        {/* DETAIL DU MODE TRIMESTRE */}
+                        {paymentPlanMode === "trimestre" && isMaternelleOrPrimaire && (
+                            <div className="mt-4 p-4 rounded-2xl bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/40">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 pb-2.5 border-b border-teal-200/60 dark:border-teal-800/40">
+                                    <span className="text-xs font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1.5">
+                                        <Layers className="w-4 h-4 text-teal-600" />
+                                        Règlement par Trimestre (3 mois par trimestre)
+                                    </span>
+                                    <span className="text-xs font-black text-teal-700 bg-teal-100 dark:bg-teal-900/40 px-2.5 py-1 rounded-lg">
+                                        {(studentFinancials.montantMensuel * 3).toLocaleString('fr-FR')} FCFA / trimestre
+                                    </span>
+                                </div>
+                                <p className="text-xs text-teal-800/80 dark:text-teal-300/80 mb-3">
+                                    💡 <strong>Système de Relance :</strong> Pour un règlement trimestriel, le parent est couvert pour les 3 mois souscrits. La relance ne s'activera qu'à l'issue de cette période.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    {trimestres.map((t) => {
+                                        const isSelected = form.data.mois.includes(t.nom);
+                                        const unpaidInTrimestre = t.mois.filter(m => !isMonthPaid(m));
+                                        const allPaid = unpaidInTrimestre.length === 0;
+                                        const amount = unpaidInTrimestre.length * studentFinancials.montantMensuel;
+
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                type="button"
+                                                disabled={allPaid}
+                                                onClick={() => handleSelectTrimestre(t)}
+                                                className={`p-3.5 rounded-xl border font-bold text-xs flex flex-col gap-1.5 text-left transition-all ${
+                                                    allPaid
+                                                        ? "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 opacity-60 cursor-not-allowed"
+                                                        : isSelected
+                                                        ? "bg-teal-600 text-white border-teal-600 shadow-lg shadow-teal-600/30 ring-2 ring-teal-400"
+                                                        : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-teal-200 dark:border-teal-800 hover:border-teal-400"
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-black">{t.nom}</span>
+                                                    {allPaid ? (
+                                                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Soldé</span>
+                                                    ) : unpaidInTrimestre.length < t.mois.length ? (
+                                                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">Reste {unpaidInTrimestre.length} mois</span>
+                                                    ) : null}
+                                                </div>
+                                                <span className={`font-mono text-base font-black ${isSelected ? 'text-white' : allPaid ? 'text-slate-400' : 'text-teal-700 dark:text-teal-300'}`}>
+                                                    {amount.toLocaleString('fr-FR')} FCFA
+                                                </span>
+                                                <span className={`text-[11px] ${isSelected ? 'text-teal-100' : 'text-slate-400'}`}>
+                                                    {allPaid ? "Tous les mois sont réglés" : `Mois : ${unpaidInTrimestre.join(', ')}`}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* DETAIL DU MODE SEMESTRE (OBSERVATIONS 1 & 6) */}
+                        {paymentPlanMode === "semestre" && isMaternelleOrPrimaire && (
+                            <div className="mt-4 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/40">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 pb-2.5 border-b border-indigo-200/60 dark:border-indigo-800/40">
+                                    <span className="text-xs font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
+                                        <Layers className="w-4 h-4 text-indigo-600" />
+                                        Règlement par Semestre (S1 : 5 mois • S2 : 4 mois)
+                                    </span>
+                                    <span className="text-xs font-black text-indigo-700 bg-indigo-100 dark:bg-indigo-900/40 px-2.5 py-1 rounded-lg">
+                                        Couverture semestrielle
+                                    </span>
+                                </div>
+                                <p className="text-xs text-indigo-800/80 dark:text-indigo-300/80 mb-3">
+                                    💡 <strong>Système de Relance :</strong> Le parent qui règle par semestre est couvert pour l'ensemble des mois du semestre. La relance ne s'activera qu'à l'issue des mois souscrits.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {semestres.map((s) => {
+                                        const isSelected = form.data.mois.includes(s.nom);
+                                        const unpaidInSemestre = s.mois.filter(m => !isMonthPaid(m));
+                                        const allPaid = unpaidInSemestre.length === 0;
+                                        const amount = unpaidInSemestre.length * studentFinancials.montantMensuel;
+
+                                        return (
+                                            <button
+                                                key={s.id}
+                                                type="button"
+                                                disabled={allPaid}
+                                                onClick={() => handleSelectSemestre(s)}
+                                                className={`p-3.5 rounded-xl border font-bold text-xs flex flex-col gap-1.5 text-left transition-all ${
+                                                    allPaid
+                                                        ? "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 opacity-60 cursor-not-allowed"
+                                                        : isSelected
+                                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-600/30 ring-2 ring-indigo-400"
+                                                        : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-indigo-200 dark:border-indigo-800 hover:border-indigo-400"
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-black">{s.nom} ({s.label})</span>
+                                                    {allPaid ? (
+                                                        <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">Soldé</span>
+                                                    ) : unpaidInSemestre.length < s.mois.length ? (
+                                                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">Reste {unpaidInSemestre.length} mois</span>
+                                                    ) : null}
+                                                </div>
+                                                <span className={`font-mono text-base font-black ${isSelected ? 'text-white' : allPaid ? 'text-slate-400' : 'text-indigo-700 dark:text-indigo-300'}`}>
+                                                    {amount.toLocaleString('fr-FR')} FCFA
+                                                </span>
+                                                <span className={`text-[11px] ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                                    {allPaid ? "Tous les mois sont réglés" : `Mois couverts : ${unpaidInSemestre.join(', ')}`}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                        </div>
+                    )}
 
                 {/* 4. MONTANT FINAL & MODE DE REGLEMENT */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

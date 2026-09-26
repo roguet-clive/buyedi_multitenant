@@ -56,7 +56,7 @@ class ClasseController extends Controller
     {
         $validated = $request->validate([
             'nom' => 'required|string|unique:classes,nom',
-            'type' => 'required|in:maternelle,primaire,secondaire',
+            'type' => 'required|in:creche,maternelle,primaire,secondaire',
         ]);
 
         Classe::create($validated);
@@ -69,7 +69,7 @@ class ClasseController extends Controller
     {
         $validated = $request->validate([
             'nom' => "required|string|unique:classes,nom,{$classe->id},id",
-            'type' => 'required|in:maternelle,primaire,secondaire',
+            'type' => 'required|in:creche,maternelle,primaire,secondaire',
         ]);
 
         $classe->update($validated);

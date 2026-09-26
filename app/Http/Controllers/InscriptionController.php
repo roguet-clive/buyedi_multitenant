@@ -9,6 +9,7 @@ use App\Models\AnneeScolaire;
 use App\Models\FraisType;
 use App\Models\FraisClasse;
 use App\Models\Paiement;
+use App\Models\Etablissement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class InscriptionController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('permission:voir_inscriptions')->only(['index', 'show', 'recu', 'verify']);
+        $this->middleware('permission:voir_inscriptions')->only(['index', 'show', 'recu', 'verify', 'registre', 'tenuesFournisseur']);
         $this->middleware('permission:ajouter_inscriptions')->only(['create', 'store', 'createForEleve']);
         $this->middleware('permission:modifier_inscriptions')->only(['edit', 'update']);
         $this->middleware('permission:supprimer_inscriptions')->only(['destroy']);
@@ -178,13 +179,11 @@ class InscriptionController extends Controller
             'fraisTypes' => $fraisTypes,
             'fraisClasses' => $fraisClasses,
             'forfait_config' => [
-                'montant_forfait' => 70000,
-                'frais_inscription' => 10000,
-                'frais_reinscription' => 5000,
+                'frais_inscription' => (float) ($fraisTypes->firstWhere('code', 'inscription')?->montant ?? 10000),
+                'frais_reinscription' => (float) ($fraisTypes->firstWhere('code', 'reinscription')?->montant ?? 10000),
             ],
         ]);
     }
-
 
     // Formulaire de création pour un élève précis
     public function createForEleve(Eleve $eleve)
@@ -234,9 +233,8 @@ class InscriptionController extends Controller
             'fraisTypes' => $fraisTypes,
             'fraisClasses' => $fraisClasses,
             'forfait_config' => [
-                'montant_forfait' => 70000,
-                'frais_inscription' => 10000,
-                'frais_reinscription' => 5000,
+                'frais_inscription' => (float) ($fraisTypes->firstWhere('code', 'inscription')?->montant ?? 10000),
+                'frais_reinscription' => (float) ($fraisTypes->firstWhere('code', 'reinscription')?->montant ?? 10000),
             ],
         ]);
     }
@@ -252,6 +250,9 @@ class InscriptionController extends Controller
             'has_remise' => 'nullable|boolean',
             'remise_pourcentage' => 'nullable|numeric|min:0|max:100',
             'remise_montant' => 'nullable|numeric|min:0',
+            'scolarite_accorde' => 'nullable|numeric|min:0',
+            'payer_scolarite_mois' => 'nullable|boolean',
+            'montant_scolarite_mois' => 'nullable|numeric|min:0',
             'frais' => 'nullable|array', // Structure: [frais_type_id => ['selected' => bool, 'montant' => float]]
             'frais.*.selected' => 'boolean',
             'frais.*.montant' => 'nullable|numeric|min:0',
@@ -286,10 +287,11 @@ class InscriptionController extends Controller
             }
 
             $isReinscription = ($admissionType === 'reinscription');
-            // La remise de 50% est applicable STRICTEMENT sur les nouvelles inscriptions (10 000 F -> 5 000 F), jamais sur les réinscriptions
-            $hasRemise = !$isReinscription && (bool) $request->input('has_remise', false);
-            $remisePourcentage = $hasRemise ? (float) $request->input('remise_pourcentage', 50.0) : 0.00;
-            $remiseMontant = $hasRemise ? (float) $request->input('remise_montant', 0.0) : 0.00;
+            $hasRemise = $request->boolean('has_remise');
+            $remisePourcentage = (float) $request->input('remise_pourcentage', 0);
+            $remiseMontant = (float) $request->input('remise_montant', 0);
+            $scolariteAccorde = (float) $request->input('scolarite_accorde', 0);
+            $payerScolariteMois = $request->boolean('payer_scolarite_mois');
 
             // 🚦 Gestion du Statut
             $statut = $request->input('statut', 'validee'); // Par défaut 'validee' si admin
@@ -323,94 +325,33 @@ class InscriptionController extends Controller
             $totalPaye = 0;
             $fraisInput = $request->input('frais', []);
             $classe = Classe::find($validated['classe_id']);
-            $isSecondaire = $classe && $classe->isSecondaire();
 
-            // ─────────────────────────────────────────────────────────────────
-            // 🎓 SECONDAIRE — Forfait Tranche 1 : 70 000 FCFA global
-            //    Les frais d'admission (inscription 10 000 / réinscription 5 000)
-            //    sont inclus dans ce forfait et déduits de la scolarité annuelle.
-            //    Ce bloc remplace totalement les paiements admission + scolarité T1.
-            // ─────────────────────────────────────────────────────────────────
-            if ($isSecondaire && $statut === 'validee') {
-                $MONTANT_FORFAIT      = 70000;
-                $FRAIS_INSCRIPTION    = 10000;
-                $FRAIS_REINSCRIPTION  = 5000;
-
-                // La remise de 50% s'applique sur la part admission → réduit le forfait
-                $fraisAdmissionBase   = $isReinscription ? $FRAIS_REINSCRIPTION : $FRAIS_INSCRIPTION;
-                $fraisAdmissionEffectif = $hasRemise ? (int) round($fraisAdmissionBase * 0.5) : $fraisAdmissionBase;
-                $montantForfait       = $MONTANT_FORFAIT - ($fraisAdmissionBase - $fraisAdmissionEffectif); // 70 000 ou 65 000
-                $avanceScolarite      = $montantForfait - $fraisAdmissionEffectif;
-
-                // 1. Enregistrement de la part admission (Inscription 10 000 F ou Réinscription 5 000 F)
-                $fraisAdmissionType = FraisType::where('code', $isReinscription ? 'reinscription' : 'inscription')->first();
-                if (!$fraisAdmissionType) {
-                    $fraisAdmissionType = FraisType::where('nom', 'LIKE', '%' . ($isReinscription ? 'réinscription' : 'inscription') . '%')->first();
-                }
-                if ($fraisAdmissionType && $fraisAdmissionEffectif > 0) {
-                    Paiement::create([
-                        'inscription_id' => $inscription->id,
-                        'frais_type_id'  => $fraisAdmissionType->id,
-                        'user_id'        => auth()->id(),
-                        'montant'        => $fraisAdmissionEffectif,
-                        'date_paiement'  => $validated['date_inscription'] ?? now(),
-                        'mode_paiement'  => 'especes',
-                        'reference_recu' => $inscription->numero_recu,
-                        'commentaire'    => sprintf(
-                            'Frais de %s (inclus dans Forfait Tranche 1 de %s F)',
-                            $isReinscription ? 'réinscription' : 'inscription',
-                            number_format($montantForfait, 0, ',', ' ')
-                        ),
-                    ]);
-                }
-
-                // 2. Enregistrement de la part Scolarité 1ère Tranche (60 000 F ou 65 000 F)
-                $fraisScolarite = FraisType::where('is_scolarite', true)->first();
-                if ($fraisScolarite && $avanceScolarite > 0) {
-                    Paiement::create([
-                        'inscription_id' => $inscription->id,
-                        'frais_type_id'  => $fraisScolarite->id,
-                        'user_id'        => auth()->id(),
-                        'montant'        => $avanceScolarite,
-                        'date_paiement'  => $validated['date_inscription'] ?? now(),
-                        'mode_paiement'  => 'especes',
-                        'mois'           => '1ère Tranche',
-                        'reference_recu' => $inscription->numero_recu,
-                        'commentaire'    => sprintf(
-                            '1ère Tranche de scolarité (Forfait Tranche 1 — Dont %s F %s inclus + %s F avance scolarité)',
-                            number_format($fraisAdmissionEffectif, 0, ',', ' '),
-                            $isReinscription ? 'réinscription' : 'inscription',
-                            number_format($avanceScolarite, 0, ',', ' ')
-                        ),
-                    ]);
-                }
-                $totalPaye += $montantForfait;
-
-                // Frais annexes secondaire (tenue secondaire, carte, APE, assurance…)
+            if ($statut === 'validee') {
                 foreach ($fraisInput as $fraisTypeId => $data) {
+                    // Exclusion mutuelle absolue : Inscription OU Réinscription
+                    if ($typeAExclureId && (int)$fraisTypeId === (int)$typeAExclureId) {
+                        continue;
+                    }
+
                     $fraisType = FraisType::find($fraisTypeId);
                     if (!$fraisType || $fraisType->is_scolarite) continue;
-                    // Les frais d'inscription et réinscription sont déjà inclus dans les 70 000 F -> JAMAIS dans les annexes
-                    if (in_array($fraisType->code, ['inscription', 'reinscription'])) continue;
-                    if (stripos($fraisType->nom, 'inscription') !== false) continue;
-                    // Exclure la tenue primaire pour le secondaire
-                    if (stripos($fraisType->nom, 'primaire') !== false) continue;
-
-                    $isBulletin = $fraisType->code === 'bulletin' || stripos($fraisType->nom, 'bulletin') !== false;
-                    if ($isBulletin) continue; // secondaire : bulletin gratuit
 
                     if (!empty($data['selected']) && $data['selected'] == true) {
-                        $isApe = $fraisType->code === 'ape' || stripos($fraisType->nom, 'ape') !== false;
-                        if ($isApe) {
-                            $montant = 2000.0;
-                        } else {
-                            $montant = (isset($data['montant']) && $data['montant'] !== '') ? (float) $data['montant'] : null;
-                            if ($montant === null || $montant <= 0) {
-                                $isTenue = $fraisType->code === 'tenue' || stripos($fraisType->nom, 'tenue') !== false;
-                                $montant = $isTenue ? (float) $classe->montant_tenue : (float) ($fraisType->montant ?? 0);
-                            }
-                        }
+                        $montant = $this->resolveFraisMontant($fraisType, $classe, $data, $isReinscription, false);
+
                         if ($montant > 0) {
+                            $code = strtolower($fraisType->code ?? '');
+                            $nom = mb_strtolower($fraisType->nom ?? '');
+                            $isReinscType = $code === 'reinscription' || str_contains($nom, 'réinscription');
+                            $isInscType = $code === 'inscription' || (str_contains($nom, 'inscription') && !$isReinscType);
+
+                            $comm = null;
+                            if ($isInscType) {
+                                $comm = "Frais d'inscription";
+                            } elseif ($isReinscType) {
+                                $comm = "Frais de réinscription";
+                            }
+
                             Paiement::create([
                                 'inscription_id' => $inscription->id,
                                 'frais_type_id'  => $fraisTypeId,
@@ -419,61 +360,54 @@ class InscriptionController extends Controller
                                 'date_paiement'  => $validated['date_inscription'] ?? now(),
                                 'mode_paiement'  => 'especes',
                                 'reference_recu' => $inscription->numero_recu,
+                                'commentaire'    => $comm,
                             ]);
                             $totalPaye += $montant;
                         }
                     }
                 }
 
-                $inscription->update(['total_frais' => $totalPaye]);
+                // Encaissement facultatif de la scolarité du 1er mois (Septembre)
+                if ($payerScolariteMois) {
+                    $fraisScolarite = FraisType::where('is_scolarite', true)->first();
+                    if ($fraisScolarite) {
+                        $tarifBase = $classe?->montant_mensuel_officiel ?? 20000;
+                        $montantScolariteInput = $request->input('montant_scolarite_mois');
 
-                $message = 'Inscription secondaire validée avec succès ✅ (Forfait Tranche 1 : ' . number_format($montantForfait, 0, ',', ' ') . ' F)';
-                return redirect()->route('inscriptions.index')->with('success', $message);
-            }
-
-            // ─────────────────────────────────────────────────────────────────
-            // 📚 MATERNELLE / PRIMAIRE — comportement original inchangé
-            // ─────────────────────────────────────────────────────────────────
-            foreach ($fraisInput as $fraisTypeId => $data) {
-                // Exclusion mutuelle absolue : l'un ou l'autre, pas les deux
-                if ($typeAExclureId && (int)$fraisTypeId === (int)$typeAExclureId) {
-                    continue;
-                }
-
-                $fraisType = FraisType::find($fraisTypeId);
-                if (!$fraisType || $fraisType->is_scolarite) continue;
-                if (stripos($fraisType->nom, 'secondaire') !== false) continue;
-
-                $isBulletin = $fraisType && ($fraisType->code === 'bulletin' || stripos($fraisType->nom, 'bulletin') !== false);
-
-                if (!empty($data['selected']) && $data['selected'] == true) {
-                    $isApe = $fraisType && ($fraisType->code === 'ape' || stripos($fraisType->nom, 'ape') !== false);
-                    if ($isApe) {
-                        $montant = 2000.0;
-                    } else {
-                        $montant = (isset($data['montant']) && $data['montant'] !== '') ? (float) $data['montant'] : null;
-                        if ($montant === null || $montant <= 0) {
-                            if ($fraisType && $fraisType->code === 'tenue') {
-                                $montant = $classe ? (float) $classe->montant_tenue : 10000.0;
-                            } elseif ($isBulletin) {
-                                $montant = $classe ? (float) $classe->montant_bulletin : (float) ($fraisType?->montant ?? 1000.0);
-                            } else {
-                                $montant = (float) ($fraisType?->montant ?? 0);
-                            }
+                        if ($montantScolariteInput !== null && is_numeric($montantScolariteInput) && (float)$montantScolariteInput > 0) {
+                            $montantScolarite = (float) $montantScolariteInput;
+                        } elseif ($scolariteAccorde > 0) {
+                            $montantScolarite = $scolariteAccorde;
+                        } elseif ($hasRemise && $remisePourcentage > 0) {
+                            $montantScolarite = round($tarifBase * (1 - $remisePourcentage / 100));
+                        } else {
+                            $montantScolarite = $tarifBase;
                         }
-                    }
 
-                    if ($montant > 0) {
-                        Paiement::create([
-                            'inscription_id' => $inscription->id,
-                            'frais_type_id'  => $fraisTypeId,
-                            'user_id'        => auth()->id(),
-                            'montant'        => $montant,
-                            'date_paiement'  => $validated['date_inscription'] ?? now(),
-                            'mode_paiement'  => 'especes',
-                            'reference_recu' => $inscription->numero_recu,
-                        ]);
-                        $totalPaye += $montant;
+                        // Auto-calcul de la remise si le montant saisi à l'écran est inférieur au barème
+                        if (!$hasRemise && $tarifBase > 0 && $montantScolarite < $tarifBase) {
+                            $computedRemisePct = round((($tarifBase - $montantScolarite) / $tarifBase) * 100, 2);
+                            $inscription->update([
+                                'has_remise' => true,
+                                'remise_pourcentage' => $computedRemisePct,
+                                'remise_montant' => $tarifBase - $montantScolarite,
+                            ]);
+                        }
+
+                        if ($montantScolarite > 0) {
+                            Paiement::create([
+                                'inscription_id' => $inscription->id,
+                                'frais_type_id'  => $fraisScolarite->id,
+                                'user_id'        => auth()->id(),
+                                'montant'        => $montantScolarite,
+                                'date_paiement'  => $validated['date_inscription'] ?? now(),
+                                'mode_paiement'  => 'especes',
+                                'mois'           => 'Septembre',
+                                'reference_recu' => $inscription->numero_recu,
+                                'commentaire'    => "Scolarité 1er mois (Septembre) réglée à l'inscription",
+                            ]);
+                            $totalPaye += $montantScolarite;
+                        }
                     }
                 }
             }
@@ -553,9 +487,8 @@ class InscriptionController extends Controller
             'fraisClasses'        => $fraisClasses,
             'annee_en_cours'      => $annee_en_cours,
             'forfait_config'      => [
-                'montant_forfait'       => 70000,
-                'frais_inscription'     => 10000,
-                'frais_reinscription'   => 5000,
+                'frais_inscription'     => (float) ($fraisTypes->firstWhere('code', 'inscription')?->montant ?? 10000),
+                'frais_reinscription'   => (float) ($fraisTypes->firstWhere('code', 'reinscription')?->montant ?? 10000),
             ],
         ]);
     }
@@ -564,14 +497,20 @@ class InscriptionController extends Controller
     public function update(Request $request, Inscription $inscription)
     {
         $validated = $request->validate([
-            'eleve_id'          => 'required|exists:eleves,id',
-            'classe_id'         => 'required|exists:classes,id',
-            'date_inscription'  => 'nullable|date',
-            'admission_type'    => 'nullable|in:inscription,reinscription',
-            'statut'            => 'required|in:brouillon,en_attente,validee,rejete',
-            'frais'             => 'nullable|array',
-            'frais.*.selected'  => 'boolean',
-            'frais.*.montant'   => 'nullable|numeric|min:0',
+            'eleve_id'              => 'required|exists:eleves,id',
+            'classe_id'             => 'required|exists:classes,id',
+            'date_inscription'      => 'nullable|date',
+            'admission_type'        => 'nullable|in:inscription,reinscription',
+            'statut'                => 'required|in:brouillon,en_attente,validee,rejete',
+            'has_remise'            => 'nullable|boolean',
+            'remise_pourcentage'    => 'nullable|numeric|min:0|max:100',
+            'remise_montant'        => 'nullable|numeric|min:0',
+            'scolarite_accorde'     => 'nullable|numeric|min:0',
+            'payer_scolarite_mois'  => 'nullable|boolean',
+            'montant_scolarite_mois'=> 'nullable|numeric|min:0',
+            'frais'                 => 'nullable|array',
+            'frais.*.selected'      => 'boolean',
+            'frais.*.montant'       => 'nullable|numeric|min:0',
         ]);
 
         DB::transaction(function () use ($validated, $inscription, $request) {
@@ -579,188 +518,165 @@ class InscriptionController extends Controller
                 ? ($request->admission_type === 'reinscription')
                 : $inscription->reinscription;
 
+            $hasRemise = $request->boolean('has_remise');
+            $remisePourcentage = (float) $request->input('remise_pourcentage', 0);
+            $remiseMontant = (float) $request->input('remise_montant', 0);
+            $scolariteAccorde = (float) $request->input('scolarite_accorde', 0);
+            $payerScolariteMois = $request->boolean('payer_scolarite_mois');
+
             $inscription->update([
                 'eleve_id'          => $validated['eleve_id'],
                 'classe_id'         => $validated['classe_id'],
                 'date_inscription'  => $validated['date_inscription'] ?? $inscription->date_inscription,
                 'statut'            => $validated['statut'],
                 'reinscription'     => $isReinscription,
-                'has_remise'        => false,
-                'remise_pourcentage'=> 0,
-                'remise_montant'    => 0,
+                'has_remise'        => $hasRemise,
+                'remise_pourcentage'=> $remisePourcentage,
+                'remise_montant'    => $remiseMontant,
             ]);
 
-            // AJOUT DE FRAIS ANNEXES SUPPLÉMENTAIRES (lors de la validation d'une préinscription)
+            // AJOUT OU MISE À JOUR DES FRAIS (lors de la validation ou modification)
             if ($validated['statut'] === 'validee') {
-                $MONTANT_FORFAIT     = 70000;
-                $FRAIS_INSCRIPTION   = 10000;
-                $FRAIS_REINSCRIPTION = 5000;
-
                 $fraisInput  = $request->input('frais', []);
                 $user        = auth()->user();
                 $classe      = Classe::find($validated['classe_id']);
-                $isSecondaire = $classe && $classe->isSecondaire();
                 $dateOp      = $validated['date_inscription'] ?? now();
-                $totalAjoute = 0;
 
+                $fraisInscription   = FraisType::where('code', 'inscription')->first();
+                $fraisReinscription = FraisType::where('code', 'reinscription')->first();
+                $typeAExclureId = $isReinscription ? ($fraisInscription?->id) : ($fraisReinscription?->id);
+
+                foreach ($fraisInput as $fraisTypeId => $data) {
+                    if ($typeAExclureId && (int)$fraisTypeId === (int)$typeAExclureId) {
+                        continue;
+                    }
+
+                    $fraisType = FraisType::find($fraisTypeId);
+                    if (!$fraisType || $fraisType->is_scolarite) continue;
+
+                    $code = strtolower($fraisType->code ?? '');
+                    $nom = mb_strtolower($fraisType->nom ?? '');
+                    $isReinscType = $code === 'reinscription' || str_contains($nom, 'réinscription');
+                    $isInscType = $code === 'inscription' || (str_contains($nom, 'inscription') && !$isReinscType);
+
+                    $existingPaiement = Paiement::where('inscription_id', $inscription->id)
+                        ->where('frais_type_id', $fraisTypeId)
+                        ->first();
+
+                    if (!empty($data['selected']) && $data['selected'] == true) {
+                        $montant = $this->resolveFraisMontant($fraisType, $classe, $data, $isReinscription, false);
+                        if ($montant <= 0) continue;
+
+                        $comm = null;
+                        if ($isInscType) {
+                            $comm = "Frais d'inscription";
+                        } elseif ($isReinscType) {
+                            $comm = "Frais de réinscription";
+                        }
+
+                        if ($existingPaiement) {
+                            if ((float)$existingPaiement->montant !== (float)$montant) {
+                                $existingPaiement->update([
+                                    'montant'       => $montant,
+                                    'date_paiement' => $dateOp,
+                                ]);
+                            }
+                        } else {
+                            Paiement::create([
+                                'inscription_id' => $inscription->id,
+                                'frais_type_id'  => $fraisTypeId,
+                                'user_id'        => $user?->id ?? auth()->id(),
+                                'montant'        => $montant,
+                                'date_paiement'  => $dateOp,
+                                'mode_paiement'  => 'especes',
+                                'reference_recu' => $inscription->numero_recu,
+                                'commentaire'    => $comm,
+                            ]);
+                        }
+                    } else {
+                        // Si décoché et non droit d'admission principal
+                        if ($existingPaiement && !$isInscType && !$isReinscType) {
+                            $existingPaiement->delete();
+                        }
+                    }
+                }
+
+                // GESTION DE LA SCOLARITÉ DU 1ER MOIS (SEPTEMBRE)
                 $fraisScolarite = FraisType::where('is_scolarite', true)->first();
+                if ($fraisScolarite) {
+                    $existingScolarite = Paiement::where('inscription_id', $inscription->id)
+                        ->where('frais_type_id', $fraisScolarite->id)
+                        ->first();
 
-                // ─────────────────────────────────────────────────────────────
-                // 🎓 SECONDAIRE — Forfait Tranche 1 : 70 000 FCFA global
-                //    La remise de 50% sur l'admission réduit le forfait si active.
-                // ─────────────────────────────────────────────────────────────
-                if ($isSecondaire) {
-                    $fraisAdmissionBase     = $isReinscription ? $FRAIS_REINSCRIPTION : $FRAIS_INSCRIPTION;
-                    // Récupère la remise éventuelle stockée dans l'inscription
-                    $hasRemiseEffective     = $inscription->has_remise && !$isReinscription;
-                    $fraisAdmissionEffectif = $hasRemiseEffective ? (int) round($fraisAdmissionBase * 0.5) : $fraisAdmissionBase;
-                    $montantForfait         = $MONTANT_FORFAIT - ($fraisAdmissionBase - $fraisAdmissionEffectif);
-                    $avanceScolarite        = $montantForfait - $fraisAdmissionEffectif;
+                    if ($payerScolariteMois) {
+                        $tarifBase = $classe?->montant_mensuel_officiel ?? 20000;
+                        $montantScolariteInput = $request->input('montant_scolarite_mois');
 
-                    // 1. Part admission
-                    $fraisAdmissionType = FraisType::where('code', $isReinscription ? 'reinscription' : 'inscription')->first();
-                    if (!$fraisAdmissionType) {
-                        $fraisAdmissionType = FraisType::where('nom', 'LIKE', '%' . ($isReinscription ? 'réinscription' : 'inscription') . '%')->first();
-                    }
-                    if ($fraisAdmissionType && $fraisAdmissionEffectif > 0) {
-                        $admissionDejaEnregistre = Paiement::where('inscription_id', $inscription->id)
-                            ->where('frais_type_id', $fraisAdmissionType->id)
-                            ->exists();
-                        if (!$admissionDejaEnregistre) {
-                            Paiement::create([
-                                'inscription_id' => $inscription->id,
-                                'frais_type_id'  => $fraisAdmissionType->id,
-                                'user_id'        => $user?->id,
-                                'montant'        => $fraisAdmissionEffectif,
-                                'date_paiement'  => $dateOp,
-                                'mode_paiement'  => 'especes',
-                                'reference_recu' => $inscription->numero_recu,
-                                'commentaire'    => sprintf(
-                                    'Frais de %s (inclus dans Forfait Tranche 1 de %s F)',
-                                    $isReinscription ? 'réinscription' : 'inscription',
-                                    number_format($montantForfait, 0, ',', ' ')
-                                ),
-                            ]);
-                            $totalAjoute += $fraisAdmissionEffectif;
+                        if ($montantScolariteInput !== null && is_numeric($montantScolariteInput) && (float)$montantScolariteInput > 0) {
+                            $montantScolarite = (float) $montantScolariteInput;
+                        } elseif ($scolariteAccorde > 0) {
+                            $montantScolarite = $scolariteAccorde;
+                        } elseif ($hasRemise && $remisePourcentage > 0) {
+                            $montantScolarite = round($tarifBase * (1 - $remisePourcentage / 100));
+                        } else {
+                            $montantScolarite = $tarifBase;
                         }
-                    }
 
-                    // 2. Part Scolarité 1ère Tranche
-                    if ($fraisScolarite && $avanceScolarite > 0) {
-                        $scolariteDejaEnregistre = Paiement::where('inscription_id', $inscription->id)
-                            ->where('frais_type_id', $fraisScolarite->id)
-                            ->exists();
-                        if (!$scolariteDejaEnregistre) {
-                            Paiement::create([
-                                'inscription_id' => $inscription->id,
-                                'frais_type_id'  => $fraisScolarite->id,
-                                'user_id'        => $user?->id,
-                                'montant'        => $avanceScolarite,
-                                'date_paiement'  => $dateOp,
-                                'mode_paiement'  => 'especes',
-                                'mois'           => '1ère Tranche',
-                                'reference_recu' => $inscription->numero_recu,
-                                'commentaire'    => sprintf(
-                                    '1ère Tranche de scolarité (Forfait Tranche 1 — Dont %s F %s inclus + %s F avance scolarité)',
-                                    number_format($fraisAdmissionEffectif, 0, ',', ' '),
-                                    $isReinscription ? 'réinscription' : 'inscription',
-                                    number_format($avanceScolarite, 0, ',', ' ')
-                                ),
+                        // Auto-calcul de la remise si le montant saisi à l'écran est inférieur au barème
+                        if (!$hasRemise && $tarifBase > 0 && $montantScolarite < $tarifBase) {
+                            $computedRemisePct = round((($tarifBase - $montantScolarite) / $tarifBase) * 100, 2);
+                            $inscription->update([
+                                'has_remise' => true,
+                                'remise_pourcentage' => $computedRemisePct,
+                                'remise_montant' => $tarifBase - $montantScolarite,
                             ]);
-                            $totalAjoute += $avanceScolarite;
                         }
-                    }
 
-                    // Frais annexes secondaire (tenue secondaire, carte, APE, assurance…) non encore payés
-                    foreach ($fraisInput as $fraisTypeId => $data) {
-                        if (!empty($data['selected']) && $data['selected'] == true) {
-                            $fraisType = FraisType::find($fraisTypeId);
-                            if (!$fraisType || $fraisType->is_scolarite) continue;
-                            if (in_array($fraisType->code, ['inscription', 'reinscription'])) continue;
-                            if (stripos($fraisType->nom, 'inscription') !== false) continue;
-                            if (stripos($fraisType->nom, 'primaire') !== false) continue;
-
-                            $isBulletin = $fraisType->code === 'bulletin' || stripos($fraisType->nom, 'bulletin') !== false;
-                            if ($isBulletin) continue; // secondaire : bulletin 0F
-
-                            $alreadyPaid = Paiement::where('inscription_id', $inscription->id)
-                                ->where('frais_type_id', $fraisTypeId)
-                                ->exists();
-                            if ($alreadyPaid) continue;
-
-                            $isApe = $fraisType->code === 'ape' || stripos($fraisType->nom, 'ape') !== false;
-                            if ($isApe) {
-                                $montant = 2000.0;
+                        if ($montantScolarite > 0) {
+                            if ($existingScolarite) {
+                                $existingScolarite->update([
+                                    'montant'       => $montantScolarite,
+                                    'date_paiement' => $dateOp,
+                                ]);
                             } else {
-                                $isTenue = $fraisType->code === 'tenue' || stripos($fraisType->nom, 'tenue') !== false;
-                                $montant = (isset($data['montant']) && $data['montant'] !== '') ? (float)$data['montant'] : null;
-                                if (!$montant || $montant <= 0) {
-                                    $montant = $isTenue ? (float)$classe->montant_tenue : (float)($fraisType->montant ?? 0);
-                                }
+                                Paiement::create([
+                                    'inscription_id' => $inscription->id,
+                                    'frais_type_id'  => $fraisScolarite->id,
+                                    'user_id'        => $user?->id ?? auth()->id(),
+                                    'montant'        => $montantScolarite,
+                                    'date_paiement'  => $dateOp,
+                                    'mode_paiement'  => 'especes',
+                                    'mois'           => 'Septembre',
+                                    'reference_recu' => $inscription->numero_recu,
+                                    'commentaire'    => "Scolarité 1er mois (Septembre) réglée à l'inscription",
+                                ]);
                             }
-                            if ($montant <= 0) continue;
-
-                            Paiement::create([
-                                'inscription_id' => $inscription->id,
-                                'frais_type_id'  => $fraisTypeId,
-                                'user_id'        => $user?->id,
-                                'montant'        => $montant,
-                                'date_paiement'  => $dateOp,
-                                'mode_paiement'  => 'especes',
-                                'reference_recu' => $inscription->numero_recu,
-                            ]);
-                            $totalAjoute += $montant;
                         }
-                    }
-
-                } else {
-                    // ─────────────────────────────────────────────────────────
-                    // 📚 MATERNELLE / PRIMAIRE — comportement original inchangé
-                    // ─────────────────────────────────────────────────────────
-                    foreach ($fraisInput as $fraisTypeId => $data) {
-                        if ($typeAExclureId && (int)$fraisTypeId === (int)$typeAExclureId) {
-                            continue;
-                        }
-                        if (!empty($data['selected']) && $data['selected'] == true) {
-                            $fraisType = FraisType::find($fraisTypeId);
-                            if (!$fraisType || $fraisType->is_scolarite) continue;
-                            if (stripos($fraisType->nom, 'secondaire') !== false) continue;
-
-                            $alreadyPaid = Paiement::where('inscription_id', $inscription->id)
-                                ->where('frais_type_id', $fraisTypeId)
-                                ->exists();
-                            if ($alreadyPaid) continue;
-
-                            $isApe = $fraisType && ($fraisType->code === 'ape' || stripos($fraisType->nom, 'ape') !== false);
-                            if ($isApe) {
-                                $montant = 2000.0;
-                            } else {
-                                $montant = (isset($data['montant']) && $data['montant'] !== '') ? (float)$data['montant'] : (float)($fraisType->montant ?? 0);
-                            }
-                            if ($montant <= 0) continue;
-
-                            Paiement::create([
-                                'inscription_id' => $inscription->id,
-                                'frais_type_id'  => $fraisTypeId,
-                                'user_id'        => $user?->id,
-                                'montant'        => $montant,
-                                'date_paiement'  => $dateOp,
-                                'mode_paiement'  => 'especes',
-                                'reference_recu' => $inscription->numero_recu,
-                            ]);
-                            $totalAjoute += $montant;
-                        }
+                    } elseif ($existingScolarite && $request->has('payer_scolarite_mois')) {
+                        // Décoché lors de la modification
+                        $existingScolarite->delete();
                     }
                 }
 
-                if ($totalAjoute > 0) {
-                    $inscription->increment('total_frais', $totalAjoute);
-                }
+                // Recalculer le total_frais exact de l'inscription à partir de tous les paiements réels
+                $totalReel = Paiement::where('inscription_id', $inscription->id)->sum('montant');
+                $inscription->update(['total_frais' => $totalReel]);
             }
         });
 
         return redirect()->route('inscriptions.index')
             ->with('success', 'Inscription mise à jour avec succès ✅');
+    }
+
+    /**
+     * Résout le montant d'un type de frais (lu dynamiquement depuis frais_types)
+     */
+    private function resolveFraisMontant(FraisType $fraisType, ?Classe $classe, ?array $data, bool $isReinscription, bool $hasRemise = false): float
+    {
+        if (isset($data['montant']) && is_numeric($data['montant'])) {
+            return (float) $data['montant'];
+        }
+        return (float) ($fraisType->montant ?? 0);
     }
 
     // Supprimer une inscription
@@ -802,6 +718,230 @@ class InscriptionController extends Controller
         return Inertia::render('Inscriptions/Verify', [
             'inscription' => $inscription,
             'code' => $code
+        ]);
+    }
+
+    /**
+     * Registre complet et imprimable des élèves inscrits pour l'année scolaire
+     */
+    public function registre(Request $request)
+    {
+        $currentYear = AnneeScolaire::where('en_cours', true)->first();
+        if (!$currentYear) {
+            $currentYear = AnneeScolaire::latest()->first();
+        }
+
+        $anneeId = $request->input('annee_scolaire_id', $currentYear?->id);
+        $classeId = $request->input('classe_id');
+        $sexe = $request->input('sexe');
+        $statut = $request->input('statut');
+        $search = $request->input('search');
+
+        $query = Inscription::with([
+                'eleve.user', 
+                'eleve.parents.user', 
+                'classe', 
+                'anneeScolaire',
+                'paiements.fraisType'
+            ])
+            ->when($anneeId, fn($q) => $q->where('annee_scolaire_id', $anneeId))
+            ->when($classeId, fn($q) => $q->where('classe_id', $classeId))
+            ->when($statut, fn($q) => $q->where('statut', $statut))
+            ->when($sexe, function($q) use ($sexe) {
+                $q->whereHas('eleve', fn($el) => $el->where('sexe', $sexe));
+            })
+            ->when($search, function($q) use ($search) {
+                $q->whereHas('eleve.user', function($u) use ($search) {
+                    $u->where('nom', 'like', "%{$search}%")
+                      ->orWhere('prenom', 'like', "%{$search}%");
+                })->orWhereHas('eleve', function($e) use ($search) {
+                    $e->where('matricule', 'like', "%{$search}%");
+                });
+            });
+
+        // 🔒 Scoping de données par rôle
+        $user = auth()->user();
+        if (!$user->hasRole(['super-admin', 'directeur', 'comptable', 'secretaire'])) {
+            if ($user->hasRole('parent')) {
+                $eleveIds = $user->parent?->eleves()->pluck('eleves.id') ?? [];
+                $query->whereIn('eleve_id', $eleveIds);
+            }
+        }
+
+        $allInscriptions = $query->get();
+
+        // Trier par classe puis par nom et prénom de l'élève
+        $sortedInscriptions = $allInscriptions->sortBy([
+            ['classe.nom', 'asc'],
+            ['eleve.user.nom', 'asc'],
+            ['eleve.user.prenom', 'asc'],
+        ])->values();
+
+        // Statistiques globales
+        $totalEleves = $sortedInscriptions->count();
+        $totalFilles = $sortedInscriptions->filter(fn($i) => strtoupper($i->eleve?->sexe ?? '') === 'F')->count();
+        $totalGarcons = $sortedInscriptions->filter(fn($i) => strtoupper($i->eleve?->sexe ?? '') === 'M')->count();
+        $totalValidees = $sortedInscriptions->filter(fn($i) => $i->statut === 'validee')->count();
+
+        // Structuration groupée par classe
+        $parClasse = $sortedInscriptions->groupBy('classe_id')->map(function($items) {
+            $first = $items->first();
+            $fillesCount = $items->filter(fn($i) => strtoupper($i->eleve?->sexe ?? '') === 'F')->count();
+            $garconsCount = $items->filter(fn($i) => strtoupper($i->eleve?->sexe ?? '') === 'M')->count();
+            
+            return [
+                'classe_id' => $first->classe_id,
+                'classe_nom' => $first->classe?->nom ?? 'Non assignée',
+                'classe_type' => $first->classe?->type ?? 'Général',
+                'effectif' => $items->count(),
+                'filles' => $fillesCount,
+                'garcons' => $garconsCount,
+                'eleves' => $items->values(),
+            ];
+        })->values()->sortBy('classe_nom')->values();
+
+        $classes = Classe::select('id', 'nom', 'type')->orderBy('nom')->get();
+        $annees = AnneeScolaire::select('id', 'nom', 'en_cours')->orderByDesc('id')->get();
+        $etablissement = Etablissement::first();
+
+        return Inertia::render('Inscriptions/Registre', [
+            'inscriptions' => $sortedInscriptions,
+            'parClasse' => $parClasse,
+            'stats' => [
+                'total' => $totalEleves,
+                'filles' => $totalFilles,
+                'garcons' => $totalGarcons,
+                'validees' => $totalValidees,
+                'nb_classes' => $parClasse->count(),
+            ],
+            'filters' => [
+                'classe_id' => $classeId,
+                'sexe' => $sexe,
+                'statut' => $statut,
+                'search' => $search,
+                'annee_scolaire_id' => $anneeId,
+            ],
+            'classes' => $classes,
+            'annees' => $annees,
+            'anneeActive' => $currentYear,
+            'etablissement' => $etablissement,
+        ]);
+    }
+
+    /**
+     * Liste imprimable et exportable des élèves ayant réglé leur tenue scolaire (Fiche Fournisseur / Tailleur)
+     */
+    public function tenuesFournisseur(Request $request)
+    {
+        $currentYear = AnneeScolaire::where('en_cours', true)->first();
+        if (!$currentYear) {
+            $currentYear = AnneeScolaire::latest()->first();
+        }
+
+        $anneeId = $request->input('annee_scolaire_id', $currentYear?->id);
+        $classeId = $request->input('classe_id');
+        $sexe = $request->input('sexe');
+        $search = $request->input('search');
+
+        $query = Inscription::with([
+                'eleve.user', 
+                'eleve.parents.user', 
+                'classe', 
+                'anneeScolaire',
+                'paiements.fraisType'
+            ])
+            ->when($anneeId, fn($q) => $q->where('annee_scolaire_id', $anneeId))
+            ->when($classeId, fn($q) => $q->where('classe_id', $classeId))
+            ->when($sexe, function($q) use ($sexe) {
+                $q->whereHas('eleve', fn($el) => $el->where('sexe', $sexe));
+            })
+            ->when($search, function($q) use ($search) {
+                $q->whereHas('eleve.user', function($u) use ($search) {
+                    $u->where('nom', 'like', "%{$search}%")
+                      ->orWhere('prenom', 'like', "%{$search}%");
+                })->orWhereHas('eleve', function($e) use ($search) {
+                    $e->where('matricule', 'like', "%{$search}%");
+                });
+            })
+            ->where(function($q) {
+                $q->whereHas('paiements.fraisType', function($ft) {
+                    $ft->where('code', 'tenue')
+                      ->orWhere('nom', 'like', '%tenue%');
+                });
+            });
+
+        // 🔒 Scoping de données par rôle
+        $user = auth()->user();
+        if (!$user->hasRole(['super-admin', 'directeur', 'comptable', 'secretaire'])) {
+            if ($user->hasRole('parent')) {
+                $eleveIds = $user->parent?->eleves()->pluck('eleves.id') ?? [];
+                $query->whereIn('eleve_id', $eleveIds);
+            }
+        }
+
+        $allInscriptions = $query->get();
+
+        // Trier par classe puis par nom et prénom de l'élève
+        $sortedInscriptions = $allInscriptions->sortBy([
+            ['classe.nom', 'asc'],
+            ['eleve.user.nom', 'asc'],
+            ['eleve.user.prenom', 'asc'],
+        ])->values()->map(function($insc) {
+            $paiementTenue = $insc->paiement_tenue;
+            $insc->tenue_info = [
+                'date_paiement' => $paiementTenue?->date_paiement ? \Carbon\Carbon::parse($paiementTenue->date_paiement)->format('d/m/Y') : ($insc->created_at ? $insc->created_at->format('d/m/Y') : '-'),
+                'numero_recu' => $paiementTenue?->numero_recu ?: ($insc->numero_recu ?: '-'),
+                'montant' => $paiementTenue?->montant ?: $insc->montant_tenue_exigible,
+                'mode_paiement' => $paiementTenue?->mode_paiement ?: 'especes',
+            ];
+            return $insc;
+        });
+
+        // Statistiques globales pour la confection
+        $totalEleves = $sortedInscriptions->count();
+        $totalFilles = $sortedInscriptions->filter(fn($i) => strtoupper($i->eleve?->sexe ?? '') === 'F')->count();
+        $totalGarcons = $sortedInscriptions->filter(fn($i) => strtoupper($i->eleve?->sexe ?? '') === 'M')->count();
+
+        // Structuration groupée par classe
+        $parClasse = $sortedInscriptions->groupBy('classe_id')->map(function($items) {
+            $first = $items->first();
+            $fillesCount = $items->filter(fn($i) => strtoupper($i->eleve?->sexe ?? '') === 'F')->count();
+            $garconsCount = $items->filter(fn($i) => strtoupper($i->eleve?->sexe ?? '') === 'M')->count();
+            
+            return [
+                'classe_id' => $first->classe_id,
+                'classe_nom' => $first->classe?->nom ?? 'Non assignée',
+                'classe_type' => $first->classe?->type ?? 'Général',
+                'effectif' => $items->count(),
+                'filles' => $fillesCount,
+                'garcons' => $garconsCount,
+                'eleves' => $items->values(),
+            ];
+        })->values()->sortBy('classe_nom')->values();
+
+        $classes = Classe::select('id', 'nom', 'type')->orderBy('nom')->get();
+        $annees = AnneeScolaire::select('id', 'nom', 'en_cours')->orderByDesc('id')->get();
+        $etablissement = Etablissement::first();
+
+        return Inertia::render('Inscriptions/TenuesFournisseur', [
+            'inscriptions' => $sortedInscriptions,
+            'parClasse' => $parClasse,
+            'stats' => [
+                'total' => $totalEleves,
+                'filles' => $totalFilles,
+                'garcons' => $totalGarcons,
+                'nb_classes' => $parClasse->count(),
+            ],
+            'filters' => [
+                'classe_id' => $classeId,
+                'sexe' => $sexe,
+                'search' => $search,
+                'annee_scolaire_id' => $anneeId,
+            ],
+            'classes' => $classes,
+            'annees' => $annees,
+            'anneeActive' => $currentYear,
+            'etablissement' => $etablissement,
         ]);
     }
 }

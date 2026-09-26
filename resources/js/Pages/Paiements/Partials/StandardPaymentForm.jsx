@@ -71,9 +71,8 @@ export default function StandardPaymentForm({
             const feeType = otherFees.find(ft => ft.id == form.data.frais_type_id);
             if (feeType) {
                 const isTenue = feeType.code === 'tenue' || feeType.nom?.toLowerCase().includes('tenue');
-                if (isTenue && form.data.inscription_id) {
-                    const tenueMontant = selectedInsc?.montant_tenue_exigible || (selectedInsc?.is_secondaire ? 15000 : 10000);
-                    form.setData("montant", tenueMontant);
+                if (isTenue && selectedInsc?.montant_tenue_exigible) {
+                    form.setData("montant", selectedInsc.montant_tenue_exigible);
                 } else {
                     form.setData("montant", feeType.montant);
                 }
@@ -162,8 +161,8 @@ export default function StandardPaymentForm({
                         {(() => {
                             if (!selectedInsc || selectedInsc.tenue_payee) return null;
                             const tenueFee = otherFees.find(ft => ft.code === 'tenue' || ft.nom?.toLowerCase().includes('tenue'));
-                            const isSecondaire = selectedInsc.is_secondaire || selectedInsc.classe_type === 'secondaire';
-                            const montantTenue = selectedInsc.montant_tenue_exigible || (isSecondaire ? 15000 : 10000);
+                            const montantTenue = selectedInsc.montant_tenue_exigible || Number(tenueFee?.montant || 0);
+                            const isSecondaire = selectedInsc.is_secondaire || selectedInsc.classe_type === 'secondaire' || selectedInsc.classe?.type === 'secondaire';
 
                             return (
                                 <div className="mt-3 p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
@@ -174,8 +173,8 @@ export default function StandardPaymentForm({
                                                 <p className="text-xs font-bold text-amber-900 dark:text-amber-200">
                                                     Tenue Scolaire non encore réglée
                                                 </p>
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isSecondaire ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
-                                                    {isSecondaire ? 'Secondaire' : 'Maternelle / Primaire'}
+                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                                    Tarif Unique
                                                 </span>
                                             </div>
                                             <p className="text-[11px] text-amber-700 dark:text-amber-400">

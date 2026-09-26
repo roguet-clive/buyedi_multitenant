@@ -3,7 +3,7 @@ import { Head, Link, usePage, useForm, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import useTranslation from '@/Hooks/useTranslation';
-import { PencilSquareIcon, TrashIcon, EyeIcon, UserPlusIcon, MagnifyingGlassIcon, FunnelIcon, UserGroupIcon, IdentificationIcon, CheckCircleIcon } from '@heroicons/react/24/solid';
+import { PencilSquareIcon, TrashIcon, EyeIcon, UserPlusIcon, MagnifyingGlassIcon, FunnelIcon, UserGroupIcon, IdentificationIcon, CheckCircleIcon, PrinterIcon } from '@heroicons/react/24/solid';
 import { motion } from 'framer-motion';
 
 export default function Index({ filters, classes }) {
@@ -61,6 +61,15 @@ export default function Index({ filters, classes }) {
         </div>
 
         <div className="flex flex-wrap gap-3 items-center w-full md:w-auto">
+          <Link
+            href={route('inscriptions.registre')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/25 transition-all active:scale-95 text-sm cursor-pointer"
+            title="Consulter et imprimer la liste de tous les élèves inscrits pour l'année en cours"
+          >
+            <PrinterIcon className="w-5 h-5" />
+            <span>Liste des Inscrits de l'Année</span>
+          </Link>
+
           {can('ajouter_eleves') && (
             <Link
               href={route("eleves.create")}

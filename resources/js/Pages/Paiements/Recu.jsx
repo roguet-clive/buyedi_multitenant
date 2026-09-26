@@ -60,29 +60,29 @@ function PaymentReceiptVoucher({ paiement, etablissement, url_verification, copy
                     </div>
                 </div>
 
-                {/* INFOS ÉLÈVE & CLASSE (Grille compacte) */}
-                <div className="grid grid-cols-4 gap-2 bg-slate-50 print:bg-slate-100/60 p-2 rounded-lg border border-slate-200 text-[11px] mb-2">
-                    <div>
+                {/* INFOS ÉLÈVE & CLASSE (Grille compacte optimisée) */}
+                <div className="flex items-start gap-3 bg-slate-50 print:bg-slate-100/60 p-2 rounded-lg border border-slate-200 text-[11px] mb-2">
+                    <div className="flex-1 min-w-0">
                         <span className="text-[9px] font-bold uppercase text-slate-600 block">Élève</span>
-                        <span className="font-extrabold text-slate-900 uppercase truncate block">
+                        <span className="font-extrabold text-slate-900 uppercase truncate block" title={paiement.eleve_nom_complet}>
                             {paiement.eleve_nom_complet}
                         </span>
                     </div>
-                    <div>
+                    <div className="shrink-0">
                         <span className="text-[9px] font-bold uppercase text-slate-600 block">Matricule</span>
                         <span className="font-mono font-bold text-slate-800 block">
                             {paiement.eleve_matricule}
                         </span>
                     </div>
-                    <div>
+                    <div className="shrink-0 max-w-[210px]">
                         <span className="text-[9px] font-bold uppercase text-slate-600 block">Classe & Année</span>
                         <span className="font-bold text-slate-900 block truncate">
                             {paiement.classe_nom} <span className="text-slate-500 font-normal">({paiement.annee_scolaire_nom})</span>
                         </span>
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                         <span className="text-[9px] font-bold uppercase text-slate-600 block">Date d'encaissement</span>
-                        <span className="font-medium text-slate-800 block">
+                        <span className="font-medium text-slate-800 block whitespace-nowrap">
                             {paiement.date_paiement}
                         </span>
                     </div>

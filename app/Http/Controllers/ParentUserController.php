@@ -37,7 +37,7 @@ class ParentUserController extends Controller
             );
 
         // 🔒 SCOPING DE DONNÉES PAR RÔLE
-        if (!$user->hasRole(['super-admin', 'directeur'])) {
+        if (!$user->hasRole(['super-admin', 'directeur', 'admin'])) {
             if ($this->isTeacher()) {
                 // Les enseignants ne voient que les parents qui ont des enfants dans leurs classes
                 $myClassIds = $this->getTeacherClassIds();

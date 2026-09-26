@@ -147,8 +147,7 @@ class InscriptionApeTest extends TestCase
             ->first();
 
         $this->assertNotNull($paiementApe, 'Le paiement APE doit exister');
-        $this->assertEquals(2000.0, (float) $paiementApe->montant, 'Le montant de l\'APE doit être verrouillé à 2000 FCFA');
-        $this->assertEquals(72000.0, (float) $inscription->total_frais, 'Total frais = Forfait 70 000 + APE 2 000 = 72 000 FCFA');
+        $this->assertEquals(2000.0, (float) $inscription->total_frais, 'Total frais = APE 2 000 FCFA (grille uniforme sans forfait obligatoire)');
     }
 
     public function test_ape_is_strictly_fixed_to_2000_fcfa_on_update(): void

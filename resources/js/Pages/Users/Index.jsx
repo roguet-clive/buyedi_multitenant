@@ -44,6 +44,10 @@ const ROLE_CONFIG = {
     label: 'Directeur', 
     badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800' 
   },
+  'admin': { 
+    label: 'Administrateur', 
+    badge: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' 
+  },
   'comptable': { 
     label: 'Comptable', 
     badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' 
@@ -318,6 +322,7 @@ function UserForm({ user, roles, onClose }) {
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                     {role.name === 'super-admin' && 'Accès complet et configuration avancée'}
+                    {role.name === 'admin' && 'Administration générale de l\'établissement'}
                     {role.name === 'directeur' && 'Direction de l\'établissement et gestion globale'}
                     {role.name === 'comptable' && 'Gestion financière, paiements et arriérés'}
                     {role.name === 'enseignant' && 'Cahier de notes, cours et emploi du temps'}

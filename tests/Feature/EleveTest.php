@@ -56,8 +56,8 @@ class EleveTest extends TestCase
         $this->assertEquals('Fabrice', $eleve->user->prenom);
         $this->assertTrue($eleve->user->hasRole('eleve'));
         $currentYear = date('Y');
-        $this->assertStringStartsWith("CSPBO-{$currentYear}-", $eleve->matricule);
-        $this->assertMatchesRegularExpression("/^CSPBO-{$currentYear}-\\d{4}$/", $eleve->matricule);
+        $this->assertStringStartsWith("CSSD-{$currentYear}-", $eleve->matricule);
+        $this->assertMatchesRegularExpression("/^CSSD-{$currentYear}-\\d{4}$/", $eleve->matricule);
     }
 
     public function test_matricule_increments_sequentially_per_year(): void
@@ -84,7 +84,7 @@ class EleveTest extends TestCase
         $this->actingAs($this->admin)->post(route('eleves.store'), $payload2);
         $eleve2 = Eleve::latest('id')->first();
 
-        $this->assertEquals("CSPBO-{$currentYear}-0001", $eleve1->matricule);
-        $this->assertEquals("CSPBO-{$currentYear}-0002", $eleve2->matricule);
+        $this->assertEquals("CSSD-{$currentYear}-0001", $eleve1->matricule);
+        $this->assertEquals("CSSD-{$currentYear}-0002", $eleve2->matricule);
     }
 }

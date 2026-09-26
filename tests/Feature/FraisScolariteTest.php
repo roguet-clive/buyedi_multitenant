@@ -59,10 +59,13 @@ class FraisScolariteTest extends TestCase
         ]);
     }
 
-    public function test_bareme_officiel_configures_maternelle_primaire_at_13000_monthly_and_secondaire_in_tranches(): void
+    public function test_bareme_officiel_configures_creche_maternelle_primaire_and_secondaire(): void
     {
+        $classeCreche13h = Classe::create(['nom' => 'Crèche (8h - 13h)', 'type' => 'creche']);
+        $classeCreche16h = Classe::create(['nom' => 'Crèche (8h - 16h)', 'type' => 'creche']);
         $classeMaternelle = Classe::create(['nom' => 'Petite Section - 3 ans', 'type' => 'maternelle']);
         $classePrimaire1 = Classe::create(['nom' => '1ère Année', 'type' => 'primaire']);
+        $classePrimaire4 = Classe::create(['nom' => '4ème Année', 'type' => 'primaire']);
         $classePrimaire5 = Classe::create(['nom' => '5ème Année', 'type' => 'primaire']);
         $classe6e = Classe::create(['nom' => '6e', 'type' => 'secondaire']);
         $classe3e = Classe::create(['nom' => '3e', 'type' => 'secondaire']);
@@ -72,30 +75,51 @@ class FraisScolariteTest extends TestCase
         $response->assertRedirect(route('frais_classes.index'));
         $response->assertSessionHas('success');
 
-        // 1. Vérification Maternelle : 117 000 FCFA total & 9 mensualités de 13 000 FCFA
+        // 1. Crèche 13h : 180 000 FCFA total & 9 mensualités de 20 000 FCFA
+        $fcCreche13h = FraisClasse::where('classe_id', $classeCreche13h->id)->first();
+        $this->assertNotNull($fcCreche13h);
+        $this->assertEquals(180000, (float) $fcCreche13h->montant);
+        $this->assertCount(9, $fcCreche13h->echeances);
+        $this->assertEquals(20000, (float) $fcCreche13h->echeances->first()->montant);
+
+        // 2. Crèche 16h : 270 000 FCFA total & 9 mensualités de 30 000 FCFA
+        $fcCreche16h = FraisClasse::where('classe_id', $classeCreche16h->id)->first();
+        $this->assertNotNull($fcCreche16h);
+        $this->assertEquals(270000, (float) $fcCreche16h->montant);
+        $this->assertCount(9, $fcCreche16h->echeances);
+        $this->assertEquals(30000, (float) $fcCreche16h->echeances->first()->montant);
+
+        // 3. Maternelle : 180 000 FCFA total & 9 mensualités de 20 000 FCFA
         $fcMaternelle = FraisClasse::where('classe_id', $classeMaternelle->id)->first();
         $this->assertNotNull($fcMaternelle);
-        $this->assertEquals(117000, (float) $fcMaternelle->montant);
+        $this->assertEquals(180000, (float) $fcMaternelle->montant);
         $this->assertCount(9, $fcMaternelle->echeances);
-        $this->assertEquals(13000, (float) $fcMaternelle->echeances->first()->montant);
+        $this->assertEquals(20000, (float) $fcMaternelle->echeances->first()->montant);
         $this->assertEquals('Septembre', $fcMaternelle->echeances->first()->nom);
         $this->assertEquals('Mai', $fcMaternelle->echeances->last()->nom);
 
-        // 2. Vérification Primaire 1ère Année (1ère à 4ème) : 121 500 FCFA total & 9 mensualités de 13 500 FCFA
+        // 4. Primaire 1ère Année (1ère à 3ème) : 180 000 FCFA total & 9 mensualités de 20 000 FCFA
         $fcPrimaire1 = FraisClasse::where('classe_id', $classePrimaire1->id)->first();
         $this->assertNotNull($fcPrimaire1);
-        $this->assertEquals(121500, (float) $fcPrimaire1->montant);
+        $this->assertEquals(180000, (float) $fcPrimaire1->montant);
         $this->assertCount(9, $fcPrimaire1->echeances);
-        $this->assertEquals(13500, (float) $fcPrimaire1->echeances->first()->montant);
+        $this->assertEquals(20000, (float) $fcPrimaire1->echeances->first()->montant);
 
-        // 3. Vérification Primaire 5ème Année : 135 000 FCFA total & 9 mensualités de 15 000 FCFA
+        // 5. Primaire 4ème Année : 225 000 FCFA total & 9 mensualités de 25 000 FCFA
+        $fcPrimaire4 = FraisClasse::where('classe_id', $classePrimaire4->id)->first();
+        $this->assertNotNull($fcPrimaire4);
+        $this->assertEquals(225000, (float) $fcPrimaire4->montant);
+        $this->assertCount(9, $fcPrimaire4->echeances);
+        $this->assertEquals(25000, (float) $fcPrimaire4->echeances->first()->montant);
+
+        // 6. Primaire 5ème Année : 270 000 FCFA total & 9 mensualités de 30 000 FCFA
         $fcPrimaire5 = FraisClasse::where('classe_id', $classePrimaire5->id)->first();
         $this->assertNotNull($fcPrimaire5);
-        $this->assertEquals(135000, (float) $fcPrimaire5->montant);
+        $this->assertEquals(270000, (float) $fcPrimaire5->montant);
         $this->assertCount(9, $fcPrimaire5->echeances);
-        $this->assertEquals(15000, (float) $fcPrimaire5->echeances->first()->montant);
+        $this->assertEquals(30000, (float) $fcPrimaire5->echeances->first()->montant);
 
-        // 4. Vérification 6e (Secondaire Général) : 135 000 FCFA total (70k, 32.5k, 32.5k)
+        // 7. 6e (Secondaire Général) : 135 000 FCFA total (70k, 32.5k, 32.5k)
         $fc6e = FraisClasse::where('classe_id', $classe6e->id)->first();
         $this->assertNotNull($fc6e);
         $this->assertEquals(135000, (float) $fc6e->montant);
@@ -104,7 +128,7 @@ class FraisScolariteTest extends TestCase
         $this->assertEquals(32500, (float) $fc6e->echeances[1]->montant);
         $this->assertEquals(32500, (float) $fc6e->echeances[2]->montant);
 
-        // 5. Vérification 3e (Classe d'examen) : 145 000 FCFA total (70k, 37.5k, 37.5k)
+        // 8. 3e (Classe d'examen) : 145 000 FCFA total (70k, 37.5k, 37.5k)
         $fc3e = FraisClasse::where('classe_id', $classe3e->id)->first();
         $this->assertNotNull($fc3e);
         $this->assertEquals(145000, (float) $fc3e->montant);
@@ -113,7 +137,7 @@ class FraisScolariteTest extends TestCase
         $this->assertEquals(37500, (float) $fc3e->echeances[1]->montant);
         $this->assertEquals(37500, (float) $fc3e->echeances[2]->montant);
 
-        // 6. Vérification Terminale (Classe d'examen) : 145 000 FCFA total (70k, 37.5k, 37.5k)
+        // 9. Terminale (Classe d'examen) : 145 000 FCFA total (70k, 37.5k, 37.5k)
         $fcTle = FraisClasse::where('classe_id', $classeTle->id)->first();
         $this->assertNotNull($fcTle);
         $this->assertEquals(145000, (float) $fcTle->montant);
@@ -166,11 +190,11 @@ class FraisScolariteTest extends TestCase
             'statut' => 'inscrit',
         ]);
 
-        // 1. Encaissement Primaire : 2 mois de scolarité (Septembre, Octobre = 26 000 FCFA)
+        // 1. Encaissement Primaire : 2 mois de scolarité (Septembre, Octobre = 40 000 FCFA)
         $responsePrimaire = $this->actingAs($this->admin)->post(route('paiements.store'), [
             'inscription_id' => $inscriptionPrimaire->id,
             'frais_type_id' => $fraisType->id,
-            'montant' => 26000,
+            'montant' => 40000,
             'mode_paiement' => 'especes',
             'mois' => 'Septembre, Octobre',
             'commentaire' => 'Scolarité (Septembre, Octobre)',
@@ -178,7 +202,7 @@ class FraisScolariteTest extends TestCase
         $responsePrimaire->assertRedirect();
         $this->assertDatabaseHas('paiements', [
             'inscription_id' => $inscriptionPrimaire->id,
-            'montant' => 26000,
+            'montant' => 40000,
             'mois' => 'Septembre, Octobre',
         ]);
 
@@ -201,6 +225,7 @@ class FraisScolariteTest extends TestCase
 
     public function test_frais_classes_index_renders_successfully_with_props(): void
     {
+        Classe::create(['nom' => 'Crèche (8h - 13h)', 'type' => 'creche']);
         Classe::create(['nom' => 'Petite Section', 'type' => 'maternelle']);
         Classe::create(['nom' => '1ère Année', 'type' => 'primaire']);
         Classe::create(['nom' => '6e', 'type' => 'secondaire']);
@@ -217,7 +242,7 @@ class FraisScolariteTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
             ->component('FraisClasses/Index')
-            ->has('sections', 3)
+            ->has('sections', 4)
             ->has('fraisTypes', 1)
             ->has('currentSchoolYear')
         );

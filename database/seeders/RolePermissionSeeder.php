@@ -16,13 +16,23 @@ class RolePermissionSeeder extends Seeder
         // 0️⃣ Réinitialiser le cache des permissions Spatie
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 1️⃣ Créer ou récupérer l'utilisateur Super Admin
-        $admin = User::firstOrCreate(
-            ['email' => 'superadmin@buyedi.com'],
+        // 1️⃣ Créer ou récupérer l'utilisateur Super Admin (Clive)
+        $superAdmin = User::updateOrCreate(
+            ['email' => 'clive@appbuyedi.com'],
+            [
+                'nom' => 'CLIVE',
+                'prenom' => 'Buyedi Solutions',
+                'password' => Hash::make('buyedi@2026'),
+            ]
+        );
+
+        // 2️⃣ Créer ou récupérer l'administrateur de départ (Bed)
+        $adminUser = User::updateOrCreate(
+            ['email' => 'bed@appbuyedi.com'],
             [
                 'nom' => 'BUYEDI',
-                'prenom' => 'Solutions',
-                'password' => Hash::make('12345678'),
+                'prenom' => 'Admin Bed',
+                'password' => Hash::make('Bonjour@2026'),
             ]
         );
 
@@ -84,14 +94,25 @@ class RolePermissionSeeder extends Seeder
             }
         }
 
-        // 4️⃣ RÔLE : SUPER ADMIN (Accès total absolu avec toutes les permissions)
+        // 4️⃣ RÔLE : SUPER ADMIN (Accès universel absolu, intouchable et invisible pour tous)
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         $superAdminRole->syncPermissions($allPermissions);
-        $admin->assignRole($superAdminRole);
+        $superAdmin->syncRoles([$superAdminRole]);
 
-        // 5️⃣ RÔLE : DIRECTEUR (Direction de l'établissement - aucun utilisateur factice créé)
+        // Permissions pour l'administration de l'établissement (toutes sauf les sauvegardes de base de données réservées au Super Admin)
+        $adminPermissions = array_values(array_filter($allPermissions, function ($perm) {
+            return !str_contains($perm, 'sauvegardes');
+        }));
+
+        // 5️⃣ RÔLES : ADMIN & DIRECTEUR (Gestion de l'établissement sans les prérogatives super-admin système)
+        $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $adminRole->syncPermissions($adminPermissions);
+
         $directeurRole = Role::firstOrCreate(['name' => 'directeur', 'guard_name' => 'web']);
-        $directeurRole->syncPermissions($allPermissions);
+        $directeurRole->syncPermissions($adminPermissions);
+
+        // Affecter les rôles d'administration à Bed
+        $adminUser->syncRoles([$adminRole, $directeurRole]);
 
         // 6️⃣ RÔLE : COMPTABLE / ÉCONOME (Gestion Financière & Caisse)
         $comptableRole = Role::firstOrCreate(['name' => 'comptable', 'guard_name' => 'web']);
@@ -191,6 +212,9 @@ class RolePermissionSeeder extends Seeder
             'voir_emplois_du_temps',
         ]);
 
-        $this->command->info("✅ Super-Admin (superadmin@buyedi.com), rôles système et permissions initialisés avec succès !");
+        $this->command->info("✅ Initialisation terminée avec succès :");
+        $this->command->info("   👑 Super-Admin : clive@appbuyedi.com (Pleins pouvoirs système, invisible)");
+        $this->command->info("   👤 Admin : bed@appbuyedi.com (Administration de l'établissement)");
+        $this->command->info("✅ Rôles système et permissions configurés !");
     }
 }

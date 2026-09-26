@@ -6,6 +6,10 @@ use App\Models\Paiement;
 use App\Models\Inscription;
 use App\Models\AnneeScolaire;
 use App\Models\FraisClasse;
+use App\Models\Classe;
+use App\Models\FraisType;
+use App\Models\Etablissement;
+use App\Models\Arriere;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +22,7 @@ class PaiementController extends Controller
 
     public function __construct()
     {
-        $this->middleware('permission:voir_paiements')->only(['index', 'show', 'journal']);
+        $this->middleware('permission:voir_paiements')->only(['index', 'show', 'journal', 'impayes']);
         $this->middleware('permission:ajouter_paiements')->only(['create', 'store']);
         // $this->middleware('permission:modifier_paiements')->only(['edit', 'update']);
         $this->middleware('permission:supprimer_paiements')->only(['destroy']);
@@ -95,7 +99,7 @@ class PaiementController extends Controller
                     'reste_du' => $resteApresPaiement,
                 ]
             ],
-            'url_verification' => url('/paiements/' . $paiement->id . '/recu'),
+            'url_verification' => route('paiements.verify', $paiement->reference_recu ?: $paiement->id),
         ]);
     }
  
@@ -465,6 +469,9 @@ class PaiementController extends Controller
                     'total_scolarite_payee' => (float) $totalScolaritePayee,
                     'mois_regles' => $moisRegles,
                     'tenue_payee' => (bool) $i->tenue_payee,
+                    'has_remise' => (bool) $i->has_remise,
+                    'remise_pourcentage' => (float) $i->remise_pourcentage,
+                    'remise_montant' => (float) $i->remise_montant,
                 ];
             });
 
@@ -583,7 +590,11 @@ class PaiementController extends Controller
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Paiement enregistré avec succès ✅');
+            return redirect()->back()->with([
+                'success' => 'Paiement enregistré avec succès ✅',
+                'dernier_paiement_id' => $paiement->id,
+                'dernier_paiement_recu' => $refRecu,
+            ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -631,4 +642,314 @@ class PaiementController extends Controller
             return redirect()->back()->with('error', 'Erreur lors de la suppression');
         }
     }
+
+    /**
+     * Vérification publique d'un reçu de paiement scanné par QR code.
+     */
+    public function verify($reference)
+    {
+        $paiement = Paiement::where('reference_recu', $reference)
+            ->orWhere('id', $reference)
+            ->with(['inscription.eleve.user', 'inscription.classe', 'inscription.anneeScolaire', 'fraisType', 'user'])
+            ->first();
+
+        $etablissement = \App\Models\Etablissement::first();
+
+        return Inertia::render('Paiements/Verify', [
+            'paiement' => $paiement ? [
+                'id' => $paiement->id,
+                'reference_recu' => $paiement->reference_recu ?: ('REC-' . str_pad($paiement->id, 6, '0', STR_PAD_LEFT)),
+                'montant' => (float) $paiement->montant,
+                'date_paiement' => $paiement->date_paiement ? $paiement->date_paiement->format('Y-m-d') : null,
+                'mode_paiement' => $paiement->mode_paiement,
+                'mois' => $paiement->mois,
+                'commentaire' => $paiement->commentaire,
+                'frais_type_nom' => $paiement->fraisType->nom ?? 'Frais Divers',
+                'is_scolarite' => (bool) ($paiement->fraisType->is_scolarite ?? false),
+                'caissier' => $paiement->user ? ($paiement->user->nom . ' ' . $paiement->user->prenom) : 'Caisse Principale',
+                'eleve_nom_complet' => ($paiement->inscription->eleve->user->nom ?? '') . ' ' . ($paiement->inscription->eleve->user->prenom ?? ''),
+                'eleve_matricule' => $paiement->inscription->eleve->matricule ?? 'N/A',
+                'classe_nom' => $paiement->inscription->classe->nom ?? 'N/A',
+                'annee_scolaire_nom' => $paiement->inscription->anneeScolaire->nom ?? 'N/A',
+                'created_at' => $paiement->created_at ? $paiement->created_at->toISOString() : null,
+            ] : null,
+            'reference' => $reference,
+            'type_recu' => 'paiement',
+            'etablissement' => $etablissement ? [
+                'nom' => $etablissement->nom,
+                'telephone' => $etablissement->telephone,
+                'email' => $etablissement->email,
+                'adresse' => $etablissement->adresse,
+                'ville' => $etablissement->ville,
+                'devise' => $etablissement->devise ?? 'Discipline - Travail - Succès',
+                'logo_url' => $etablissement->logo_path ? asset('storage/' . $etablissement->logo_path) : null,
+            ] : null,
+        ]);
+    }
+
+    /**
+     * État global des impayés et recouvrement (Scolarité, Tenues, Arriérés).
+     */
+    public function impayes(Request $request)
+    {
+        $currentYear = AnneeScolaire::where('en_cours', true)->first() ?? AnneeScolaire::latest()->first();
+        if (!$currentYear) {
+            return redirect()->back()->with('error', 'Aucune année scolaire active configurée.');
+        }
+
+        $anneeId = $request->input('annee_scolaire_id', $currentYear->id);
+        $classeId = $request->input('classe_id');
+        $search = $request->input('search');
+        $nature = $request->input('nature', 'all'); // 'all', 'scolarite', 'tenue', 'arriere'
+        $statutRetard = $request->input('retard', 'all'); // 'all', 'echu_only'
+
+        $annees = AnneeScolaire::orderBy('nom', 'desc')->get();
+        $classes = Classe::orderBy('nom')->get();
+
+        // Arriérés antérieurs non soldés groupés par eleve_id
+        $arrieresGrouped = \App\Models\Arriere::where('statut', '!=', 'solde')
+            ->get()
+            ->groupBy('eleve_id');
+
+        // Frais types et frais classes pour l'année
+        $fraisTypes = FraisType::where(function($q) use ($anneeId) {
+            $q->where('annee_scolaire_id', $anneeId)->orWhereNull('annee_scolaire_id');
+        })->get();
+
+        $fraisClasses = FraisClasse::where('annee_scolaire_id', $anneeId)
+            ->with(['echeances', 'classe'])
+            ->get()
+            ->keyBy('classe_id');
+
+        $fraisTypeScolarite = $fraisTypes->firstWhere('is_scolarite', true);
+
+        // Inscriptions de l'année scolaire sélectionnée
+        $inscriptionsQuery = Inscription::where('annee_scolaire_id', $anneeId)
+            ->with([
+                'eleve.user',
+                'eleve.parents.user',
+                'classe',
+                'paiements.fraisType'
+            ]);
+
+        if ($classeId) {
+            $inscriptionsQuery->where('classe_id', $classeId);
+        }
+
+        if ($search) {
+            $inscriptionsQuery->whereHas('eleve', function($q) use ($search) {
+                $q->where('matricule', 'like', "%{$search}%")
+                  ->orWhereHas('user', function($uq) use ($search) {
+                      $uq->where('nom', 'like', "%{$search}%")
+                         ->orWhere('prenom', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $inscriptions = $inscriptionsQuery->get();
+
+        // Mois scolaire actuel (1 = Sept, ..., 9 = Mai)
+        $curMonthReal = (int) date('n');
+        $moisScolaireActuel = match ($curMonthReal) {
+            9 => 1,
+            10 => 2,
+            11 => 3,
+            12 => 4,
+            1 => 5,
+            2 => 6,
+            3 => 7,
+            4 => 8,
+            5 => 9,
+            default => (in_array($curMonthReal, [6, 7, 8]) ? 9 : 1),
+        };
+
+        $schoolMonths = [
+            'Septembre', 'Octobre', 'Novembre', 'Décembre',
+            'Janvier', 'Février', 'Mars', 'Avril', 'Mai'
+        ];
+
+        $debiteursList = [];
+
+        foreach ($inscriptions as $insc) {
+            $eleve = $insc->eleve;
+            $user = $eleve?->user;
+            $classe = $insc->classe;
+            if (!$eleve || !$classe) continue;
+
+            $classeNom = $classe->nom;
+            $isSecondaire = $classe->isSecondaire();
+            $isCreche = $classe->isCreche();
+            $isMaternelle = $classe->isMaternelle() && !$isCreche;
+            $isPrimaire = $classe->isPrimaire();
+            $isExamen = $classe->is_examen || in_array(mb_strtolower(trim($classeNom)), ['3e', 'tle', 'terminale', 'cm2']);
+
+            // Montant annuel théorique
+            $fraisClasse = $fraisClasses->get($insc->classe_id);
+            $mensuelOfficiel = $classe->montant_mensuel_officiel ?? 20000;
+            $defaultMontant = $isSecondaire ? ($isExamen ? 200000 : 180000) : ($mensuelOfficiel * 9);
+            $montantAnnuel = $fraisClasse ? (float)$fraisClasse->montant : ($fraisTypeScolarite ? (float)$fraisTypeScolarite->montant : $defaultMontant);
+
+            // Remise
+            if ($insc->has_remise) {
+                if ($insc->remise_pourcentage > 0) {
+                    $montantAnnuel = round($montantAnnuel * (1 - $insc->remise_pourcentage / 100));
+                } elseif ($insc->remise_montant > 0) {
+                    $montantAnnuel = max(0, $montantAnnuel - $insc->remise_montant);
+                }
+            }
+
+            // Scolarité payée
+            $paiementsScolarite = $insc->paiements->filter(fn($p) => $p->fraisType && $p->fraisType->is_scolarite);
+            $totalScolaritePayee = (float)$paiementsScolarite->sum('montant');
+            $resteScolarite = max(0, $montantAnnuel - $totalScolaritePayee);
+
+            // Mois / Tranches payés
+            $moisPayesMap = [];
+            foreach ($paiementsScolarite as $p) {
+                if (!empty($p->mois)) {
+                    foreach (array_map('trim', explode(',', $p->mois)) as $m) {
+                        $moisPayesMap[mb_strtolower($m)] = true;
+                    }
+                }
+            }
+
+            // Calcul des éléments en retard de scolarité
+            $montantScolariteEnRetard = 0;
+            $elementsEnRetard = [];
+
+            if ($isSecondaire) {
+                $isReinscription = (bool)($insc->reinscription ?? false);
+                $t1Montant = $isReinscription ? 65000 : 60000;
+                $resteScol = max(0, $montantAnnuel - $t1Montant);
+                $t2Montant = round($resteScol / 2);
+                $t3Montant = $resteScol - $t2Montant;
+
+                $tranchesConfig = [
+                    ['nom' => '1ère Tranche', 'montant' => $t1Montant],
+                    ['nom' => '2ème Tranche', 'montant' => $t2Montant],
+                    ['nom' => '3ème Tranche', 'montant' => $t3Montant],
+                ];
+
+                $cumulAttendu = 0;
+                foreach ($tranchesConfig as $idx => $tr) {
+                    $cumulAttendu += $tr['montant'];
+                    $cleNom = mb_strtolower($tr['nom']);
+                    $cleCourt = 'tranche ' . ($idx + 1);
+                    $isPaid = isset($moisPayesMap[$cleNom]) || isset($moisPayesMap[$cleCourt]) || ($totalScolaritePayee >= $cumulAttendu);
+                    $isDue = match($idx) {
+                        0 => true,
+                        1 => in_array($curMonthReal, [12, 1, 2, 3, 4, 5, 6, 7, 8]),
+                        2 => in_array($curMonthReal, [2, 3, 4, 5, 6, 7, 8]),
+                        default => true
+                    };
+
+                    if (!$isPaid && $isDue) {
+                        $elementsEnRetard[] = $tr['nom'];
+                        $montantScolariteEnRetard += $tr['montant'];
+                    }
+                }
+            } else {
+                $montantMensuel = $montantAnnuel > 0 ? (int)round($montantAnnuel / 9) : $mensuelOfficiel;
+                $curDayReal = (int) date('j');
+                foreach ($schoolMonths as $idx => $nomMois) {
+                    $seuilCumule = ($idx + 1) * $montantMensuel;
+                    $isPaid = isset($moisPayesMap[mb_strtolower($nomMois)]) || ($totalScolaritePayee >= $seuilCumule && $montantMensuel > 0);
+                    // Observation 3 : Les paiements se font chaque 5 ou 10 du mois. 
+                    // Le mois en cours n'est donc échu qu'après le 10.
+                    $isDue = ($idx + 1) < $moisScolaireActuel || (($idx + 1) === $moisScolaireActuel && $curDayReal > 10);
+
+                    if (!$isPaid && $isDue) {
+                        $elementsEnRetard[] = $nomMois;
+                        $montantScolariteEnRetard += $montantMensuel;
+                    }
+                }
+            }
+
+            // Tenue scolaire
+            $tenuePayee = (bool)$insc->tenue_payee;
+            $montantTenueExigible = (float)($insc->montant_tenue_exigible ?: ($isSecondaire ? 15000 : 10000));
+            $resteTenue = $tenuePayee ? 0 : $montantTenueExigible;
+
+            // Arriérés antérieurs
+            $detteArrieres = 0;
+            $arrieresEleve = $arrieresGrouped->get($eleve->id);
+            if ($arrieresEleve) {
+                $detteArrieres = (float)$arrieresEleve->sum('montant_restant');
+            }
+
+            // Total général restant dû
+            $totalDu = $resteScolarite + $resteTenue + $detteArrieres;
+
+            // Filtres de nature ou de retard
+            if ($nature === 'scolarite' && $resteScolarite <= 0) continue;
+            if ($nature === 'tenue' && $resteTenue <= 0) continue;
+            if ($nature === 'arriere' && $detteArrieres <= 0) continue;
+            if ($statutRetard === 'echu_only' && count($elementsEnRetard) === 0 && $resteTenue <= 0 && $detteArrieres <= 0) continue;
+
+            // Ne conserver que les débiteurs (total dû > 0)
+            if ($totalDu > 0) {
+                $debiteursList[] = [
+                    'inscription_id' => $insc->id,
+                    'eleve_id' => $eleve->id,
+                    'matricule' => $eleve->matricule ?? 'N/A',
+                    'nom_complet' => ($user->nom ?? '') . ' ' . ($user->prenom ?? ''),
+                    'classe_id' => $classe->id,
+                    'classe_nom' => $classe->nom,
+                    'classe_type' => $classe->type,
+                    'is_secondaire' => $isSecondaire,
+                    'parent_contact' => $eleve->parents->first()?->telephone ?: ($eleve->parents->first()?->user?->telephone ?: 'N/A'),
+                    'parent_nom' => $eleve->parents->first()?->user ? ($eleve->parents->first()->user->nom . ' ' . $eleve->parents->first()->user->prenom) : 'N/A',
+                    'scolarite_annuelle' => $montantAnnuel,
+                    'scolarite_payee' => $totalScolaritePayee,
+                    'scolarite_reste' => $resteScolarite,
+                    'scolarite_retard_montant' => $montantScolariteEnRetard,
+                    'elements_en_retard' => $elementsEnRetard,
+                    'tenue_payee' => $tenuePayee,
+                    'tenue_montant' => $resteTenue,
+                    'arrieres_dette' => $detteArrieres,
+                    'total_du' => $totalDu,
+                ];
+            }
+        }
+
+        // Tri par total dû décroissant
+        usort($debiteursList, fn($a, $b) => $b['total_du'] <=> $a['total_du']);
+
+        // KPIs globaux
+        $statsGlobales = [
+            'total_creances' => array_sum(array_column($debiteursList, 'total_du')),
+            'total_scolarite_reste' => array_sum(array_column($debiteursList, 'scolarite_reste')),
+            'total_scolarite_echue' => array_sum(array_column($debiteursList, 'scolarite_retard_montant')),
+            'total_tenue_impayee' => array_sum(array_column($debiteursList, 'tenue_montant')),
+            'total_arrieres' => array_sum(array_column($debiteursList, 'arrieres_dette')),
+            'nb_eleves_debiteurs' => count($debiteursList),
+            'nb_eleves_echus' => count(array_filter($debiteursList, fn($d) => count($d['elements_en_retard']) > 0 || $d['tenue_montant'] > 0 || $d['arrieres_dette'] > 0)),
+        ];
+
+        $etablissement = \App\Models\Etablissement::first();
+
+        return Inertia::render('Paiements/Impayes', [
+            'debiteurs' => $debiteursList,
+            'stats' => $statsGlobales,
+            'classes' => $classes,
+            'annees' => $annees,
+            'selectedAnnee' => (int) $anneeId,
+            'fraisTypes' => $fraisTypes,
+            'fraisClasses' => $fraisClasses->values(),
+            'filters' => [
+                'classe_id' => $classeId,
+                'search' => $search,
+                'nature' => $nature,
+                'retard' => $statutRetard,
+            ],
+            'etablissement' => $etablissement ? [
+                'nom' => $etablissement->nom,
+                'telephone' => $etablissement->telephone,
+                'email' => $etablissement->email,
+                'adresse' => $etablissement->adresse,
+                'ville' => $etablissement->ville,
+            ] : null,
+        ]);
+    }
 }
+

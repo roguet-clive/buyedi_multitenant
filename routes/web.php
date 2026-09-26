@@ -122,6 +122,12 @@ Route::middleware([SetLocale::class])->group(function () {
             ->middleware('auth');
 
         // Gestion des inscriptions
+        Route::get('/inscriptions/registre', [InscriptionController::class, 'registre'])
+            ->name('inscriptions.registre')
+            ->middleware('permission:voir_inscriptions');
+        Route::get('/inscriptions/tenues/fournisseur', [InscriptionController::class, 'tenuesFournisseur'])
+            ->name('inscriptions.tenues.fournisseur')
+            ->middleware('permission:voir_inscriptions');
         Route::resource('inscriptions', InscriptionController::class);
         Route::get('/inscriptions/create/eleve/{eleve}', [InscriptionController::class, 'createForEleve'])
             ->name('inscriptions.create.eleve')
@@ -156,6 +162,7 @@ Route::middleware([SetLocale::class])->group(function () {
 
         // Gestion des paiements (Caisse)
         Route::get('/paiements/journal', [PaiementController::class, 'journal'])->name('paiements.journal');
+        Route::get('/paiements/impayes', [PaiementController::class, 'impayes'])->name('paiements.impayes');
         Route::get('/paiements/{paiement}/recu', [PaiementController::class, 'recu'])->name('paiements.recu');
         Route::resource('paiements', PaiementController::class);
 
@@ -231,7 +238,7 @@ Route::middleware([SetLocale::class])->group(function () {
         // 💰 FINANCE DASHBOARD
         Route::get('/finances', [App\Http\Controllers\FinanceController::class, 'index'])
              ->name('finances.index')
-             ->middleware(['auth', 'verified', 'role:directeur|super-admin|comptable']); 
+             ->middleware(['auth', 'verified', 'role:directeur|admin|super-admin|comptable']);
 
         // 🔔 NOTIFICATIONS
         Route::get('/notifications', [App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
@@ -351,9 +358,13 @@ Route::middleware([SetLocale::class])->group(function () {
         });
     });
 
-    // Vérification de reçu (Public ou semi-public)
+    // 🔍 VÉRIFICATION PUBLIQUE DES REÇUS (Scannables par QR Code sans authentification)
     Route::get('/verify/inscription/{code}', [InscriptionController::class, 'verify'])
         ->name('inscriptions.verify');
+    Route::get('/verify/paiement/{reference}', [PaiementController::class, 'verify'])
+        ->name('paiements.verify');
+    Route::get('/verify/arriere/{numero_recu}', [\App\Http\Controllers\ArriereController::class, 'verify'])
+        ->name('arrieres.verify');
 });
 
 require __DIR__.'/auth.php';

@@ -6,6 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class PaiementSalaire extends Model
 {
+    use \Spatie\Activitylog\Traits\LogsActivity;
+
+    public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
+    {
+        return \Spatie\Activitylog\LogOptions::defaults()
+            ->logAll()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
     protected $table = 'paiements_salaires';
 
     protected $fillable = [

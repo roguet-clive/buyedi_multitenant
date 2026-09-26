@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Depense;
+use Illuminate\Support\Facades\Storage;
 
 class DepenseController extends Controller
 {
@@ -55,12 +56,28 @@ class DepenseController extends Controller
             $query->where('categorie', $request->categorie);
         }
 
+        // Filtre par mode de paiement
+        if ($request->filled('mode_paiement') && $request->mode_paiement !== 'all') {
+            $query->where('mode_paiement', $request->mode_paiement);
+        }
+
+        // Filtre par présence de justificatif
+        if ($request->filled('justificatif')) {
+            if ($request->justificatif === 'avec') {
+                $query->whereNotNull('facture_path');
+            } elseif ($request->justificatif === 'sans') {
+                $query->whereNull('facture_path');
+            }
+        }
+
         // Filtre par recherche
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
                   ->orWhere('categorie', 'like', "%{$search}%")
+                  ->orWhere('numero_facture', 'like', "%{$search}%")
+                  ->orWhere('beneficiaire', 'like', "%{$search}%")
                   ->orWhereHas('user', function ($u) use ($search) {
                       $u->where('nom', 'like', "%{$search}%")
                         ->orWhere('prenom', 'like', "%{$search}%");
@@ -74,14 +91,19 @@ class DepenseController extends Controller
         $totalMois = (float) Depense::whereMonth('date_depense', now()->month)
             ->whereYear('date_depense', now()->year)
             ->sum('montant');
+
+        $nbTotal = Depense::count();
+        $nbAvecFacture = Depense::whereNotNull('facture_path')->count();
             
         return Inertia::render('Depenses/Index', [
             'depenses' => $depenses,
             'categories' => $sortedCategories,
-            'filters' => $request->only(['categorie', 'search']),
+            'filters' => $request->only(['categorie', 'search', 'mode_paiement', 'justificatif']),
             'stats' => [
                 'total_global' => $totalGlobal,
                 'total_mois' => $totalMois,
+                'nb_total' => $nbTotal,
+                'nb_avec_facture' => $nbAvecFacture,
             ],
         ]);
     }
@@ -99,6 +121,10 @@ class DepenseController extends Controller
             'montant' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:1000',
             'date_depense' => 'required|date',
+            'numero_facture' => 'nullable|string|max:100',
+            'mode_paiement' => 'nullable|string|in:especes,virement,cheque,mobile_money',
+            'beneficiaire' => 'nullable|string|max:255',
+            'facture' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240', // Max 10 Mo
         ]);
 
         $categorie = trim($request->categorie);
@@ -111,15 +137,24 @@ class DepenseController extends Controller
             }
         }
 
+        $facturePath = null;
+        if ($request->hasFile('facture')) {
+            $facturePath = $request->file('facture')->store('depenses', 'public');
+        }
+
         Depense::create([
             'user_id' => auth()->id(),
             'categorie' => $categorie,
             'montant' => $request->montant,
             'description' => $request->description,
             'date_depense' => $request->date_depense,
+            'numero_facture' => $request->numero_facture,
+            'mode_paiement' => $request->mode_paiement ?? 'especes',
+            'beneficiaire' => $request->beneficiaire,
+            'facture_path' => $facturePath,
         ]);
 
-        return redirect()->back()->with('success', "Dépense « {$categorie} » enregistrée ✅");
+        return redirect()->back()->with('success', "Dépense « {$categorie} » enregistrée avec succès ✅");
     }
 
     public function show(string $id)
@@ -139,8 +174,14 @@ class DepenseController extends Controller
 
     public function destroy(string $id)
     {
-        $depense = \App\Models\Depense::findOrFail($id);
+        $depense = Depense::findOrFail($id);
+        
+        // Supprimer la facture du disque si elle existe
+        if ($depense->facture_path) {
+            Storage::disk('public')->delete($depense->facture_path);
+        }
+
         $depense->delete();
-        return redirect()->back()->with('success', 'Dépense supprimée 🗑️');
+        return redirect()->back()->with('success', 'Dépense et sa pièce justificative supprimées 🗑️');
     }
 }

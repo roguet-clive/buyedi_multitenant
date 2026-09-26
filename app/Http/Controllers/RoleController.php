@@ -22,8 +22,15 @@ class RoleController extends Controller
      */
     public function index()
     {
+        $isSuperAdmin = (bool) auth()->user()?->hasRole('super-admin');
+
+        $rolesQuery = Role::with('permissions');
+        if (!$isSuperAdmin) {
+            $rolesQuery->where('name', '!=', 'super-admin');
+        }
+
         return Inertia::render('Roles/Index', [
-            'roles' => Role::with('permissions')->get(),
+            'roles' => $rolesQuery->get(),
             'permissions' => Permission::all(),
         ])->with([
             'flash' => [
@@ -73,6 +80,10 @@ class RoleController extends Controller
      */
     public function edit(Role $role)
     {
+        if ($role->name === 'super-admin' && !auth()->user()?->hasRole('super-admin')) {
+            abort(403, "Action non autorisée.");
+        }
+
         return Inertia::render('Roles/EditRole', [
             'role' => $role->load('permissions'),
             'permissions' => Permission::all(),
@@ -89,6 +100,10 @@ class RoleController extends Controller
      */
     public function update(Request $request, Role $role)
     {
+        if ($role->name === 'super-admin' && !auth()->user()?->hasRole('super-admin')) {
+            abort(403, "Action non autorisée.");
+        }
+
         $data = $request->validate([
             'name' => 'required|unique:roles,name,'.$role->id,
             'permissions' => 'array',
@@ -106,6 +121,10 @@ class RoleController extends Controller
      */
     public function destroy(Role $role)
     {
+        if ($role->name === 'super-admin') {
+            abort(403, "Le rôle Super-Admin est protégé et ne peut pas être supprimé.");
+        }
+
         $role->delete();
         return redirect()->route('roles.index')
             ->with('success', __('Rôle supprimé ✅'));

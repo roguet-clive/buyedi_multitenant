@@ -26,6 +26,7 @@ import {
   Database,
   Clock,
   Wallet,
+  AlertTriangle,
 } from "lucide-react";
 import useTranslation from "@/Hooks/useTranslation";
 
@@ -139,6 +140,7 @@ export default function Sidebar() {
         children: [
           { icon: <TrendingUp className="w-4 h-4" />, label: "Vue Globale", href: route("finances.index"), can: "voir_stats", routeName: "finances.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("caisse"), href: route("paiements.index"), can: "voir_paiements", routeName: "paiements.index" },
+          { icon: <AlertTriangle className="w-4 h-4 text-rose-500" />, label: "État des Impayés", href: route("paiements.impayes"), can: "voir_paiements", routeName: "paiements.impayes" },
           { icon: <Clock className="w-4 h-4 text-amber-400" />, label: t("previous_arrears", "Arriérés Antérieurs"), href: route("arrieres.index"), can: "voir_arrieres", routeName: "arrieres.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("depenses"), href: route("depenses.index"), can: "voir_depenses", routeName: "depenses.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("frais_classes"), href: route("frais_classes.index"), can: "voir_frais_classes", routeName: "frais_classes.index" },

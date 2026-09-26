@@ -37,4 +37,9 @@ class FraisType extends Model
     {
         return $this->hasMany(FraisClasse::class);
     }
+
+    public function paiements()
+    {
+        return $this->hasMany(Paiement::class);
+    }
 }

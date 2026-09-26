@@ -3,7 +3,7 @@
 -- =======================================================================
 -- Ce script :
 -- 1. Met à jour les 5 matricules existants vers le nouveau format :
---    CSPBO-2026-0001, CSPBO-2026-0002, CSPBO-2026-0003, CSPBO-2026-0004, CSPBO-2026-0005
+--    CSSD-2026-0001, CSSD-2026-0002, CSSD-2026-0003, CSSD-2026-0004, CSSD-2026-0005
 -- 2. Ajoute les colonnes de remise dans la table 'inscriptions' (has_remise, remise_pourcentage, remise_montant)
 -- 3. Crée la nouvelle table 'frais_echeances' pour la gestion des échéances de paiement
 -- 4. Enregistre les migrations dans la table 'migrations' de Laravel
@@ -19,11 +19,11 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- -----------------------------------------------------------------------
 -- ÉTAPE 1 : Mise à jour du matricule des 5 élèves au nouveau format officiel
 -- -----------------------------------------------------------------------
-UPDATE `eleves` SET `matricule` = 'CSPBO-2026-0001' WHERE `id` = 1;
-UPDATE `eleves` SET `matricule` = 'CSPBO-2026-0002' WHERE `id` = 2;
-UPDATE `eleves` SET `matricule` = 'CSPBO-2026-0003' WHERE `id` = 3;
-UPDATE `eleves` SET `matricule` = 'CSPBO-2026-0004' WHERE `id` = 4;
-UPDATE `eleves` SET `matricule` = 'CSPBO-2026-0005' WHERE `id` = 5;
+UPDATE `eleves` SET `matricule` = 'CSSD-2026-0001' WHERE `id` = 1;
+UPDATE `eleves` SET `matricule` = 'CSSD-2026-0002' WHERE `id` = 2;
+UPDATE `eleves` SET `matricule` = 'CSSD-2026-0003' WHERE `id` = 3;
+UPDATE `eleves` SET `matricule` = 'CSSD-2026-0004' WHERE `id` = 4;
+UPDATE `eleves` SET `matricule` = 'CSSD-2026-0005' WHERE `id` = 5;
 
 -- -----------------------------------------------------------------------
 -- ÉTAPE 2 : Ajout des colonnes de gestion des remises dans 'inscriptions'

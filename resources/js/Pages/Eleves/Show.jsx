@@ -33,7 +33,7 @@ export default function ShowEleve({
   const { auth } = usePage().props;
   const permissions = auth?.permissions || [];
   const roles = auth?.roles || [];
-  const can = (permission) => permissions.includes(permission) || roles.includes('super-admin') || roles.includes('directeur');
+  const can = (permission) => permissions.includes(permission) || roles.includes('super-admin') || roles.includes('directeur') || roles.includes('admin');
   const canViewFinances = can('voir_paiements');
 
   const inscriptionsForForm = currentInscriptionData ? [currentInscriptionData] : [];
@@ -852,7 +852,7 @@ export default function ShowEleve({
                       </div>
                     </div>
 
-                    {!roles.some(r => ['super-admin', 'directeur', 'personnel', 'comptable'].includes(r.toLowerCase())) ? (
+                    {!roles.some(r => ['super-admin', 'directeur', 'admin', 'personnel', 'comptable'].includes(r.toLowerCase())) ? (
                       <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-slate-800 dark:to-slate-850 p-6 rounded-3xl border border-indigo-100 dark:border-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
                         <div className="space-y-1 max-w-xl">
                           <h5 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">

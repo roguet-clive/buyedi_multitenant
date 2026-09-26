@@ -434,7 +434,7 @@ export default function Index({ personnels, roles = [], filters }) {
 
                                             <td className="p-5">
                                                 <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold tracking-wide uppercase ${
-                                                    userRole === 'super-admin' || userRole === 'directeur' 
+                                                    userRole === 'super-admin' || userRole === 'directeur' || userRole === 'admin'
                                                         ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
                                                         : userRole === 'comptable'
                                                             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'

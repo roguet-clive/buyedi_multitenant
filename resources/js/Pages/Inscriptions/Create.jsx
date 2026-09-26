@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import useTranslation from '@/Hooks/useTranslation';
 import { UserIcon, AcademicCapIcon, BanknotesIcon, CalendarDaysIcon, CheckCircleIcon, CurrencyDollarIcon, SparklesIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 import { motion } from 'framer-motion';
+import RemiseCalculator from '@/Components/RemiseCalculator';
 
 export default function Create(props) {
   const { t } = useTranslation();
@@ -25,45 +26,71 @@ export default function Create(props) {
     return dateString.split('T')[0];
   };
 
-  // Identification des types d'admission
+  // Identification des types d'admission (10 000 FCFA chacun)
   const typeInscription = useMemo(() => {
     return fraisTypes.find(ft => ft.code === 'inscription') || { id: 1, code: 'inscription', nom: "Frais d'Inscription", montant: 10000 };
   }, [fraisTypes]);
 
   const typeReinscription = useMemo(() => {
-    return fraisTypes.find(ft => ft.code === 'reinscription') || { id: 11, code: 'reinscription', nom: "Frais de Réinscription", montant: 5000 };
+    return fraisTypes.find(ft => ft.code === 'reinscription') || { id: 11, code: 'reinscription', nom: "Frais de Réinscription", montant: 10000 };
   }, [fraisTypes]);
 
-  // Frais annexes spécifiques au SECONDAIRE (Tenue 15 000 + Carte 1 500 + Assurance 1 000 + APE 2 000 = 19 500 FCFA)
-  // Les frais d'inscription et réinscription sont DÉJÀ inclus dans le forfait de 70 000 FCFA
-  const fraisAnnexesSecondaire = useMemo(() => {
-    return fraisTypes.filter(ft => {
-      if (ft.is_scolarite) return false;
-      if (ft.code === 'inscription' || ft.code === 'reinscription') return false;
-      if (ft.nom?.toLowerCase().includes('inscription')) return false;
-      if (ft.code === 'bulletin' || ft.nom?.toLowerCase().includes('bulletin')) return false;
-      if (ft.nom?.toLowerCase().includes('primaire')) return false;
-      if (ft.code?.startsWith('arriere')) return false;
-      return true;
-    });
-  }, [fraisTypes]);
-
-  // Frais annexes spécifiques à la MATERNELLE / PRIMAIRE
-  const fraisAnnexesPrimaire = useMemo(() => {
-    return fraisTypes.filter(ft => {
-      if (ft.is_scolarite) return false;
-      if (ft.code === 'inscription' || ft.code === 'reinscription') return false;
-      if (ft.nom?.toLowerCase().includes('inscription')) return false;
-      if (ft.nom?.toLowerCase().includes('secondaire')) return false;
-      if (ft.code?.startsWith('arriere')) return false;
-      return true;
-    });
-  }, [fraisTypes]);
-
-  // Frais annexes génériques (compatibilité)
+  // Frais annexes & fournitures (communs à tous les cycles : Tenues, Sport, Assurance/Bulletin, APE, etc.)
   const fraisAnnexes = useMemo(() => {
-    return fraisTypes.filter(ft => ft.code !== 'inscription' && ft.code !== 'reinscription');
+    return fraisTypes.filter(ft => {
+      if (ft.is_scolarite) return false;
+      if (ft.code === 'inscription' || ft.code === 'reinscription') return false;
+      if (ft.nom?.toLowerCase().includes('inscription')) return false;
+      if (ft.code?.startsWith('arriere')) return false;
+      return true;
+    });
   }, [fraisTypes]);
+
+  // Helper de badges visuels pour chaque frais annexe
+  const getFeeBadgeInfo = (type) => {
+    const code = type.code?.toLowerCase() || '';
+    const nom = type.nom?.toLowerCase() || '';
+    if (code === 'tenue_sport' || nom.includes('sport')) {
+      return {
+        badgeBg: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300 border-orange-200',
+        borderLeft: 'border-l-4 border-l-orange-500',
+      };
+    }
+    if (code === 'tenue' || nom.includes('tenue')) {
+      return {
+        badgeBg: 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200',
+        borderLeft: 'border-l-4 border-l-purple-500',
+      };
+    }
+    if (code === 'bulletin_assurance' || nom.includes('bulletin') || nom.includes('assurance')) {
+      return {
+        badgeBg: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200',
+        borderLeft: 'border-l-4 border-l-emerald-500',
+      };
+    }
+    if (code === 'ape' || nom.includes('ape')) {
+      return {
+        badgeBg: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 border-indigo-200',
+        borderLeft: 'border-l-4 border-l-indigo-500',
+      };
+    }
+    if (code === 'carte' || nom.includes('carte')) {
+      return {
+        badgeBg: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300 border-cyan-200',
+        borderLeft: 'border-l-4 border-l-cyan-500',
+      };
+    }
+    if (code === 'tee_shirt' || nom.includes('tee-shirt') || nom.includes('t-shirt')) {
+      return {
+        badgeBg: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200',
+        borderLeft: 'border-l-4 border-l-amber-500',
+      };
+    }
+    return {
+      badgeBg: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-200',
+      borderLeft: 'border-l-4 border-l-blue-400',
+    };
+  };
 
   // Type d'admission par défaut
   const defaultAdmissionType = useMemo(() => {
@@ -76,79 +103,44 @@ export default function Create(props) {
     return 'inscription';
   }, [inscription, elevePreSelectionne]);
 
-  // Initialiser les frais avec calcul dynamique selon le cycle
-  const initializeFees = (admType = defaultAdmissionType, initialClasseId = '', withRemise = false) => {
+  // Initialiser les frais : admission sélectionnée, et frais annexes cochables au choix
+  const initializeFees = (admType = defaultAdmissionType, initialClasseId = '') => {
     const feesState = {};
     const paidFeeIds = (inscription?.paiements || []).map(p => p.frais_type_id);
     const paiementsMap = (inscription?.paiements || []).reduce((acc, p) => ({ ...acc, [p.frais_type_id]: p }), {});
-    const selectedClasse = classes.find(c => String(c.id) === String(initialClasseId));
-    const isSecondaire = selectedClasse?.type === 'secondaire';
 
     fraisTypes.forEach(type => {
       const isPaid = paidFeeIds.includes(type.id);
       let isSelected = isPaid;
-      let baseMontant = type.montant || 0;
+      let montant = Number(type.montant || 0);
 
-      const isNomPrimaire = type.nom?.toLowerCase().includes('primaire');
-      const isNomSecondaire = type.nom?.toLowerCase().includes('secondaire');
-
-      // Montant spécifique tenue et bulletin selon la classe
-      if (type.code === 'tenue' || type.nom?.toLowerCase().includes('tenue')) {
-        baseMontant = isNomSecondaire ? 15000 : (isNomPrimaire ? 10000 : (isSecondaire ? 15000 : 10000));
-      } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
-        baseMontant = isSecondaire ? 0 : Number(type.montant || 1000);
-      } else if (type.code === 'carte' || type.nom?.toLowerCase().includes('carte')) {
-        baseMontant = Number(type.montant || 1500);
-      } else if (type.nom?.toLowerCase().includes('assurance')) {
-        baseMontant = Number(type.montant || 1000);
-      } else if (type.nom?.toLowerCase().includes('ape')) {
-        baseMontant = 2000;
-      } else if (type.code === 'inscription') {
-        baseMontant = type.montant || 10000;
-      } else if (type.code === 'reinscription') {
-        baseMontant = type.montant || 5000;
-      }
-
-      // Remise de 50% UNIQUEMENT sur la nouvelle inscription
-      let montant = baseMontant;
-      if (type.code === 'inscription') {
-        montant = (withRemise && admType === 'inscription') ? Math.round(baseMontant * 0.5) : baseMontant;
-      }
+      const code = type.code?.toLowerCase() || '';
+      const nom = type.nom?.toLowerCase() || '';
+      const isReinsc = code === 'reinscription' || nom.includes('réinscription');
+      const isInsc = code === 'inscription' || (nom.includes('inscription') && !isReinsc);
 
       if (isPaid && paiementsMap[type.id]?.montant) {
         montant = paiementsMap[type.id].montant;
       }
 
       // Règles de sélection par défaut
-      if (isSecondaire) {
-        // Au secondaire : les frais d'inscription et de réinscription sont DÉJÀ inclus dans le forfait 70 000 F
-        // Ne JAMAIS les cocher dans les frais annexes
-        if (type.code === 'inscription' || type.code === 'reinscription' || type.nom?.toLowerCase().includes('inscription')) {
-          isSelected = false;
-        } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
-          isSelected = false;
-        } else if (isNomPrimaire) {
-          isSelected = false;
-        } else if (type.code?.startsWith('arriere')) {
-          isSelected = false;
-        } else {
-          isSelected = isPaid || !inscription;
-        }
+      if (isInsc) {
+        isSelected = isPaid || (admType === 'inscription');
+      } else if (isReinsc) {
+        isSelected = isPaid || (admType === 'reinscription');
+      } else if (type.code?.startsWith('arriere') || type.is_scolarite) {
+        isSelected = false;
       } else {
-        // Au primaire / maternelle : exclusion mutuelle classique inscription / réinscription
-        if (type.code === 'inscription') {
-          isSelected = isPaid || (admType === 'inscription');
-        } else if (type.code === 'reinscription') {
-          isSelected = isPaid || (admType === 'reinscription');
-        } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
-          isSelected = isPaid || !inscription;
-        } else if (isNomSecondaire) {
-          isSelected = false;
-        } else if (type.code?.startsWith('arriere')) {
-          isSelected = false;
-        } else {
-          isSelected = isPaid || !inscription;
-        }
+        // Observation 8 : Sont obligatoires à l'inscription :
+        // - L'assurance & le bulletin (bulletin_assurance)
+        // - La tenue scolaire (tenue)
+        // - La tenue de sport (tenue_sport)
+        const isMandatoryFee = ['bulletin_assurance', 'tenue', 'tenue_sport'].includes(code)
+          || nom.includes('bulletin')
+          || nom.includes('assurance')
+          || nom.includes('tenue');
+
+        isSelected = isPaid || isMandatoryFee;
       }
 
       feesState[type.id] = {
@@ -160,40 +152,36 @@ export default function Create(props) {
     return feesState;
   };
 
-  const initialHasRemise = Boolean(inscription?.has_remise || false);
+  // Identification si un paiement de scolarité existe déjà (lors de l'édition)
+  const existingScolaritePayment = useMemo(() => {
+    return (inscription?.paiements || []).find(p => p.frais_type?.is_scolarite || p.frais_type?.code === 'scolarite');
+  }, [inscription]);
 
-  // Form state
+  // Form state avec gestion de la scolarité du 1er mois et des remises
   const { data, setData, post, put, processing, errors } = useForm({
     eleve_id: inscription?.eleve_id || elevePreSelectionne?.id || '',
     classe_id: inscription?.classe_id || '',
     date_inscription: formatDate(inscription?.date_inscription),
     admission_type: defaultAdmissionType,
-    has_remise: initialHasRemise,
-    remise_pourcentage: 50,
-    remise_montant: Number(inscription?.remise_montant || 0),
-    frais: initializeFees(defaultAdmissionType, inscription?.classe_id || '', initialHasRemise),
+    frais: initializeFees(defaultAdmissionType, inscription?.classe_id || ''),
     statut: inscription?.statut || 'validee',
+    has_remise: Boolean(inscription?.has_remise),
+    remise_pourcentage: inscription?.remise_pourcentage ? Number(inscription.remise_pourcentage) : 0,
+    remise_montant: inscription?.remise_montant ? Number(inscription.remise_montant) : 0,
+    scolarite_accorde: 0,
+    payer_scolarite_mois: Boolean(existingScolaritePayment),
+    montant_scolarite_mois: existingScolaritePayment ? existingScolaritePayment.montant : '',
   });
 
-  // Détermination du tarif standard hors remise pour un type de frais
-  const getBaseMontant = (fraisTypeId, admType = data.admission_type, classeId = data.classe_id) => {
+  // Détermination du tarif standard pour un type de frais (dynamique depuis FraisType)
+  const getBaseMontant = (fraisTypeId) => {
     if (typeInscription?.id && String(fraisTypeId) === String(typeInscription.id)) {
-      return Number(typeInscription.montant || 10000);
+      return Number(typeInscription.montant || 0);
     }
     if (typeReinscription?.id && String(fraisTypeId) === String(typeReinscription.id)) {
-      return Number(typeReinscription.montant || 5000);
+      return Number(typeReinscription.montant || 0);
     }
     const feeType = fraisAnnexes.find(ft => String(ft.id) === String(fraisTypeId)) || fraisTypes.find(ft => String(ft.id) === String(fraisTypeId));
-    const isTenue = feeType?.code === 'tenue' || feeType?.nom?.toLowerCase().includes('tenue');
-    if (isTenue) {
-      const selected = classes.find(c => String(c.id) === String(classeId));
-      return (selected?.type === 'secondaire') ? 15000 : 10000;
-    }
-    const isBulletin = feeType?.code === 'bulletin' || feeType?.nom?.toLowerCase().includes('bulletin');
-    if (isBulletin) {
-      const selected = classes.find(c => String(c.id) === String(classeId));
-      return (selected?.type === 'secondaire') ? 0 : Number(feeType?.montant || 1000);
-    }
     return Number(feeType?.montant || 0);
   };
 
@@ -201,84 +189,47 @@ export default function Create(props) {
   useEffect(() => {
     if (inscription) {
       const admType = inscription.reinscription ? 'reinscription' : 'inscription';
-      const hasRem = Boolean(inscription.has_remise);
+      const scolaritePaiement = (inscription.paiements || []).find(p => p.frais_type?.is_scolarite || p.frais_type?.code === 'scolarite');
       setData((prev) => ({
         ...prev,
         eleve_id: inscription.eleve_id,
         classe_id: inscription.classe_id,
         date_inscription: formatDate(inscription.date_inscription),
         admission_type: admType,
-        has_remise: hasRem,
-        remise_pourcentage: hasRem ? Number(inscription.remise_pourcentage || 50) : 50,
-        remise_montant: Number(inscription.remise_montant || 0),
-        frais: initializeFees(admType, inscription.classe_id, hasRem),
+        has_remise: Boolean(inscription.has_remise),
+        remise_pourcentage: inscription.remise_pourcentage ? Number(inscription.remise_pourcentage) : 0,
+        remise_montant: inscription.remise_montant ? Number(inscription.remise_montant) : 0,
+        payer_scolarite_mois: prev.payer_scolarite_mois || Boolean(scolaritePaiement),
+        montant_scolarite_mois: prev.montant_scolarite_mois !== '' ? prev.montant_scolarite_mois : (scolaritePaiement ? scolaritePaiement.montant : ''),
+        frais: initializeFees(admType, inscription.classe_id),
       }));
     }
   }, [inscription]);
 
-  // Bascule de la remise de 50% (APPLIQUÉE UNIQUEMENT SUR L'INSCRIPTION : 10 000 F -> 5 000 F)
-  const handleRemiseToggle = (checked) => {
+  // Gestion du changement de type d'admission
+  const handleAdmissionChange = (newType) => {
     setData(prev => {
-      const nextFrais = { ...prev.frais };
+      const updatedFrais = { ...prev.frais };
 
-      // La remise touche UNIQUEMENT typeInscription (10 000 F -> 5 000 F), nul part ailleurs
-      if (typeInscription?.id && nextFrais[typeInscription.id] && !nextFrais[typeInscription.id].already_paid) {
-        const base = Number(typeInscription.montant || 10000);
-        nextFrais[typeInscription.id] = {
-          ...nextFrais[typeInscription.id],
-          montant: checked ? Math.round(base * 0.5) : base,
+      if (typeInscription?.id && updatedFrais[typeInscription.id]) {
+        updatedFrais[typeInscription.id] = {
+          ...updatedFrais[typeInscription.id],
+          selected: newType === 'inscription',
+          montant: Number(typeInscription.montant || 0),
+        };
+      }
+
+      if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
+        updatedFrais[typeReinscription.id] = {
+          ...updatedFrais[typeReinscription.id],
+          selected: newType === 'reinscription',
+          montant: Number(typeReinscription.montant || 0),
         };
       }
 
       return {
         ...prev,
-        has_remise: checked,
-        remise_pourcentage: checked ? 50 : 0,
-        frais: nextFrais,
-      };
-    });
-  };
-
-  // Gestion du changement de type d'admission
-  const handleAdmissionChange = (newType) => {
-    const isSec = classes.find(c => String(c.id) === String(data.classe_id))?.type === 'secondaire';
-
-    setData(prev => {
-      const updatedFrais = { ...prev.frais };
-      
-      // Au secondaire, l'inscription et la réinscription ne sont PAS sélectionnées dans les annexes (incluses dans forfait 70k)
-      if (isSec) {
-        if (typeInscription?.id && updatedFrais[typeInscription.id]) {
-          updatedFrais[typeInscription.id] = { ...updatedFrais[typeInscription.id], selected: false };
-        }
-        if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
-          updatedFrais[typeReinscription.id] = { ...updatedFrais[typeReinscription.id], selected: false };
-        }
-      } else {
-        // Maternelle / Primaire : sélection exclusive classique
-        if (typeInscription?.id && updatedFrais[typeInscription.id]) {
-          const base = Number(typeInscription.montant || 10000);
-          updatedFrais[typeInscription.id] = {
-            ...updatedFrais[typeInscription.id],
-            selected: newType === 'inscription',
-            montant: (prev.has_remise && newType === 'inscription') ? Math.round(base * 0.5) : base,
-          };
-        }
-
-        if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
-          const base = Number(typeReinscription.montant || 5000);
-          updatedFrais[typeReinscription.id] = {
-            ...updatedFrais[typeReinscription.id],
-            selected: newType === 'reinscription',
-            montant: base,
-          };
-        }
-      }
-
-      return {
-        ...prev,
         admission_type: newType,
-        has_remise: newType === 'reinscription' ? false : prev.has_remise,
         frais: updatedFrais,
       };
     });
@@ -289,138 +240,72 @@ export default function Create(props) {
     const selected = elevesProp.find(e => String(e.id) === String(eleveId));
     const isReturning = selected?.is_reinscription;
     const nextAdmission = isReturning ? 'reinscription' : 'inscription';
-    const isSec = classes.find(c => String(c.id) === String(data.classe_id))?.type === 'secondaire';
 
     setData(prev => {
       const updatedFrais = { ...prev.frais };
 
-      if (isSec) {
-        if (typeInscription?.id && updatedFrais[typeInscription.id]) {
-          updatedFrais[typeInscription.id] = { ...updatedFrais[typeInscription.id], selected: false };
-        }
-        if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
-          updatedFrais[typeReinscription.id] = { ...updatedFrais[typeReinscription.id], selected: false };
-        }
-      } else {
-        if (typeInscription?.id && updatedFrais[typeInscription.id]) {
-          const base = Number(typeInscription.montant || 10000);
-          updatedFrais[typeInscription.id] = {
-            ...updatedFrais[typeInscription.id],
-            selected: nextAdmission === 'inscription',
-            montant: (prev.has_remise && nextAdmission === 'inscription') ? Math.round(base * 0.5) : base,
-          };
-        }
-        if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
-          const base = Number(typeReinscription.montant || 5000);
-          updatedFrais[typeReinscription.id] = {
-            ...updatedFrais[typeReinscription.id],
-            selected: nextAdmission === 'reinscription',
-            montant: base,
-          };
-        }
+      if (typeInscription?.id && updatedFrais[typeInscription.id]) {
+        updatedFrais[typeInscription.id] = {
+          ...updatedFrais[typeInscription.id],
+          selected: nextAdmission === 'inscription',
+          montant: Number(typeInscription.montant || 0),
+        };
+      }
+      if (typeReinscription?.id && updatedFrais[typeReinscription.id]) {
+        updatedFrais[typeReinscription.id] = {
+          ...updatedFrais[typeReinscription.id],
+          selected: nextAdmission === 'reinscription',
+          montant: Number(typeReinscription.montant || 0),
+        };
       }
       return {
         ...prev,
         eleve_id: eleveId,
         admission_type: nextAdmission,
-        has_remise: nextAdmission === 'reinscription' ? false : prev.has_remise,
         frais: updatedFrais,
       };
     });
   };
 
-  // Changement de classe : bascule automatique des annexes selon le cycle (Secondaire vs Primaire)
+  // Changement de classe
   const handleClasseChange = (classeId) => {
-    const selected = classes.find(c => String(c.id) === String(classeId));
-    const isSecondaire = selected?.type === 'secondaire';
+    setData(prev => ({
+      ...prev,
+      classe_id: classeId,
+    }));
+  };
 
+  // Gestion libre des modifications de montants (admission ou annexes)
+  const handleAmountChange = (id, newAmount) => {
+    const val = newAmount === '' ? '' : (parseFloat(newAmount) >= 0 ? parseFloat(newAmount) : 0);
     setData(prev => {
-      const updatedFrais = { ...prev.frais };
-
-      fraisTypes.forEach(type => {
-        if (!updatedFrais[type.id] || updatedFrais[type.id].already_paid) return;
-
-        const isNomPrimaire = type.nom?.toLowerCase().includes('primaire');
-        const isNomSecondaire = type.nom?.toLowerCase().includes('secondaire');
-
-        if (isSecondaire) {
-          // Au secondaire : pas d'inscription/réinscription dans les annexes (incluses dans forfait 70k)
-          if (type.code === 'inscription' || type.code === 'reinscription' || type.nom?.toLowerCase().includes('inscription')) {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: false };
-          } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: false, montant: 0 };
-          } else if (isNomPrimaire) {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: false };
-          } else if (isNomSecondaire) {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: true, montant: 15000 };
-          }
-        } else {
-          // Au primaire / maternelle
-          if (type.code === 'inscription') {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: prev.admission_type === 'inscription' };
-          } else if (type.code === 'reinscription') {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: prev.admission_type === 'reinscription' };
-          } else if (type.code === 'bulletin' || type.nom?.toLowerCase().includes('bulletin')) {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: true, montant: Number(type.montant || 1000) };
-          } else if (isNomPrimaire) {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: true, montant: 10000 };
-          } else if (isNomSecondaire) {
-            updatedFrais[type.id] = { ...updatedFrais[type.id], selected: false };
-          }
-        }
-      });
-
+      const current = prev.frais[id] || { selected: true, montant: 0 };
       return {
         ...prev,
-        classe_id: classeId,
-        frais: updatedFrais,
+        frais: {
+          ...prev.frais,
+          [id]: {
+            ...current,
+            selected: true, // S'assurer que le frais est coché si on modifie son montant
+            montant: val
+          }
+        }
       };
     });
   };
 
-  // Handle fee change
+  // Gestion des modifications de fournitures et frais annexes
   const handleFeeChange = (id, field, value) => {
-    const feeType = fraisAnnexes.find(ft => String(ft.id) === String(id));
-    const isBulletin = feeType?.code === 'bulletin' || feeType?.nom?.toLowerCase().includes('bulletin');
-    const isCarte = feeType?.code === 'carte' || feeType?.nom?.toLowerCase().includes('carte');
-    const isAssurance = feeType?.nom?.toLowerCase().includes('assurance');
-    const isTenue = feeType?.code === 'tenue' || feeType?.nom?.toLowerCase().includes('tenue');
-    const isApe = feeType?.nom?.toLowerCase().includes('ape');
-    const isSecondaire = selectedClasseObj?.type === 'secondaire';
-
-    // Frais au montant strictement fixe et non négociable (Carte: 1500, Assurance: 1000, Tenue: 10000/15000, Bulletin: 1000/0, APE: 2000)
-    const isFixedAmountFee = isCarte || isAssurance || isTenue || isBulletin || isApe;
-
-    // Si le montant est fixe pour tous, interdire sa modification manuelle
-    if (field === 'montant' && isFixedAmountFee) {
-      return;
-    }
-
-    // Au secondaire, le montant du bulletin est toujours verrouillé à 0 FCFA
-    let finalValue = value;
-    if (isBulletin && isSecondaire) {
-      if (field === 'montant') finalValue = 0;
-      if (field === 'selected') finalValue = false;
-    }
+    const feeType = fraisAnnexes.find(ft => String(ft.id) === String(id)) || fraisTypes.find(ft => String(ft.id) === String(id));
 
     let updatedItem = {
-      ...data.frais[id],
-      [field]: finalValue
+      ...(data.frais[id] || { selected: false, montant: Number(feeType?.montant || 0) }),
+      [field]: value
     };
 
-    // Rétablir le montant officiel dès que le frais est sélectionné
-    if (field === 'selected' && finalValue === true) {
-      if (isTenue) {
-        updatedItem.montant = isSecondaire ? 15000 : 10000;
-      } else if (isBulletin) {
-        updatedItem.montant = isSecondaire ? 0 : Number(feeType?.montant || 1000);
-      } else if (isCarte) {
-        updatedItem.montant = Number(feeType?.montant || 1500);
-      } else if (isAssurance) {
-        updatedItem.montant = Number(feeType?.montant || 1000);
-      } else if (isApe) {
-        updatedItem.montant = 2000;
-      }
+    // Si on coche et qu'aucun montant n'est encore défini, initialiser au montant standard
+    if (field === 'selected' && value === true && (updatedItem.montant === undefined || updatedItem.montant === null || updatedItem.montant === '')) {
+      updatedItem.montant = Number(feeType?.montant || 0);
     }
 
     setData('frais', {
@@ -429,29 +314,9 @@ export default function Create(props) {
     });
   };
 
-  // Calcul dynamique des totaux brut, net et montant de remise (Uniquement sur l'inscription : 5 000 F d'économie)
-  const { totalBrut, totalFrais, montantRemise } = useMemo(() => {
-    let brut = 0;
-    let net = 0;
-
-    Object.keys(data.frais).forEach(id => {
-      const item = data.frais[id];
-      if (item.selected) {
-        const base = getBaseMontant(id, data.admission_type, data.classe_id);
-        brut += Number(base || 0);
-        net += Number(item.montant || 0);
-      }
-    });
-
-    const isRemiseActive = data.has_remise && data.admission_type === 'inscription' && data.frais[typeInscription?.id]?.selected;
-    const remise = isRemiseActive ? Math.max(0, brut - net) : 0;
-    return { totalBrut: brut, totalFrais: net, montantRemise: remise };
-  }, [data.frais, data.has_remise, data.admission_type, data.classe_id, typeInscription]);
-
   // Submission handler
   const handleSubmit = (e) => {
     e.preventDefault();
-    data.remise_montant = montantRemise;
     const action = inscription 
       ? () => put(route('inscriptions.update', inscription.id)) 
       : () => post(route('inscriptions.store'));
@@ -474,6 +339,14 @@ export default function Create(props) {
 
   const isValidee = data.statut === 'validee';
 
+  // Basculer la sélection d'un frais annexe (au clic sur la carte ou la case)
+  const toggleFee = (id) => {
+    if (!isValidee) return;
+    const current = data.frais[id];
+    if (current?.already_paid) return;
+    handleFeeChange(id, 'selected', !current?.selected);
+  };
+
   // Tuitions info for the selected class
   const selectedClasseFrais = useMemo(() => {
     if (!data.classe_id || !props.fraisClasses) return null;
@@ -484,48 +357,89 @@ export default function Create(props) {
     return classes.find(c => String(c.id) === String(data.classe_id));
   }, [data.classe_id, classes]);
 
-  // ─── Calculs spécifiques SECONDAIRE (Forfait Tranche 1) ───────────────────
-  const isSecondaireSelected = selectedClasseObj?.type === 'secondaire';
+  // Mensualité officielle selon barème
+  const scolariteMensuelleOfficielle = useMemo(() => {
+    if (selectedClasseObj?.montant_mensuel_officiel) {
+      return Number(selectedClasseObj.montant_mensuel_officiel);
+    }
+    if (selectedClasseFrais?.montant) {
+      return Math.round(Number(selectedClasseFrais.montant) / 9);
+    }
+    return 20000;
+  }, [selectedClasseObj, selectedClasseFrais]);
 
-  const forfaitSecondaire = useMemo(() => {
-    const FORFAIT     = forfait_config.montant_forfait;     // 70 000
-    const INSCRIPTION = forfait_config.frais_inscription;   // 10 000
-    const REINSCRIPTION = forfait_config.frais_reinscription; // 5 000
+  // Mensualité nette après remise éventuelle
+  const scolariteMoisNet = useMemo(() => {
+    if (data.scolarite_accorde && Number(data.scolarite_accorde) > 0) {
+      return Number(data.scolarite_accorde);
+    }
+    if (data.has_remise && data.remise_pourcentage > 0) {
+      return Math.round(scolariteMensuelleOfficielle * (1 - Number(data.remise_pourcentage) / 100));
+    }
+    return scolariteMensuelleOfficielle;
+  }, [scolariteMensuelleOfficielle, data.has_remise, data.remise_pourcentage, data.scolarite_accorde]);
 
-    const admissionBase     = data.admission_type === 'reinscription' ? REINSCRIPTION : INSCRIPTION;
-    const admissionEffectif = (data.has_remise && data.admission_type === 'inscription')
-      ? Math.round(admissionBase * 0.5)
-      : admissionBase;
-    const montantForfait    = FORFAIT - (admissionBase - admissionEffectif); // 70 000 ou 65 000
-    const avanceScolarite   = montantForfait - admissionEffectif;
+  // Montant effectif du 1er mois de scolarité (personnalisé dans l'input, remisé ou officiel)
+  const scolariteMoisEffectif = useMemo(() => {
+    if (data.montant_scolarite_mois !== '' && data.montant_scolarite_mois !== null && data.montant_scolarite_mois !== undefined) {
+      return Number(data.montant_scolarite_mois);
+    }
+    return scolariteMoisNet;
+  }, [data.montant_scolarite_mois, scolariteMoisNet]);
 
-    // Solde scolarité restant après Tranche 1
-    const scolariteAnnuelle = selectedClasseFrais?.montant || 0;
-    const soldeScolarite    = Math.max(0, scolariteAnnuelle - avanceScolarite);
-    const tranche2          = Math.round(soldeScolarite / 2);
-    const tranche3          = soldeScolarite - tranche2;
+  // Calcul dynamique du total des frais sélectionnés
+  const totalFrais = useMemo(() => {
+    let total = 0;
+    Object.keys(data.frais).forEach(id => {
+      const item = data.frais[id];
+      if (item?.selected) {
+        total += Number(item.montant || 0);
+      }
+    });
+    if (data.payer_scolarite_mois) {
+      total += Number(scolariteMoisEffectif || 0);
+    }
+    return total;
+  }, [data.frais, data.payer_scolarite_mois, scolariteMoisEffectif]);
 
-    return {
-      admissionBase,
-      admissionEffectif,
-      montantForfait,
-      avanceScolarite,
-      scolariteAnnuelle,
-      soldeScolarite,
-      tranche2,
-      tranche3,
-    };
-  }, [data.admission_type, data.has_remise, forfait_config, selectedClasseFrais]);
+  // Droit d'admission effectif (Inscription ou Réinscription avec montant personnalisable)
+  const droitAdmission = useMemo(() => {
+    if (data.admission_type === 'reinscription' && typeReinscription?.id) {
+      const custom = data.frais[typeReinscription.id]?.montant;
+      return (custom !== undefined && custom !== null && custom !== '') ? Number(custom) : Number(typeReinscription.montant || 10000);
+    }
+    if (typeInscription?.id) {
+      const custom = data.frais[typeInscription.id]?.montant;
+      return (custom !== undefined && custom !== null && custom !== '') ? Number(custom) : Number(typeInscription.montant || 10000);
+    }
+    return 10000;
+  }, [data.admission_type, data.frais, typeInscription, typeReinscription]);
 
-  // Total frais annexes sélectionnés pour le Secondaire (Tenue 15k + Carte 1.5k + Assurance 1k + APE 2k = 19 500 FCFA)
-  // Les frais d'inscription/réinscription sont déjà inclus dans le forfait 70 000 FCFA
-  const totalAnnexesSecondaire = useMemo(() => {
-    if (!isSecondaireSelected) return 0;
-    return fraisAnnexesSecondaire.reduce((acc, ft) => {
+  // Sous-total des fournitures et frais annexes cochés avec leurs montants personnalisés
+  const totalFraisAnnexes = useMemo(() => {
+    let total = 0;
+    fraisAnnexes.forEach(ft => {
       const item = data.frais[ft.id];
-      return item?.selected ? acc + Number(item.montant || 0) : acc;
-    }, 0);
-  }, [data.frais, fraisAnnexesSecondaire, isSecondaireSelected]);
+      if (item?.selected) {
+        const montant = (item.montant !== undefined && item.montant !== null && item.montant !== '') 
+          ? Number(item.montant) 
+          : Number(ft.montant || 0);
+        total += montant;
+      }
+    });
+    return total;
+  }, [data.frais, fraisAnnexes]);
+
+  const handleRemiseChange = (remiseData) => {
+    setData(prev => ({
+      ...prev,
+      has_remise: remiseData.has_remise,
+      remise_pourcentage: remiseData.remise_pourcentage,
+      remise_montant: remiseData.remise_montant,
+      scolarite_accorde: remiseData.scolarite_accorde,
+      montant_scolarite_mois: remiseData.scolarite_accorde > 0 ? remiseData.scolarite_accorde : prev.montant_scolarite_mois,
+    }));
+  };
 
   return (
     <DashboardLayout title={inscription ? t('edit_inscription', 'Modifier') : t('create_inscription', 'Nouvelle Inscription')}>
@@ -734,385 +648,29 @@ export default function Create(props) {
             )}
           </div>
 
-          {/* ══════════════════════════════════════════════════════════════
-              🎓 SECONDAIRE : FORFAIT TRANCHE 1 (70 000 FCFA global)
-              ══════════════════════════════════════════════════════════════ */}
-          {isSecondaireSelected ? (
-            <>
-              {/* Sélection Inscription / Réinscription (masquée visuellement, gardée fonctionnelle) */}
-              <div className="mb-6">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
-                  <span>1. Type d'Admission</span>
-                  <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 font-sans bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
-                    (Inclus dans le forfait)
-                  </span>
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* INSCRIPTION */}
-                  <div
-                    onClick={() => isValidee && handleAdmissionChange('inscription')}
-                    className={`relative p-4 rounded-2xl border-2 transition-all duration-300 cursor-pointer flex items-center gap-3
-                      ${data.admission_type === 'inscription'
-                        ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 ring-2 ring-blue-500/20'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800'
-                      }
-                      ${!isValidee ? 'cursor-not-allowed opacity-60' : ''}
-                    `}
-                  >
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0
-                      ${data.admission_type === 'inscription' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 dark:border-slate-600'}
-                    `}>
-                      {data.admission_type === 'inscription' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-sm text-slate-800 dark:text-white">Nouvelle Inscription</p>
-                      <p className="text-xs text-slate-500">Dont {formatAmount(forfait_config.frais_inscription)} inclus dans le forfait</p>
-                    </div>
-                    <span className="text-[10px] font-black uppercase bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded-lg">Nouveau</span>
-                  </div>
 
-                  {/* RÉINSCRIPTION */}
-                  <div
-                    onClick={() => isValidee && handleAdmissionChange('reinscription')}
-                    className={`relative p-4 rounded-2xl border-2 transition-all duration-300 cursor-pointer flex items-center gap-3
-                      ${data.admission_type === 'reinscription'
-                        ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-800'
-                      }
-                      ${!isValidee ? 'cursor-not-allowed opacity-60' : ''}
-                    `}
-                  >
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0
-                      ${data.admission_type === 'reinscription' ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 dark:border-slate-600'}
-                    `}>
-                      {data.admission_type === 'reinscription' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-sm text-slate-800 dark:text-white">Réinscription</p>
-                      <p className="text-xs text-slate-500">Dont {formatAmount(forfait_config.frais_reinscription)} inclus dans le forfait</p>
-                    </div>
-                    <span className="text-[10px] font-black uppercase bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-0.5 rounded-lg">Ancien</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── BLOC FORFAIT TRANCHE 1 ── */}
-              <div className="mb-6 rounded-2xl overflow-hidden border-2 border-amber-400 dark:border-amber-600 shadow-lg shadow-amber-500/10">
-                {/* En-tête forfait */}
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <SparklesIcon className="w-5 h-5 text-white" />
-                    <span className="font-black text-white text-base tracking-wide">Forfait Tranche 1 — Secondaire</span>
-                  </div>
-                  <span className="text-[11px] font-black bg-white/20 text-white px-3 py-1 rounded-full border border-white/30">
-                    Paiement unique à l'inscription
-                  </span>
-                </div>
-
-                <div className="bg-amber-50/60 dark:bg-amber-950/20 p-5">
-                  {/* Montant total forfait */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 mb-0.5">Montant total forfait</p>
-                      <p className="text-xs text-amber-700/70 dark:text-amber-400/70">
-                        Frais d'admission ({data.admission_type === 'reinscription' ? 'réinscription' : 'inscription'}) + Avance scolarité
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      {data.has_remise && data.admission_type === 'inscription' && (
-                        <span className="text-xs text-amber-500 line-through block">{formatAmount(forfait_config.montant_forfait)}</span>
-                      )}
-                      <span className="text-3xl font-black text-amber-900 dark:text-amber-200">
-                        {formatAmount(forfaitSecondaire.montantForfait)}
-                      </span>
-                      {data.has_remise && data.admission_type === 'inscription' && (
-                        <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 px-1.5 py-0.5 rounded ml-1">
-                          Remise 50% appliquée
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Ventilation détaillée */}
-                  <div className="space-y-2 border-t border-amber-200 dark:border-amber-800 pt-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-2">Décomposition du forfait :</p>
-
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl px-4 py-2.5 border border-amber-200 dark:border-amber-800">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                          Frais {data.admission_type === 'reinscription' ? 'de réinscription' : "d'inscription"}
-                        </span>
-                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
-                          Inclus
-                        </span>
-                      </div>
-                      <span className="font-black text-sm text-blue-700 dark:text-blue-400">
-                        {formatAmount(forfaitSecondaire.admissionEffectif)}
-                        {data.has_remise && data.admission_type === 'inscription' && (
-                          <span className="text-[9px] font-bold text-emerald-600 ml-1">(remisé)</span>
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl px-4 py-2.5 border border-amber-200 dark:border-amber-800">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Avance sur scolarité</span>
-                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                          Déduit de la scolarité
-                        </span>
-                      </div>
-                      <span className="font-black text-sm text-emerald-700 dark:text-emerald-400">{formatAmount(forfaitSecondaire.avanceScolarite)}</span>
-                    </div>
-                  </div>
-
-                  {/* Plan de paiement scolarité restante */}
-                  {forfaitSecondaire.scolariteAnnuelle > 0 && (
-                    <div className="mt-4 pt-4 border-t border-amber-200 dark:border-amber-800">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Plan de paiement — Solde scolarité restant :</p>
-                      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                        <div className="grid grid-cols-3 text-center">
-                          <div className="px-3 py-3 border-r border-slate-200 dark:border-slate-700">
-                            <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1">Tranche 1</p>
-                            <p className="font-black text-base text-amber-800 dark:text-amber-300">{formatAmount(forfaitSecondaire.montantForfait)}</p>
-                            <p className="text-[9px] text-slate-400 mt-0.5">Payée aujourd'hui ✅</p>
-                          </div>
-                          <div className="px-3 py-3 border-r border-slate-200 dark:border-slate-700">
-                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Tranche 2</p>
-                            <p className="font-black text-base text-slate-700 dark:text-slate-300">
-                              {forfaitSecondaire.soldeScolarite > 0 ? formatAmount(forfaitSecondaire.tranche2) : '—'}
-                            </p>
-                            <p className="text-[9px] text-slate-400 mt-0.5">À venir</p>
-                          </div>
-                          <div className="px-3 py-3">
-                            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Tranche 3</p>
-                            <p className="font-black text-base text-slate-700 dark:text-slate-300">
-                              {forfaitSecondaire.soldeScolarite > 0 ? formatAmount(forfaitSecondaire.tranche3) : '—'}
-                            </p>
-                            <p className="text-[9px] text-slate-400 mt-0.5">À venir</p>
-                          </div>
-                        </div>
-                        {forfaitSecondaire.scolariteAnnuelle > 0 && (
-                          <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                            <span className="text-xs text-slate-500">Scolarité annuelle totale</span>
-                            <span className="text-sm font-black text-slate-700 dark:text-slate-300">{formatAmount(forfaitSecondaire.scolariteAnnuelle)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Info si scolarité non définie */}
-                  {!forfaitSecondaire.scolariteAnnuelle && (
-                    <div className="mt-3 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-3 py-2 rounded-xl">
-                      <InformationCircleIcon className="w-4 h-4 shrink-0" />
-                      <span>La scolarité annuelle de cette classe n'est pas encore définie. Le plan de tranches ne peut pas être calculé.</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── FRAIS ANNEXES SECONDAIRE (tenue, carte, APE, assurance) ── */}
-              <div className="mb-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-1">
-                  <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                    <span>2. Fournitures & Frais Annexes</span>
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
-                      (Non inclus dans le forfait)
-                    </span>
-                  </label>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Cochez les fournitures réglées immédiatement par le parent.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {fraisAnnexesSecondaire.map((type) => {
-                    const feeState = data.frais[type.id] || { selected: false, montant: type.montant || 0 };
-                    const isTenue = type.code === 'tenue' || type.nom.toLowerCase().includes('tenue');
-                    const isCarte = type.code === 'carte' || type.nom.toLowerCase().includes('carte');
-                    const isAssurance = type.nom.toLowerCase().includes('assurance');
-                    const isApe = type.nom.toLowerCase().includes('ape');
-                    const isFixedFee = isCarte || isAssurance || isTenue || isApe;
-
-                    return (
-                      <div
-                        key={type.id}
-                        className={`p-4 rounded-2xl border transition-all duration-300 flex flex-col justify-between gap-3
-                          ${feeState.selected
-                            ? 'bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-800 shadow-sm'
-                            : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                          }
-                          ${isTenue ? 'relative border-l-4 border-l-purple-500' : ''}
-                          ${isCarte ? 'relative border-l-4 border-l-blue-400' : ''}
-                          ${isAssurance ? 'relative border-l-4 border-l-teal-500' : ''}
-                          ${isApe ? 'relative border-l-4 border-l-indigo-400' : ''}
-                        `}
-                      >
-                        {isTenue && (
-                          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800 w-fit">
-                            👕 Tenue Scolaire • Secondaire (15 000 FCFA)
-                          </span>
-                        )}
-                        {isCarte && (
-                          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-blue-50 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800 w-fit">
-                            💳 Carte Scolaire • Tarif Fixe (1 500 FCFA)
-                          </span>
-                        )}
-                        {isAssurance && (
-                          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-teal-50 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 border-teal-200 dark:border-teal-800 w-fit">
-                            🛡️ Assurance Scolaire • Tarif Fixe (1 000 FCFA)
-                          </span>
-                        )}
-                        {isApe && (
-                          <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-indigo-50 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 w-fit">
-                            👨‍👩‍👧 Cotisation APE • Tarif Fixe (2 000 FCFA)
-                          </span>
-                        )}
-
-                        <div className="flex items-start justify-between gap-3">
-                          <label className="flex items-start gap-3 cursor-pointer flex-1">
-                            <input
-                              type="checkbox"
-                              checked={feeState.selected}
-                              onChange={(e) => handleFeeChange(type.id, 'selected', e.target.checked)}
-                              className="mt-1 w-5 h-5 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 dark:bg-slate-900 dark:border-slate-600 cursor-pointer"
-                              disabled={!isValidee || feeState.already_paid}
-                            />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className={`font-bold text-sm block ${feeState.selected ? 'text-emerald-900 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200'}`}>
-                                  {type.nom}
-                                </span>
-                                {feeState.already_paid && (
-                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">✓ Déjà Réglé</span>
-                                )}
-                              </div>
-                              <span className="text-[11px] text-slate-500 font-mono uppercase mt-0.5 block">{type.code || 'ANNEXE'}</span>
-                              {isTenue && !feeState.selected && (
-                                <p className="text-[11px] text-purple-700 dark:text-purple-400 font-semibold mt-1 bg-purple-50 dark:bg-purple-900/20 p-1.5 rounded-lg border border-purple-200/50">
-                                  ℹ️ Non réglée aujourd'hui : le parent pourra la payer ultérieurement (15 000 FCFA).
-                                </p>
-                              )}
-                              {isApe && feeState.selected && (
-                                <p className="text-[11px] text-indigo-700 dark:text-indigo-300 font-medium mt-1 bg-indigo-50 dark:bg-indigo-950/30 p-1.5 rounded-lg border border-indigo-200/50">
-                                  💡 Cotisation APE fixée à 2 000 FCFA.
-                                </p>
-                              )}
-                            </div>
-                          </label>
-
-                          <div className="w-28 shrink-0">
-                            <div className="relative">
-                              <input
-                                type="number"
-                                readOnly={isFixedFee}
-                                className={`w-full text-right py-1.5 px-2.5 rounded-xl border text-sm font-black transition-colors
-                                  ${isFixedFee
-                                    ? 'bg-slate-100 border-slate-300 text-slate-800 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200 cursor-not-allowed'
-                                    : 'bg-white border-indigo-300 dark:bg-slate-800 text-indigo-950 dark:text-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-                                  }
-                                `}
-                                value={feeState.montant}
-                                onChange={(e) => !isFixedFee && handleFeeChange(type.id, 'montant', e.target.value)}
-                                disabled={!feeState.selected || !isValidee || feeState.already_paid}
-                              />
-                              <div className="flex items-center justify-end gap-1 mt-0.5">
-                                <span className={`text-[9px] font-bold uppercase tracking-wider px-1 rounded border
-                                  ${isFixedFee ? 'text-slate-500 bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700' : 'text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800'}
-                                `}>
-                                  {isFixedFee ? 'Fixe' : 'Modifiable'}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-bold">FCFA</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* ── OPTION REMISE 50% (uniquement nouvelle inscription) ── */}
-              <div className={`mt-4 p-4 sm:p-5 rounded-2xl border-2 transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm
-                ${data.has_remise
-                  ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/50 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/20 border-emerald-400 dark:border-emerald-700 ring-2 ring-emerald-500/20'
-                  : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
-                }
-                ${data.admission_type === 'reinscription' ? 'opacity-60 cursor-not-allowed' : ''}
-              `}>
-                <div className="flex items-start sm:items-center gap-3.5">
-                  <input
-                    type="checkbox"
-                    id="remise_checkbox_sec"
-                    checked={data.has_remise && data.admission_type === 'inscription'}
-                    onChange={(e) => handleRemiseToggle(e.target.checked)}
-                    disabled={!isValidee || data.admission_type === 'reinscription'}
-                    className="w-5 h-5 mt-0.5 sm:mt-0 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer disabled:cursor-not-allowed"
-                  />
-                  <label htmlFor="remise_checkbox_sec" className={data.admission_type === 'reinscription' ? 'cursor-not-allowed' : 'cursor-pointer'}>
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-slate-800 dark:text-white text-sm">Remise 50% sur les frais d'inscription</span>
-                      <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 text-xs font-black px-2.5 py-0.5 rounded-full border border-emerald-300">
-                        Forfait → {formatAmount(data.has_remise && data.admission_type === 'inscription' ? forfaitSecondaire.montantForfait : forfait_config.montant_forfait)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {data.admission_type === 'reinscription'
-                        ? 'Remise réservée exclusivement aux nouvelles inscriptions.'
-                        : `La remise de 50% s'applique sur les frais d'inscription (${formatAmount(forfait_config.frais_inscription)} -> ${formatAmount(Math.round(forfait_config.frais_inscription * 0.5))}), reduisant le forfait a ${formatAmount(forfaitSecondaire.montantForfait)}.`}
-                    </p>
-                  </label>
-                </div>
-              </div>
-
-              {/* ── RÉCAPITULATIF FINANCIER (secondaire) ── */}
-              <div className="mt-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B1A2D] to-blue-950 p-[2px]">
-                <div className="bg-[#0B1A2D] rounded-[14px] p-6 flex flex-col sm:flex-row justify-between items-center sm:items-end gap-4">
-                  <div>
-                    <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total Encaissé Aujourd'hui</p>
-                    <p className="text-emerald-400 text-sm font-medium">
-                      Forfait Tranche 1 : {formatAmount(forfaitSecondaire.montantForfait)} + Annexes : {formatAmount(totalAnnexesSecondaire)}
-                    </p>
-                  </div>
-                  <div className="text-right w-full sm:w-auto">
-                    <span className="block text-4xl sm:text-5xl font-black text-white tracking-tight">
-                      {formatAmount(forfaitSecondaire.montantForfait + totalAnnexesSecondaire)}
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-medium block mt-0.5">
-                      Forfait Tranche 1 ({formatAmount(forfaitSecondaire.montantForfait)}) + Annexes ({formatAmount(totalAnnexesSecondaire)})
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-          <>
-          {/* ══════════════════════════════════════════════════════════════
-              📚 MATERNELLE / PRIMAIRE : Comportement original inchangé
-              ══════════════════════════════════════════════════════════════ */}
-          {/* 1. SÉLECTION EXCLUSIVE : INSCRIPTION (10 000 FCFA) vs RÉINSCRIPTION (5 000 FCFA) */}
+          {/* 1. SÉLECTION EXCLUSIVE : INSCRIPTION vs RÉINSCRIPTION */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
               <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 <span>1. Type d'Admission</span>
                 <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 font-sans bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
-                  (Choix exclusif : l'un ou l'autre, pas les deux)
+                  (Tarif unique : {formatAmount(typeInscription.montant)})
                 </span>
               </label>
               {data.admission_type === 'reinscription' ? (
                 <span className="text-xs font-bold text-indigo-700 bg-indigo-100 dark:bg-indigo-900/50 dark:text-indigo-300 px-3 py-1 rounded-full border border-indigo-200 dark:border-indigo-800">
-                  Tarif Réinscription sélectionné : 5 000 FCFA
+                  Tarif Réinscription sélectionné : {formatAmount(typeReinscription.montant)}
                 </span>
               ) : (
                 <span className="text-xs font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/50 dark:text-blue-300 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-800">
-                  Tarif Nouvelle Inscription sélectionné : 10 000 FCFA
+                  Tarif Nouvelle Inscription sélectionné : {formatAmount(typeInscription.montant)}
                 </span>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* OPTION A : NOUVELLE INSCRIPTION (10 000 FCFA) */}
+              {/* OPTION A : NOUVELLE INSCRIPTION */}
               <div
                 onClick={() => isValidee && handleAdmissionChange('inscription')}
                 className={`relative p-5 rounded-2xl border-2 transition-all duration-300 cursor-pointer flex flex-col justify-between
@@ -1143,27 +701,24 @@ export default function Create(props) {
                     Nouveau
                   </span>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
+                <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Montant d'inscription :</span>
-                  <div className="flex items-baseline gap-2">
-                    {data.has_remise && (
-                      <span className="text-xs text-slate-400 line-through">
-                        {formatAmount(typeInscription.montant || 10000)}
-                      </span>
-                    )}
-                    <span className="text-xl font-black text-blue-700 dark:text-blue-400">
-                      {formatAmount(data.has_remise ? Math.round((typeInscription.montant || 10000) * 0.5) : (typeInscription.montant || 10000))}
-                    </span>
-                    {data.has_remise && (
-                      <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 px-1.5 py-0.5 rounded">
-                        -50%
-                      </span>
-                    )}
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      value={data.frais[typeInscription.id]?.montant ?? typeInscription.montant ?? 10000}
+                      onChange={(e) => handleAmountChange(typeInscription.id, e.target.value)}
+                      disabled={!isValidee}
+                      className="w-32 py-1 px-2.5 text-right font-black font-mono text-base text-blue-700 dark:text-blue-400 bg-white dark:bg-slate-900 border-2 border-blue-300 dark:border-blue-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                    />
+                    <span className="text-xs font-bold text-slate-500">FCFA</span>
                   </div>
                 </div>
               </div>
 
-              {/* OPTION B : RÉINSCRIPTION (5 000 FCFA) - AUCUNE REMISE */}
+              {/* OPTION B : RÉINSCRIPTION */}
               <div
                 onClick={() => isValidee && handleAdmissionChange('reinscription')}
                 className={`relative p-5 rounded-2xl border-2 transition-all duration-300 cursor-pointer flex flex-col justify-between
@@ -1194,210 +749,121 @@ export default function Create(props) {
                     Ancien Élève
                   </span>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-700 flex items-center justify-between">
+                <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-700 flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Montant de réinscription :</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-black text-indigo-700 dark:text-indigo-400">
-                      {formatAmount(typeReinscription.montant || 5000)}
-                    </span>
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      value={data.frais[typeReinscription.id]?.montant ?? typeReinscription.montant ?? 10000}
+                      onChange={(e) => handleAmountChange(typeReinscription.id, e.target.value)}
+                      disabled={!isValidee}
+                      className="w-32 py-1 px-2.5 text-right font-black font-mono text-base text-indigo-700 dark:text-indigo-400 bg-white dark:bg-slate-900 border-2 border-indigo-300 dark:border-indigo-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+                    />
+                    <span className="text-xs font-bold text-slate-500">FCFA</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 2. FOURNITURES & FRAIS ANNEXES EN GRILLE À 2 COLONNES */}
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-1">
-              <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <span>2. Fournitures & Frais Annexes</span>
-                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
-                  (Grille à 2 colonnes)
-                </span>
-              </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Cochez les fournitures réglées immédiatement par le parent.
-              </p>
+          {/* 2. FRAIS ANNEXES & FOURNITURES SCOLAIRES (COCHABLES COMME L'APE) */}
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+              <div>
+                <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <span>2. Frais Annexes & Fournitures Scolaires</span>
+                  <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/60 px-2.5 py-0.5 rounded-full border border-blue-300 dark:border-blue-800">
+                    Au choix / Cocher selon le besoin
+                  </span>
+                </label>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Cochez les éléments à acquitter aujourd'hui (Tenue, Tenue sport, Assurance/Bulletin, APE, Carte, etc.).
+                </p>
+              </div>
+
+              {totalFraisAnnexes > 0 && (
+                <div className="text-right shrink-0">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Total annexes cochés :</span>
+                  <span className="text-base font-black text-blue-600 dark:text-blue-400">
+                    +{formatAmount(totalFraisAnnexes)}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {fraisAnnexesPrimaire.map((type) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {fraisAnnexes.map((type) => {
                 const feeState = data.frais[type.id] || { selected: false, montant: type.montant || 0 };
-                const isTenue = type.code === 'tenue' || type.nom.toLowerCase().includes('tenue');
-                const isBulletin = type.code === 'bulletin' || type.nom.toLowerCase().includes('bulletin');
-                const isCarte = type.code === 'carte' || type.nom.toLowerCase().includes('carte');
-                const isAssurance = type.nom.toLowerCase().includes('assurance');
-                const isApe = type.nom.toLowerCase().includes('ape');
-                const isSecondaire = selectedClasseObj?.type === 'secondaire';
-                const isFixedFee = isCarte || isAssurance || isTenue || isBulletin || isApe;
+                const badgeInfo = getFeeBadgeInfo(type);
+                const isSelected = Boolean(feeState.selected);
 
                 return (
                   <div
                     key={type.id}
-                    className={`p-4 rounded-2xl border transition-all duration-300 flex flex-col justify-between gap-3
-                      ${feeState.selected
-                        ? 'bg-emerald-50/70 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-800 shadow-sm'
-                        : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                    onClick={() => toggleFee(type.id)}
+                    className={`p-4 rounded-2xl border transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 select-none ${badgeInfo.borderLeft}
+                      ${isSelected
+                        ? 'bg-blue-50/80 border-blue-400 dark:bg-blue-950/40 dark:border-blue-700 shadow-sm ring-1 ring-blue-400/30'
+                        : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm'
                       }
-                      ${isTenue ? (isSecondaire ? 'relative border-l-4 border-l-purple-500' : 'relative border-l-4 border-l-amber-500') : ''}
-                      ${isBulletin ? (isSecondaire ? 'relative border-l-4 border-l-cyan-500 bg-cyan-50/20 dark:bg-cyan-950/10' : 'relative border-l-4 border-l-blue-500') : ''}
-                      ${isCarte ? 'relative border-l-4 border-l-blue-400' : ''}
-                      ${isAssurance ? 'relative border-l-4 border-l-teal-500' : ''}
-                      ${isApe ? 'relative border-l-4 border-l-indigo-400' : ''}
                     `}
                   >
-                    {isTenue && (
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className={`text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border
-                          ${isSecondaire
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                          }
-                        `}>
-                          <span>👕 Tenue Scolaire</span>
-                          <span>• {selectedClasseObj ? (isSecondaire ? 'Secondaire (15 000 FCFA)' : 'Maternelle / Primaire (10 000 FCFA)') : '10 000 F (Mat/Prim) • 15 000 F (Sec)'}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${badgeInfo.badgeBg}`}>
+                          {type.nom}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-400">
-                          {feeState.selected ? 'Payée à l\'inscription' : 'Paiement ultérieur possible'}
-                        </span>
-                      </div>
-                    )}
-
-                    {isBulletin && (
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className={`text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border
-                          ${isSecondaire
-                            ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/50 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-                          }
-                        `}>
-                          <span>📋 Bulletin Scolaire</span>
-                          <span>• {selectedClasseObj ? (isSecondaire ? 'Secondaire (0 FCFA - Non facturé)' : 'Maternelle / Primaire (1 000 FCFA)') : '1 000 F (Mat/Prim) • 0 F (Sec)'}</span>
-                        </span>
-                        {isSecondaire ? (
-                          <span className="text-[10px] font-bold text-cyan-700 dark:text-cyan-400 bg-cyan-100/80 dark:bg-cyan-950/60 px-2 py-0.5 rounded-full">
-                            Non facturé au secondaire (0F)
+                        {['bulletin_assurance', 'tenue', 'tenue_sport'].includes(type.code?.toLowerCase()) || type.nom?.toLowerCase().includes('tenue') || type.nom?.toLowerCase().includes('assurance') ? (
+                          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200">
+                            Obligatoire
                           </span>
                         ) : (
-                          <span className="text-[10px] font-semibold text-slate-400">
-                            {feeState.selected ? 'Payé à l\'inscription' : 'Non coché'}
+                          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">
+                            Optionnel
                           </span>
                         )}
                       </div>
-                    )}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        isSelected
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
+                          : 'text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700/50'
+                      }`}>
+                        {feeState.already_paid ? "Déjà réglé" : (isSelected ? "Sélectionné" : "Non coché")}
+                      </span>
+                    </div>
 
-                    {isCarte && (
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-blue-50 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800">
-                          <span>💳 Carte Scolaire</span>
-                          <span>• Tarif Fixe pour tous (1 500 FCFA)</span>
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400">
-                          {feeState.selected ? 'Payée à l\'inscription' : 'Non cochée'}
-                        </span>
-                      </div>
-                    )}
-
-                    {isAssurance && (
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-teal-50 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 border-teal-200 dark:border-teal-800">
-                          <span>🛡️ Assurance Scolaire</span>
-                          <span>• Tarif Fixe pour tous (1 000 FCFA)</span>
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400">
-                          {feeState.selected ? 'Payée à l\'inscription' : 'Non cochée'}
-                        </span>
-                      </div>
-                    )}
-
-                    {isApe && (
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border bg-indigo-50 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
-                          <span>👨‍👩‍👧 Cotisation APE</span>
-                          <span>• Tarif Fixe (2 000 FCFA)</span>
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400">
-                          {feeState.selected ? 'Payée à l\'inscription' : 'Non cochée'}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex items-start justify-between gap-3">
-                      <label className="flex items-start gap-3 cursor-pointer flex-1">
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={feeState.selected}
-                          onChange={(e) => handleFeeChange(type.id, 'selected', e.target.checked)}
-                          className="mt-1 w-5 h-5 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 dark:bg-slate-900 dark:border-slate-600 cursor-pointer"
-                          disabled={!isValidee || feeState.already_paid || (isBulletin && isSecondaire)}
+                          checked={isSelected}
+                          onChange={() => toggleFee(type.id)}
+                          className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:bg-slate-900 dark:border-slate-600 cursor-pointer"
+                          disabled={!isValidee || feeState.already_paid}
                         />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-bold text-sm block ${feeState.selected ? 'text-emerald-900 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200'}`}>
-                              {type.nom}
-                            </span>
-                            {feeState.already_paid && (
-                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                ✓ Déjà Réglé
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-slate-500 font-mono uppercase mt-0.5 block">
-                            {type.code || 'ANNEXE'}
-                          </span>
-                          {isTenue && !feeState.selected && (
-                            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold mt-1 bg-amber-50 dark:bg-amber-900/20 p-1.5 rounded-lg border border-amber-200/50">
-                              ℹ️ Non réglée aujourd'hui : le parent pourra la payer ultérieurement ({isSecondaire ? '15 000 FCFA' : '10 000 FCFA'}). Un suivi d'encaissement sera créé.
-                            </p>
-                          )}
-                          {isBulletin && isSecondaire && (
-                            <p className="text-[11px] text-cyan-700 dark:text-cyan-400 font-semibold mt-1 bg-cyan-50 dark:bg-cyan-900/20 p-1.5 rounded-lg border border-cyan-200/50">
-                              ℹ️ Au secondaire, les élèves ne paient pas le bulletin de notes (0 FCFA).
-                            </p>
-                          )}
-                          {isApe && feeState.selected && (
-                            <p className="text-[11px] text-indigo-700 dark:text-indigo-300 font-medium mt-1 bg-indigo-50 dark:bg-indigo-950/30 p-1.5 rounded-lg border border-indigo-200/50">
-                              💡 Cotisation APE fixée à 2 000 FCFA.
-                            </p>
-                          )}
-                        </div>
-                      </label>
+                        <span className={`text-xs font-bold ${isSelected ? 'text-blue-900 dark:text-blue-200' : 'text-slate-600 dark:text-slate-400'}`}>
+                          {feeState.already_paid ? "Déjà Réglé" : (isSelected ? "Inclus" : "Cocher")}
+                        </span>
+                      </div>
 
-                      {/* CHAMP MONTANT (MONTANTS FIXES ET NON MODIFIABLES) */}
-                      <div className="w-28 shrink-0">
-                        <div className="relative">
-                          <input
-                            type="number"
-                            readOnly={isFixedFee}
-                            className={`w-full text-right py-1.5 px-2.5 rounded-xl border text-sm font-black transition-colors
-                              ${isFixedFee
-                                ? (feeState.selected
-                                    ? 'bg-slate-100 border-slate-300 text-slate-800 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200 cursor-not-allowed select-none'
-                                    : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700 cursor-not-allowed select-none'
-                                  )
-                                : (feeState.selected
-                                    ? 'bg-white border-indigo-300 dark:bg-slate-800 text-indigo-950 dark:text-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm'
-                                    : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-900 dark:border-slate-700'
-                                  )
-                              }
-                            `}
-                            value={feeState.montant}
-                            onChange={(e) => !isFixedFee && handleFeeChange(type.id, 'montant', e.target.value)}
-                            disabled={!feeState.selected || !isValidee || feeState.already_paid || (isBulletin && isSecondaire)}
-                          />
-                          <div className="flex items-center justify-end gap-1 mt-0.5">
-                            {isFixedFee ? (
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1 rounded border border-slate-200 dark:border-slate-700">
-                                Fixe
-                              </span>
-                            ) : (
-                              <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1 rounded border border-indigo-200 dark:border-indigo-800">
-                                Modifiable
-                              </span>
-                            )}
-                            <span className="text-[10px] text-slate-400 font-bold">FCFA</span>
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          step="500"
+                          value={feeState.montant !== undefined && feeState.montant !== null ? feeState.montant : (type.montant || 0)}
+                          onChange={(e) => handleAmountChange(type.id, e.target.value)}
+                          disabled={!isValidee || feeState.already_paid}
+                          title="Modifier le montant à encaisser"
+                          className={`w-28 sm:w-32 py-1 px-2.5 text-right font-black font-mono text-sm rounded-xl border-2 transition-all ${
+                            isSelected
+                              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-blue-400 dark:border-blue-600 focus:ring-2 focus:ring-blue-500 shadow-sm'
+                              : 'bg-slate-100 dark:bg-slate-800/60 text-slate-400 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                          }`}
+                        />
+                        <span className="text-[11px] font-bold text-slate-500">FCFA</span>
                       </div>
                     </div>
                   </div>
@@ -1406,87 +872,162 @@ export default function Create(props) {
             </div>
           </div>
 
-          {/* 3. OPTION REMISE COMMERCIALE DE 50% (UNIQUEMENT NOUVELLE INSCRIPTION) */}
-          <div className={`mt-6 p-4 sm:p-5 rounded-2xl border-2 transition-all duration-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm
-            ${data.has_remise 
-              ? 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/50 dark:bg-gradient-to-r dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/20 border-emerald-400 dark:border-emerald-700 ring-2 ring-emerald-500/20 shadow-emerald-500/10' 
-              : 'bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300'
-            }
-            ${data.admission_type === 'reinscription' ? 'opacity-60 cursor-not-allowed' : ''}
-          `}>
-            <div className="flex items-start sm:items-center gap-3.5">
-              <input
-                type="checkbox"
-                id="remise_checkbox"
-                checked={data.has_remise && data.admission_type === 'inscription'}
-                onChange={(e) => handleRemiseToggle(e.target.checked)}
-                disabled={!isValidee || data.admission_type === 'reinscription'}
-                className="w-5 h-5 mt-0.5 sm:mt-0 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 dark:bg-slate-900 dark:border-slate-600 cursor-pointer transition-all disabled:cursor-not-allowed"
-              />
-              <label htmlFor="remise_checkbox" className={`select-none ${data.admission_type === 'reinscription' ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-slate-800 dark:text-white text-sm sm:text-base">
-                    Appliquer une remise de 50% sur l'inscription
-                  </span>
-                  <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 text-xs font-black px-2.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-700">
-                    -50% (5 000 FCFA au lieu de 10 000 FCFA)
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {data.admission_type === 'reinscription'
-                    ? "Remise réservée exclusivement aux nouvelles inscriptions (non applicable sur les réinscriptions, tenues scolaires ou autres fournitures)."
-                    : "Réduction de 50% appliquée strictement sur les frais de nouvelle inscription (5 000 FCFA au lieu de 10 000 FCFA). Ne s'applique pas sur la tenue scolaire ni sur les réinscriptions."}
-                </p>
+          {/* 3. OPTION AVANCE SCOLARITÉ 1ER MOIS (SEPTEMBRE) */}
+          <div className="mb-8 border-t border-slate-200/80 dark:border-slate-700 pt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-1">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <span>3. Avance Scolarité 1er Mois (Septembre)</span>
+                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                  Optionnel
+                </span>
               </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Cochez si le parent règle la scolarité du premier mois aujourd'hui.
+              </p>
             </div>
-            {data.has_remise && data.admission_type === 'inscription' && (
-              <div className="text-left sm:text-right sm:shrink-0 bg-white dark:bg-slate-900/80 px-4 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800 shadow-sm">
-                <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wide block">
-                  Déduction Remise (50%)
-                </span>
-                <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                  - {formatAmount(montantRemise)}
-                </span>
-              </div>
-            )}
-          </div>
 
-          {/* RÉCAPITULATIF FINANCIER GLOBAL */}
-          <div className="mt-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B1A2D] to-blue-950 p-[2px]">
-            <div className="bg-[#0B1A2D] rounded-[14px] p-6 flex flex-col sm:flex-row justify-between items-center sm:items-end gap-4 shadow-inner">
-              <div>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Total Encaissé Immédiatement</p>
-                {data.has_remise ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400 line-through">Sous-total brut : {formatAmount(totalBrut)}</span>
-                      <span className="text-[11px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                        Remise -50% (-{formatAmount(montantRemise)})
+            <div className={`p-5 rounded-2xl border-2 transition-all duration-300 ${
+              data.payer_scolarite_mois
+                ? 'bg-blue-50/80 border-blue-500 dark:bg-blue-950/40 dark:border-blue-700 shadow-md ring-2 ring-blue-400/20'
+                : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+            }`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <label className="flex items-start gap-3.5 cursor-pointer flex-1 select-none">
+                  <input
+                    type="checkbox"
+                    checked={data.payer_scolarite_mois}
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      setData(prev => ({
+                        ...prev,
+                        payer_scolarite_mois: isChecked,
+                        montant_scolarite_mois: isChecked 
+                          ? ((prev.montant_scolarite_mois !== '' && prev.montant_scolarite_mois !== undefined && Number(prev.montant_scolarite_mois) > 0) ? prev.montant_scolarite_mois : scolariteMoisNet) 
+                          : ''
+                      }));
+                    }}
+                    className="mt-1 w-5 h-5 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:bg-slate-900 dark:border-slate-600 cursor-pointer"
+                    disabled={!isValidee}
+                  />
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-black text-slate-800 dark:text-white text-base">
+                        Régler la Scolarité du 1er mois (Septembre)
                       </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                        Avance Facultative
+                      </span>
+                      {data.has_remise && (
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded-full">
+                          Tarif remisé
+                        </span>
+                      )}
                     </div>
-                    <p className="text-emerald-400 text-xs font-medium">
-                      Tarif remisé de 50% appliqué avec succès sur les frais d'inscription.
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {selectedClasseObj
+                        ? `Classe : ${selectedClasseObj.nom} — Permet d'acquitter d'avance la première mensualité de scolarité.`
+                        : "Veuillez sélectionner une classe ci-dessus pour déterminer le montant mensuel de scolarité."
+                      }
                     </p>
                   </div>
-                ) : (
-                  totalFrais > 0 ? (
-                    <p className="text-emerald-400 text-sm font-medium">
-                      Admission ({data.admission_type === 'reinscription' ? '5 000 F' : '10 000 F'}) + Fournitures sélectionnées. Reçu imprimable généré.
-                    </p>
-                  ) : (
-                    <p className="text-slate-500 text-sm font-medium">Aucun paiement initial sélectionné.</p>
-                  )
-                )}
+                </label>
+
+                <div className="text-right shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+                    Montant scolarité à encaisser :
+                  </span>
+                  <div className="flex items-center justify-end gap-1.5">
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      value={data.montant_scolarite_mois !== undefined && data.montant_scolarite_mois !== null && data.montant_scolarite_mois !== '' ? data.montant_scolarite_mois : scolariteMoisNet}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : (parseFloat(e.target.value) >= 0 ? parseFloat(e.target.value) : 0);
+                        setData(prev => ({
+                          ...prev,
+                          payer_scolarite_mois: true,
+                          montant_scolarite_mois: val,
+                          scolarite_accorde: val > 0 ? val : prev.scolarite_accorde
+                        }));
+                      }}
+                      disabled={!isValidee || !data.payer_scolarite_mois}
+                      title="Modifier le montant de scolarité à encaisser"
+                      className={`w-36 sm:w-40 py-1.5 px-3 text-right font-black font-mono text-xl rounded-xl border-2 transition-all ${
+                        data.payer_scolarite_mois
+                          ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 border-blue-400 dark:border-blue-600 focus:ring-2 focus:ring-blue-500 shadow-inner'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 cursor-not-allowed'
+                      }`}
+                    />
+                    <span className="text-xs font-black text-slate-600 dark:text-slate-300">FCFA</span>
+                  </div>
+                  {scolariteMensuelleOfficielle > 0 && (
+                    <span className="text-[11px] text-slate-400 block mt-1">
+                      Tarif standard : {formatAmount(scolariteMensuelleOfficielle)}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="text-right w-full sm:w-auto">
-                <span className="block text-4xl sm:text-5xl font-black text-white tracking-tight">
+            </div>
+          </div>
+
+          {/* 4. CALCULATEUR AUTOMATIQUE DE REMISE NÉGOCIÉE */}
+          <div className="mb-8 border-t border-slate-200/80 dark:border-slate-700 pt-6">
+            <div className="mb-3">
+              <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <span>4. Remise Négociée sur la Scolarité</span>
+                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
+                  Optionnel
+                </span>
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Si un tarif préférentiel a été accordé, saisissez directement le montant net mensuel permis ou le pourcentage de remise.
+              </p>
+            </div>
+
+            <RemiseCalculator
+              baseMonthly={scolariteMensuelleOfficielle}
+              hasRemise={data.has_remise}
+              remisePourcentage={data.remise_pourcentage}
+              remiseMontant={data.remise_montant}
+              scolariteAccorde={data.scolarite_accorde}
+              onChange={handleRemiseChange}
+              title="Remise Scolarité Mensuelle"
+              monthsCount={9}
+            />
+          </div>
+
+          {/* 5. RÉCAPITULATIF FINANCIER GLOBAL */}
+          <div className="mt-6 overflow-hidden rounded-3xl bg-gradient-to-r from-[#0B1A2D] via-blue-950 to-slate-900 p-[2px] shadow-xl">
+            <div className="bg-[#0B1A2D] rounded-[22px] p-6 sm:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="space-y-1.5 flex-1">
+                <p className="text-slate-400 text-xs font-black uppercase tracking-wider">
+                  Détail de l'encaissement à l'inscription
+                </p>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-300">
+                  <span>• {data.admission_type === 'reinscription' ? 'Réinscription' : 'Inscription'} : <strong className="text-emerald-400 font-bold">{formatAmount(droitAdmission)}</strong></span>
+                  {totalFraisAnnexes > 0 && (
+                    <span>• Frais annexes cochés : <strong className="text-blue-400 font-bold">+{formatAmount(totalFraisAnnexes)}</strong></span>
+                  )}
+                  {data.payer_scolarite_mois && (
+                    <span>• 1er mois Septembre : <strong className="text-indigo-300 font-bold">+{formatAmount(scolariteMoisEffectif)}</strong></span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 pt-1">
+                  💡 Un reçu officiel détaillé avec mention légale sera imprimé après validation.
+                </p>
+              </div>
+
+              <div className="text-right w-full md:w-auto border-t md:border-t-0 border-slate-700/60 pt-4 md:pt-0">
+                <span className="block text-xs uppercase tracking-wider font-bold text-slate-400 mb-1">
+                  Total Encaissé Immédiatement
+                </span>
+                <span className="block text-4xl sm:text-5xl font-black text-white tracking-tight text-emerald-400">
                   {formatAmount(totalFrais)}
                 </span>
               </div>
             </div>
           </div>
-          </>
-          )}
         </motion.div>
 
         {/* BUTTON BAR */}

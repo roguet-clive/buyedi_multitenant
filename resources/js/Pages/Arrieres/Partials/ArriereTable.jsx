@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, History, Edit3, Trash2, CheckCircle2, Clock, AlertCircle, Plus, FileText } from 'lucide-react';
+import { CreditCard, History, Edit3, Trash2, CheckCircle2, Clock, AlertCircle, Plus, FileText, Printer } from 'lucide-react';
 import { Link } from '@inertiajs/react';
 import useTranslation from "@/Hooks/useTranslation";
 
@@ -114,26 +114,77 @@ export default function ArriereTable({
                                     </td>
                                     <td className="py-4 px-6 text-right">
                                         <div className="flex items-center justify-end gap-1.5">
-                                            {/* Bouton Encaisser */}
-                                            {item.statut !== 'solde' && can('encaisser_arrieres') && (
-                                                <button
-                                                    onClick={() => openPayModal(item)}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-                                                    title={t("pay_btn", "Encaisser un versement")}
-                                                >
-                                                    <CreditCard className="w-3.5 h-3.5" />
-                                                    <span>{t("cash_in", "Encaisser")}</span>
-                                                </button>
-                                            )}
+                                            {(() => {
+                                                const paiements = item.paiements || [];
+                                                const nbPaiements = paiements.length;
+                                                const dernierPaiement = nbPaiements > 0 ? paiements[nbPaiements - 1] : null;
 
-                                            {/* Historique des versements */}
-                                            <button
-                                                onClick={() => setHistoryTarget(item)}
-                                                className="p-2 text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 bg-slate-100 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-950/40 rounded-xl transition-all"
-                                                title={t("payment_history", "Historique des versements & Reçus")}
-                                            >
-                                                <History className="w-4 h-4" />
-                                            </button>
+                                                return (
+                                                    <>
+                                                        {/* CAS 1 : ARRIÉRÉ SOLDÉ (100%) -> BOUTON PRINCIPAL D'IMPRESSION DU REÇU */}
+                                                        {item.statut === 'solde' && dernierPaiement && (
+                                                            <a
+                                                                href={route('arrieres.recu', dernierPaiement.id)}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-indigo-600/20 transition-all active:scale-95 cursor-pointer"
+                                                                title="Imprimer la quittance officielle de solde"
+                                                            >
+                                                                <Printer className="w-3.5 h-3.5" />
+                                                                <span>{t("print_receipt", "Imprimer Reçu")}</span>
+                                                            </a>
+                                                        )}
+
+                                                        {/* Si plusieurs versements pour cet arriéré soldé, bouton explicite d'historique */}
+                                                        {item.statut === 'solde' && nbPaiements > 1 && (
+                                                            <button
+                                                                onClick={() => setHistoryTarget(item)}
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 rounded-xl transition-all"
+                                                                title="Voir tous les versements et imprimer chaque quittance"
+                                                            >
+                                                                <History className="w-3.5 h-3.5" />
+                                                                <span>{nbPaiements} reçus</span>
+                                                            </button>
+                                                        )}
+
+                                                        {/* CAS 2 : NON ENCORE SOLDÉ -> BOUTON ENCAISSER */}
+                                                        {item.statut !== 'solde' && can('encaisser_arrieres') && (
+                                                            <button
+                                                                onClick={() => openPayModal(item)}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                                                                title={t("pay_btn", "Encaisser un versement")}
+                                                            >
+                                                                <CreditCard className="w-3.5 h-3.5" />
+                                                                <span>{t("cash_in", "Encaisser")}</span>
+                                                            </button>
+                                                        )}
+
+                                                        {/* Raccourci Impression du dernier reçu pour dossier avec acomptes en cours */}
+                                                        {item.statut !== 'solde' && dernierPaiement && (
+                                                            <a
+                                                                href={route('arrieres.recu', dernierPaiement.id)}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="p-2 text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 rounded-xl transition-all"
+                                                                title={`Imprimer le dernier reçu émis (${dernierPaiement.numero_recu})`}
+                                                            >
+                                                                <Printer className="w-4 h-4" />
+                                                            </a>
+                                                        )}
+
+                                                        {/* Historique complet des versements */}
+                                                        {(item.statut !== 'solde' || nbPaiements <= 1) && (
+                                                            <button
+                                                                onClick={() => setHistoryTarget(item)}
+                                                                className="p-2 text-slate-600 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 bg-slate-100 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-indigo-950/40 rounded-xl transition-all"
+                                                                title={t("payment_history", "Historique des versements & Reçus")}
+                                                            >
+                                                                <History className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
 
                                             {/* Modifier */}
                                             {can('modifier_arrieres') && (

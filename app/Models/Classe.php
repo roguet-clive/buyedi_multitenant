@@ -21,7 +21,7 @@ class Classe extends Model
 
     protected $fillable = ['nom', 'type'];
 
-    protected $appends = ['mode_paiement_scolarite', 'is_examen', 'montant_tenue', 'montant_bulletin'];
+    protected $appends = ['mode_paiement_scolarite', 'is_examen', 'montant_tenue', 'montant_bulletin', 'montant_mensuel_officiel'];
 
     public function inscriptions()
     {
@@ -39,24 +39,38 @@ class Classe extends Model
     }
     
     // Helpers pour simplifier la logique
-    public function isMaternelle()
+    public function isCreche(): bool
+    {
+        return $this->type === 'creche' || str_contains(mb_strtolower($this->nom), 'crèche') || str_contains(mb_strtolower($this->nom), 'creche');
+    }
+
+    public function isMaternelle(): bool
     {
         return $this->type === 'maternelle';
     }
 
-    public function isPrimaire()
+    public function isPrimaire(): bool
     {
         return $this->type === 'primaire';
     }
 
-    public function isMaternelleOuPrimaire()
+    public function isMaternelleOuPrimaire(): bool
     {
-        return in_array($this->type, ['maternelle', 'primaire']);
+        return in_array($this->type, ['creche', 'maternelle', 'primaire']);
     }
     
-    public function isSecondaire()
+    public function isSecondaire(): bool
     {
         return $this->type === 'secondaire';
+    }
+
+    public function isQuatriemeAnneePrimaire(): bool
+    {
+        if ($this->type !== 'primaire') {
+            return false;
+        }
+        $nom = trim(mb_strtolower($this->nom));
+        return str_contains($nom, '4') || str_contains($nom, 'quatrieme') || str_contains($nom, 'quatrième') || str_contains($nom, 'ce2');
     }
 
     public function isCinquiemeAnneePrimaire(): bool
@@ -85,22 +99,67 @@ class Classe extends Model
     }
 
     /**
-     * Montant de la tenue scolaire selon le cycle
-     * Maternelle & Primaire : 10 000 FCFA
-     * Secondaire : 15 000 FCFA
+     * Résout la mensualité officielle selon la grille tarifaire CSSD
      */
-    public function getMontantTenueAttribute(): float
+    public function getMontantMensuelOfficielAttribute(): float
     {
-        return $this->isSecondaire() ? 15000.00 : 10000.00;
+        $nom = mb_strtolower($this->nom);
+
+        // Crèche
+        if ($this->isCreche()) {
+            if (str_contains($nom, '16h')) {
+                return 30000.0;
+            }
+            return 20000.0;
+        }
+
+        // Maternelle (3 ans, 4 ans, 5 ans)
+        if ($this->isMaternelle()) {
+            return 20000.0;
+        }
+
+        // Primaire
+        if ($this->isPrimaire()) {
+            if ($this->isCinquiemeAnneePrimaire()) {
+                return 30000.0;
+            }
+            if ($this->isQuatriemeAnneePrimaire()) {
+                return 25000.0;
+            }
+            return 20000.0;
+        }
+
+        // Secondaire
+        if ($this->isClasseExamen()) {
+            return 16111.0; // 145 000 / 9
+        }
+        return 15000.0; // 135 000 / 9
     }
 
     /**
-     * Montant du bulletin selon le cycle
-     * Maternelle & Primaire : 1 000 FCFA
-     * Secondaire : 0 FCFA (Gratuit)
+     * Montant de la tenue scolaire (extrait dynamiquement de la table frais_types)
+     */
+    public function getMontantTenueAttribute(): float
+    {
+        $montant = FraisType::where('code', 'tenue')
+            ->orWhere('nom', 'like', '%tenue%')
+            ->where('code', '!=', 'tenue_sport')
+            ->where('nom', 'not like', '%sport%')
+            ->value('montant');
+
+        return (float) ($montant ?? 0.0);
+    }
+
+    /**
+     * Montant Bulletin / Assurance (extrait dynamiquement de la table frais_types)
      */
     public function getMontantBulletinAttribute(): float
     {
-        return $this->isSecondaire() ? 0.00 : 1000.00;
+        $montant = FraisType::where('code', 'bulletin_assurance')
+            ->orWhere('code', 'bulletin')
+            ->orWhere('nom', 'like', '%bulletin%')
+            ->value('montant');
+
+        return (float) ($montant ?? 0.0);
     }
 }

@@ -32,7 +32,6 @@ class AppServiceProvider extends ServiceProvider
             'locale' => fn () => app()->getLocale(),
         ]);
 
-        // 📜 Traçabilité et Audit Sécurité : Connexions, Déconnexions & Échecs
-        \Illuminate\Support\Facades\Event::subscribe(\App\Listeners\AuthenticationLogSubscriber::class);
+        // 📜 Traçabilité et Sécurité : AuthenticationLogSubscriber est découvert automatiquement par Laravel 11.
     }
 }

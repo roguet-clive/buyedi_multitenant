@@ -60,7 +60,7 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
   const applyOfficialSchedule = () => {
     if (
       !confirm(
-        "Voulez-vous appliquer le barème officiel Buyedi ?\n\n• Maternelle (Petite, Moyenne, Grande Section) : 13 000 FCFA/mois (9 mois = 117 000 FCFA)\n• Primaire 1ère à 4ème Année : 13 500 FCFA/mois (9 mois = 121 500 FCFA)\n• Primaire 5ème Année : 15 000 FCFA/mois (9 mois = 135 000 FCFA)\n• Secondaire Général (6e à 1ère hors 3e) : 3 Tranches (70 000 F en Septembre, 32 500 F fin Novembre, 32 500 F fin Janvier = 135 000 FCFA)\n• Secondaire Examen (3e & Terminale) : 3 Tranches (70 000 F en Septembre, 37 500 F fin Novembre, 37 500 F fin Janvier = 145 000 FCFA)\n\nToutes les classes de l'année en cours seront automatiquement calibrées."
+        "Voulez-vous appliquer le barème officiel du Complexe Scolaire Sagesse Divine ?\n\n• Crèche (8h-13h) : 20 000 FCFA/mois (180 000 FCFA/an)\n• Crèche (8h-16h) : 30 000 FCFA/mois (270 000 FCFA/an)\n• Maternelle (3, 4, 5 ans) : 20 000 FCFA/mois (180 000 FCFA/an)\n• Primaire (1ère, 2ème, 3ème Année) : 20 000 FCFA/mois (180 000 FCFA/an)\n• Primaire 4ème Année : 25 000 FCFA/mois (225 000 FCFA/an)\n• Primaire 5ème Année : 30 000 FCFA/mois (270 000 FCFA/an)\n\nToutes les classes seront calibrées sur 9 mensualités avec échéance chaque 10 du mois."
       )
     ) {
       return;
@@ -73,7 +73,7 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
       {
         preserveScroll: true,
         onSuccess: () => {
-          toast.success("Barème officiel appliqué avec succès !");
+          toast.success("Barème officiel Sagesse Divine appliqué avec succès !");
           setIsApplyingBareme(false);
         },
         onError: () => {
@@ -145,11 +145,11 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
                   {t("tuition_grid", "Grille Tarifaire & Échéanciers de Scolarité")}
                 </h1>
                 <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5" /> Année {currentSchoolYear.nom}
+                  <Sparkles className="w-3.5 h-3.5" /> Complexe Scolaire Sagesse Divine • {currentSchoolYear.nom}
                 </span>
               </div>
               <p className="text-blue-100/80 font-medium text-sm max-w-3xl leading-relaxed">
-                Gestion officielle des tarifs et échéances : <strong>Maternelle</strong> (13 000 FCFA/mois), <strong>Primaire 1ère-4ème</strong> (13 500 FCFA/mois), <strong>5ème Année</strong> (15 000 FCFA/mois) et <strong>Secondaire</strong> (3 Tranches : 70 000 FCFA à la rentrée, 32 500 ou 37 500 FCFA en Novembre et Janvier).
+                Règlements de scolarité sur <strong>9 mois (Septembre à Mai)</strong> • Paiement chaque <strong>5 ou 10 du mois</strong> • Options de paiement au <strong>mois</strong> ou au <strong>trimestre</strong>.
               </p>
             </div>
           </div>
@@ -161,7 +161,7 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
               onClick={applyOfficialSchedule}
               disabled={isApplyingBareme}
               className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-3 rounded-xl shadow-lg shadow-blue-500/30 font-bold flex items-center justify-center gap-2.5 transition-all active:scale-95 text-sm border border-white/10"
-              title="Calibrer toutes les classes selon la règle officielle Buyedi"
+              title="Calibrer toutes les classes selon la règle officielle Sagesse Divine"
             >
               <RefreshCw className={`w-4 h-4 ${isApplyingBareme ? "animate-spin" : ""}`} />
               <span>Appliquer Barème Officiel</span>
@@ -179,97 +179,115 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
         </div>
       </div>
 
-      {/* 4 CARTES POLITIQUES TARIFAIRES BUYEDI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-        {/* CARTE 1 : MATERNELLE */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl"></div>
+      {/* 5 CARTES POLITIQUES TARIFAIRES SAGESSE DIVINE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+        {/* CARTE 1 : CRÈCHE */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-amber-200/70 dark:border-amber-800/40 shadow-sm relative overflow-hidden flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 flex items-center gap-1">
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 flex items-center gap-1">
+                <Baby className="w-3 h-3" /> Crèche
+              </span>
+              <span className="text-[10px] font-bold text-slate-400">8h-13h / 8h-16h</span>
+            </div>
+            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">
+              20k <span className="text-xs font-normal text-slate-400">à</span> 30k <span className="text-[11px] font-semibold text-slate-400">/ mois</span>
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mb-3">
+              8h-13h : 20 000 F • 8h-16h : 30 000 F.
+            </p>
+          </div>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400">Total (9m) :</span>
+            <span className="font-mono font-black text-amber-600 dark:text-amber-400">180k - 270k F</span>
+          </div>
+        </div>
+
+        {/* CARTE 2 : MATERNELLE 3, 4, 5 ANS */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-blue-100 dark:border-blue-900/40 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 flex items-center gap-1">
                 <Baby className="w-3 h-3" /> Maternelle
               </span>
-              <span className="text-[11px] font-bold text-slate-400">Petite, Moy., Grande</span>
+              <span className="text-[10px] font-bold text-slate-400">3, 4 & 5 ans</span>
             </div>
-            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-1">
-              13 000 FCFA <span className="text-xs font-semibold text-slate-400">/ mois</span>
+            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">
+              20 000 F <span className="text-[11px] font-semibold text-slate-400">/ mois</span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-              Règlement en <strong>9 mensualités</strong> de Septembre à Mai. Pas de tranches.
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mb-3">
+              Petite, Moyenne, Grande Section.
             </p>
           </div>
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-medium">Total Annuel :</span>
-            <span className="font-mono font-black text-blue-600 dark:text-blue-400 text-sm">117 000 FCFA</span>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400">Total (9m) :</span>
+            <span className="font-mono font-black text-blue-600 dark:text-blue-400">180 000 FCFA</span>
           </div>
         </div>
 
-        {/* CARTE 2 : PRIMAIRE 1ère à 4ème */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl"></div>
+        {/* CARTE 3 : PRIMAIRE 1ère à 3ème */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-emerald-100 dark:border-emerald-900/40 shadow-sm relative overflow-hidden flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 flex items-center gap-1">
-                <BookOpen className="w-3 h-3" /> Primaire (1e-4e)
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800 flex items-center gap-1">
+                <BookOpen className="w-3 h-3" /> Primaire (1e-3e)
               </span>
-              <span className="text-[11px] font-bold text-slate-400">1ère à 4ème Année</span>
+              <span className="text-[10px] font-bold text-slate-400">1ère, 2e, 3e</span>
             </div>
-            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-1">
-              13 500 FCFA <span className="text-xs font-semibold text-slate-400">/ mois</span>
+            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">
+              20 000 F <span className="text-[11px] font-semibold text-slate-400">/ mois</span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-              Règlement en <strong>9 mensualités</strong> de Septembre à Mai.
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mb-3">
+              Règlement en 9 mois de Septembre à Mai.
             </p>
           </div>
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-medium">Total Annuel :</span>
-            <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">121 500 FCFA</span>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400">Total (9m) :</span>
+            <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">180 000 FCFA</span>
           </div>
         </div>
 
-        {/* CARTE 3 : PRIMAIRE 5ème Année */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-teal-200/70 dark:border-teal-900/40 shadow-sm relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/10 rounded-full blur-2xl"></div>
+        {/* CARTE 4 : PRIMAIRE 4ème Année */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-indigo-100 dark:border-indigo-900/40 shadow-sm relative overflow-hidden flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center gap-1">
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800 flex items-center gap-1">
+                <BookOpen className="w-3 h-3" /> 4ème Année
+              </span>
+              <span className="text-[10px] font-bold text-indigo-500">Primaire</span>
+            </div>
+            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">
+              25 000 F <span className="text-[11px] font-semibold text-slate-400">/ mois</span>
+            </h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mb-3">
+              Règlement en 9 mois de Septembre à Mai.
+            </p>
+          </div>
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400">Total (9m) :</span>
+            <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">225 000 FCFA</span>
+          </div>
+        </div>
+
+        {/* CARTE 5 : PRIMAIRE 5ème Année (CEP) */}
+        <div className="bg-white dark:bg-slate-800 p-4 rounded-3xl border border-teal-200/70 dark:border-teal-900/40 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 flex items-center gap-1">
                 <BookOpen className="w-3 h-3" /> 5ème Année
               </span>
-              <span className="text-[11px] font-bold text-teal-600 dark:text-teal-400">Classe CEP</span>
+              <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400">Classe CEP</span>
             </div>
-            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-1">
-              15 000 FCFA <span className="text-xs font-semibold text-slate-400">/ mois</span>
+            <h3 className="text-lg font-black text-slate-800 dark:text-white mb-0.5">
+              30 000 F <span className="text-[11px] font-semibold text-slate-400">/ mois</span>
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-              Règlement en <strong>9 mensualités</strong> de Septembre à Mai pour la préparation au certificat.
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mb-3">
+              Préparation intensive au certificat.
             </p>
           </div>
-          <div className="pt-3 border-t border-teal-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-medium">Total Annuel :</span>
-            <span className="font-mono font-black text-teal-600 dark:text-teal-400 text-sm">135 000 FCFA</span>
-          </div>
-        </div>
-
-        {/* CARTE 4 : SECONDAIRE (Général & Examen) */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-purple-100 dark:border-purple-900/40 shadow-sm relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl"></div>
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800 flex items-center gap-1">
-                <Layers className="w-3 h-3" /> Secondaire
-              </span>
-              <span className="text-[11px] font-bold text-slate-400">6e à Terminale</span>
-            </div>
-            <h3 className="text-xl font-black text-slate-800 dark:text-white mb-1">
-              3 Tranches
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-              <strong>T1 (Sept.)</strong> : 70 000 F • <strong>T2 & T3</strong> : 32 500 F (Général) ou 37 500 F (3e/Tle).
-            </p>
-          </div>
-          <div className="pt-3 border-t border-purple-100 dark:border-slate-700/60 flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-medium">Total :</span>
-            <span className="font-mono font-black text-purple-600 dark:text-purple-400 text-sm">135k / 145k FCFA</span>
+          <div className="pt-2 border-t border-teal-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400">Total (9m) :</span>
+            <span className="font-mono font-black text-teal-600 dark:text-teal-400">270 000 FCFA</span>
           </div>
         </div>
       </div>
@@ -289,12 +307,12 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
                     {t("section", "Cycle / Section")}
                   </th>
                   <th className="p-5 font-bold tracking-wide uppercase text-xs w-44">{t("class", "Classe")}</th>
-                  <th className="p-5 font-bold tracking-wide uppercase text-xs w-36 text-center">Mode de Paiement</th>
-                  <th className="p-5 font-bold tracking-wide uppercase text-xs text-right w-60 bg-blue-950/40">
+                  <th className="p-5 font-bold tracking-wide uppercase text-xs w-44 text-center">Périodicités Autorisées</th>
+                  <th className="p-5 font-bold tracking-wide uppercase text-xs text-right w-56 bg-blue-950/40">
                     {t("montant_scolarite_annuel", "Total Annuel (FCFA)")}
                   </th>
                   <th className="p-5 font-bold tracking-wide uppercase text-xs text-left">
-                    Détail de l'Échéancier Officiel
+                    Détail des Échéances (Mois / Trimestre)
                   </th>
                 </tr>
               </thead>
@@ -303,25 +321,19 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
                   section.classes.length > 0 &&
                   section.classes.map((classe, idx) => {
                     const annualAmount = parseFloat(amounts[classe.id]) || 0;
-                    const isMaternelleOrPrimaire = section.id === "maternelle" || section.id === "primaire";
+                    const isMaternelleOrPrimaire = section.id === "creche" || section.id === "maternelle" || section.id === "primaire";
                     const isExamen = classe.is_examen || ["3e", "tle"].includes(classe.nom.toLowerCase().trim());
-                    const existingData = getExistingData(classe.id, existingFrais);
 
-                    // Mensualité indicative (9 mois)
+                    // Mensualité (9 mois)
                     const monthlyAmount = annualAmount > 0 ? Math.round(annualAmount / 9) : 0;
+                    const trimAmount = monthlyAmount * 3;
 
                     // Tranches indicatives
-                    let t1 = 0,
-                      t2 = 0,
-                      t3 = 0;
+                    let t1 = 0, t2 = 0, t3 = 0;
                     if (annualAmount === 145000 && isExamen) {
-                      t1 = 70000;
-                      t2 = 37500;
-                      t3 = 37500;
+                      t1 = 70000; t2 = 37500; t3 = 37500;
                     } else if (annualAmount === 135000) {
-                      t1 = 70000;
-                      t2 = 32500;
-                      t3 = 32500;
+                      t1 = 70000; t2 = 32500; t3 = 32500;
                     } else if (annualAmount > 0) {
                       t1 = Math.min(70000, annualAmount);
                       const reste = Math.max(0, annualAmount - t1);
@@ -341,6 +353,7 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
                             className="p-5 border-r border-slate-100 dark:border-slate-700 align-top bg-slate-50/50 dark:bg-slate-900/20"
                           >
                             <div className="font-black text-slate-800 dark:text-slate-200 text-base mb-1.5 flex items-center gap-2">
+                              {section.id === "creche" && <Baby className="w-5 h-5 text-amber-500" />}
                               {section.id === "maternelle" && <Baby className="w-5 h-5 text-blue-500" />}
                               {section.id === "primaire" && <BookOpen className="w-5 h-5 text-emerald-500" />}
                               {section.id === "secondaire" && <Layers className="w-5 h-5 text-purple-500" />}
@@ -369,9 +382,14 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
                         {/* Mode de paiement */}
                         <td className="p-5 text-center">
                           {isMaternelleOrPrimaire ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40">
-                              <CalendarRange className="w-3.5 h-3.5" /> Mensuel (9 mois)
-                            </span>
+                            <div className="flex flex-col gap-1 items-center">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40">
+                                <CalendarRange className="w-3 h-3" /> Mensuel (9 mois)
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                Trimestre (3x)
+                              </span>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/40">
                               <Layers className="w-3.5 h-3.5" /> 3 Tranches
@@ -400,22 +418,23 @@ export default function Index({ sections, fraisTypes, existingFrais, currentScho
                         {/* Détail Échéancier */}
                         <td className="p-5">
                           {isMaternelleOrPrimaire ? (
-                            // Maternelle & Primaire : Affichage des mensualités
                             annualAmount > 0 ? (
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-mono font-black text-emerald-700 dark:text-emerald-300 text-xs bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+                                <span className="font-mono font-black text-emerald-700 dark:text-emerald-300 text-xs bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm">
                                   <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                                  {monthlyAmount.toLocaleString("fr-FR")} FCFA / mois
+                                  {monthlyAmount.toLocaleString("fr-FR")} F / mois
                                 </span>
-                                <span className="text-[11px] text-slate-500 font-medium">
-                                  Septembre à Mai (9 mensualités)
+                                <span className="font-mono text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-lg border border-blue-200/60 dark:border-blue-800/40">
+                                  Trimestre : <strong>{trimAmount.toLocaleString("fr-FR")} F</strong>
+                                </span>
+                                <span className="text-[11px] text-slate-400 font-medium ml-1">
+                                  (Échéance chaque 10 du mois)
                                 </span>
                               </div>
                             ) : (
                               <span className="text-slate-300 dark:text-slate-600 text-xs italic">—</span>
                             )
                           ) : (
-                            // Secondaire : Affichage des 3 Tranches
                             annualAmount > 0 ? (
                               <div className="flex flex-wrap items-center gap-2 text-xs">
                                 <span className="font-mono font-bold px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">

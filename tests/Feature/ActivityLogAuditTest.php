@@ -59,7 +59,7 @@ class ActivityLogAuditTest extends TestCase
         $eleve = Eleve::create([
             'user_id' => $userEleve->id,
             'sexe' => 'M',
-            'matricule' => 'CSPBO-2026-9999',
+            'matricule' => 'CSSD-2026-9999',
             'date_naissance' => '2015-05-10',
             'lieu_naissance' => 'Libreville',
         ]);
@@ -68,9 +68,9 @@ class ActivityLogAuditTest extends TestCase
             ->where('subject_id', $eleve->id)
             ->first();
 
-        $this->assertNotNull($log, "L'activitÃ© de crÃ©ation de l'Ã©lÃ¨ve doit Ãªtre enregistrÃ©e");
-        $this->assertEquals($this->admin->id, $log->causer_id, "L'auteur (causer_id) doit Ãªtre l'admin connectÃ©");
-        $this->assertNotNull($log->created_at, "L'horodatage prÃ©cis doit Ãªtre prÃ©sent");
+        $this->assertNotNull($log, "L'activité de création de l'élève doit être enregistrée");
+        $this->assertEquals($this->admin->id, $log->causer_id, "L'auteur (causer_id) doit être l'admin connecté");
+        $this->assertNotNull($log->created_at, "L'horodatage précis doit être présent");
     }
 
     public function test_financial_actions_are_tracked_in_activity_log(): void
@@ -79,7 +79,7 @@ class ActivityLogAuditTest extends TestCase
         $eleve = Eleve::create([
             'user_id' => $userStudent->id,
             'sexe' => 'F',
-            'matricule' => 'CSPBO-2026-8888',
+            'matricule' => 'CSSD-2026-8888',
         ]);
 
         $annee = \App\Models\AnneeScolaire::create([

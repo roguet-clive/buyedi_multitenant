@@ -259,7 +259,7 @@ class DocumentPedagogiqueController extends Controller
 
        // Check access
        $canDownload = false;
-       if ($user->hasRole('super-admin') || $user->hasRole('directeur')) $canDownload = true;
+       if ($user->hasRole('super-admin') || $user->hasRole('directeur') || $user->hasRole('admin')) $canDownload = true;
        if ($this->isTeacher() && $doc->enseignant_id == $this->getTeacher()->id) $canDownload = true;
        if ($this->isStudent()) {
            $insc = $this->getStudentInscription();

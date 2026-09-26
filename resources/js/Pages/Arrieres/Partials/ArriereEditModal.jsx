@@ -44,16 +44,16 @@ export default function ArriereEditModal({ target, onClose, anneesDisponibles })
                 <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm transition-opacity" />
 
                 <div className="fixed inset-0 z-10 overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4 md:p-6">
-                        <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-8 text-left align-middle shadow-2xl transition-all border border-slate-100 dark:border-slate-800">
+                    <div className="flex min-h-full items-center justify-center p-3 sm:p-4 md:p-6">
+                        <Dialog.Panel className="w-full max-w-5xl xl:max-w-6xl transform overflow-hidden rounded-3xl bg-white dark:bg-slate-900 p-6 sm:p-7 text-left align-middle shadow-2xl transition-all border border-slate-200/80 dark:border-slate-800">
                             {/* HEADER */}
-                            <div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800 mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-3 bg-blue-100 dark:bg-blue-950 rounded-2xl text-blue-600 dark:text-blue-400">
+                            <div className="flex items-center justify-between pb-5 border-b border-slate-100 dark:border-slate-800 mb-5">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="p-3 bg-blue-100 dark:bg-blue-950/60 rounded-2xl text-blue-600 dark:text-blue-400 shadow-sm shadow-blue-500/10">
                                         <Edit3 className="w-6 h-6" />
                                     </div>
                                     <div>
-                                        <Dialog.Title as="h3" className="text-xl font-bold text-slate-900 dark:text-white">
+                                        <Dialog.Title as="h3" className="text-xl font-black text-slate-900 dark:text-white">
                                             {t("edit_arrear", "Modifier le Dossier Débiteur")}
                                         </Dialog.Title>
                                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -69,8 +69,8 @@ export default function ArriereEditModal({ target, onClose, anneesDisponibles })
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                            <form onSubmit={handleSubmit} className="space-y-5">
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                                     {/* IDENTITÉ */}
                                     <div className="lg:col-span-6 space-y-4 bg-slate-50/70 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200/70 dark:border-slate-700/60">
                                         <div className="flex items-center gap-2 text-slate-800 dark:text-white font-bold text-sm mb-1">

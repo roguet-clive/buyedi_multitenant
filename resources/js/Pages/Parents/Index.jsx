@@ -327,7 +327,7 @@ export default function Index({ parents, filters }) {
     const permissions = auth?.permissions || [];
     const roles = auth?.roles || [];
     const isTeacher = roles.some(role => role.toLowerCase() === 'enseignant');
-    const can = (permission) => permissions.includes(permission) || roles.includes('super-admin') || roles.includes('directeur');
+    const can = (permission) => permissions.includes(permission) || roles.includes('super-admin') || roles.includes('directeur') || roles.includes('admin');
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingParent, setEditingParent] = useState(null);

@@ -24,6 +24,7 @@ class InscriptionAdmissionTenueTest extends TestCase
     protected FraisType $fraisInscription;
     protected FraisType $fraisReinscription;
     protected FraisType $fraisTenue;
+    protected FraisType $fraisBulletinAssurance;
 
     protected function setUp(): void
     {
@@ -68,7 +69,7 @@ class InscriptionAdmissionTenueTest extends TestCase
             'type' => 'secondaire',
         ]);
 
-        // FraisTypes
+        // FraisTypes harmonisés (aucun écart primaire/secondaire)
         $this->fraisInscription = FraisType::firstOrCreate(
             ['code' => 'inscription'],
             ['nom' => "Frais d'Inscription", 'montant' => 10000.00, 'is_scolarite' => false, 'globale' => true]
@@ -76,17 +77,22 @@ class InscriptionAdmissionTenueTest extends TestCase
 
         $this->fraisReinscription = FraisType::firstOrCreate(
             ['code' => 'reinscription'],
-            ['nom' => 'Frais de Réinscription', 'montant' => 5000.00, 'is_scolarite' => false, 'globale' => true]
+            ['nom' => 'Frais de Réinscription', 'montant' => 10000.00, 'is_scolarite' => false, 'globale' => true]
         );
 
         $this->fraisTenue = FraisType::firstOrCreate(
             ['code' => 'tenue'],
-            ['nom' => 'Tenue Scolaire', 'montant' => 10000.00, 'is_scolarite' => false, 'globale' => true]
+            ['nom' => 'Tenue Scolaire', 'montant' => 12000.00, 'is_scolarite' => false, 'globale' => true]
+        );
+
+        $this->fraisBulletinAssurance = FraisType::firstOrCreate(
+            ['code' => 'bulletin_assurance'],
+            ['nom' => 'Bulletin + Assurance', 'montant' => 5000.00, 'is_scolarite' => false, 'globale' => true]
         );
     }
 
     /**
-     * Test 1 : Une nouvelle inscription (10 000 FCFA) exclut formellement les frais de réinscription (5 000 FCFA)
+     * Test 1 : Une nouvelle inscription (10 000 FCFA) exclut formellement les frais de réinscription (10 000 FCFA)
      */
     public function test_nouvelle_inscription_encaisse_10000_et_exclut_reinscription(): void
     {
@@ -107,8 +113,8 @@ class InscriptionAdmissionTenueTest extends TestCase
             'statut' => 'validee',
             'frais' => [
                 $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
-                $this->fraisReinscription->id => ['selected' => true, 'montant' => 5000], // Tentative d'envoyer les 2
-                $this->fraisTenue->id => ['selected' => true, 'montant' => 15000], // 15 000 FCFA pour Secondaire
+                $this->fraisReinscription->id => ['selected' => true, 'montant' => 10000], // Tentative d'envoyer les 2
+                $this->fraisTenue->id => ['selected' => true, 'montant' => 12000], // 12 000 FCFA tarif unique
             ],
         ];
 
@@ -128,16 +134,16 @@ class InscriptionAdmissionTenueTest extends TestCase
         $this->assertTrue($hasInscription, 'Le paiement de 10 000 FCFA d\'inscription doit être enregistré');
         $this->assertFalse($hasReinscription, 'Le paiement de réinscription doit être exclu formellement');
         $this->assertTrue($hasTenue, 'La tenue doit être enregistrée car cochée');
-        $this->assertEquals(25000, (float) $inscription->total_frais, 'Total frais = 10000 (inscription) + 15000 (tenue secondaire)');
+        $this->assertEquals(22000, (float) $inscription->total_frais, 'Total frais = 10000 (inscription) + 12000 (tenue)');
         $this->assertTrue($inscription->tenue_payee, 'L\'attribut tenue_payee doit être true');
-        $this->assertEquals(15000, (float) $inscription->montant_tenue_exigible);
+        $this->assertEquals(12000, (float) $inscription->montant_tenue_exigible);
         $this->assertEquals(0, (float) $inscription->reste_tenue);
     }
 
     /**
-     * Test 2 : Une réinscription (5 000 FCFA) exclut formellement les frais d'inscription (10 000 FCFA)
+     * Test 2 : Une réinscription (10 000 FCFA) exclut formellement les frais d'inscription
      */
-    public function test_reinscription_encaisse_5000_et_exclut_inscription(): void
+    public function test_reinscription_encaisse_10000_et_exclut_inscription(): void
     {
         $user = User::factory()->create(['nom' => 'Ondo', 'prenom' => 'Paul']);
         $eleve = Eleve::create([
@@ -156,8 +162,8 @@ class InscriptionAdmissionTenueTest extends TestCase
             'statut' => 'validee',
             'frais' => [
                 $this->fraisInscription->id => ['selected' => true, 'montant' => 10000], // Même si envoyé
-                $this->fraisReinscription->id => ['selected' => true, 'montant' => 5000],
-                $this->fraisTenue->id => ['selected' => false, 'montant' => 10000], // Tenue non payée
+                $this->fraisReinscription->id => ['selected' => true, 'montant' => 10000],
+                $this->fraisTenue->id => ['selected' => false, 'montant' => 12000], // Tenue non payée
             ],
         ];
 
@@ -170,10 +176,10 @@ class InscriptionAdmissionTenueTest extends TestCase
 
         $paiements = Paiement::where('inscription_id', $inscription->id)->get();
         $this->assertFalse($paiements->contains('frais_type_id', $this->fraisInscription->id), 'Inscription 10000 exclue');
-        $this->assertTrue($paiements->contains('frais_type_id', $this->fraisReinscription->id), 'Réinscription 5000 enregistrée');
+        $this->assertTrue($paiements->contains('frais_type_id', $this->fraisReinscription->id), 'Réinscription 10000 enregistrée');
         $this->assertFalse($paiements->contains('frais_type_id', $this->fraisTenue->id), 'Tenue non payée');
 
-        $this->assertEquals(5000, (float) $inscription->total_frais);
+        $this->assertEquals(10000, (float) $inscription->total_frais);
         $this->assertFalse($inscription->tenue_payee, 'L\'attribut tenue_payee doit être false car non réglée');
     }
 
@@ -200,7 +206,7 @@ class InscriptionAdmissionTenueTest extends TestCase
             'statut' => 'validee',
             'frais' => [
                 $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
-                $this->fraisTenue->id => ['selected' => false, 'montant' => 10000],
+                $this->fraisTenue->id => ['selected' => false, 'montant' => 12000],
             ],
         ];
 
@@ -209,11 +215,11 @@ class InscriptionAdmissionTenueTest extends TestCase
         $inscription = Inscription::where('eleve_id', $eleve->id)->first();
         $this->assertFalse($inscription->tenue_payee, 'Initialement, la tenue est impayée');
 
-        // Le parent vient plus tard payer la tenue au guichet
+        // Le parent vient plus tard payer la tenue au guichet (12 000 FCFA)
         $payloadPaiementTenue = [
             'inscription_id' => $inscription->id,
             'frais_type_id' => $this->fraisTenue->id,
-            'montant' => 10000,
+            'montant' => 12000,
             'mode_paiement' => 'especes',
             'date_paiement' => '2026-09-15',
             'commentaire' => 'Règlement Tenue Scolaire (Paiement différé)',
@@ -226,25 +232,21 @@ class InscriptionAdmissionTenueTest extends TestCase
         $inscription->refresh();
         $this->assertTrue($inscription->tenue_payee, 'Après paiement différé, tenue_payee doit être true');
         $this->assertNotNull($inscription->paiement_tenue, 'Le paiement de tenue est maintenant associé');
-        $this->assertEquals(10000, (float) $inscription->paiement_tenue->montant);
+        $this->assertEquals(12000, (float) $inscription->paiement_tenue->montant);
     }
 
     /**
-     * Test 4 : Maternelle & Primaire ont un montant de tenue à 10 000 FCFA
+     * Test 4 : Tous les cycles ont un montant de tenue unifié à 12 000 FCFA
      */
-    public function test_tenue_cycle_maternelle_primaire_est_10000(): void
+    public function test_tenue_cycle_maternelle_primaire_et_secondaire_est_12000(): void
     {
-        $classePrimaire = Classe::create([
-            'nom' => 'CM2 A',
-            'type' => 'primaire',
-        ]);
-        $this->assertEquals(10000.0, (float) $classePrimaire->montant_tenue);
+        $classePrimaire = Classe::create(['nom' => 'CM2 A', 'type' => 'primaire']);
+        $classeMaternelle = Classe::create(['nom' => 'Grande Section', 'type' => 'maternelle']);
+        $classeSecondaire = Classe::create(['nom' => 'Terminale S', 'type' => 'secondaire']);
 
-        $classeMaternelle = Classe::create([
-            'nom' => 'Grande Section',
-            'type' => 'maternelle',
-        ]);
-        $this->assertEquals(10000.0, (float) $classeMaternelle->montant_tenue);
+        $this->assertEquals(12000.0, (float) $classePrimaire->montant_tenue);
+        $this->assertEquals(12000.0, (float) $classeMaternelle->montant_tenue);
+        $this->assertEquals(12000.0, (float) $classeSecondaire->montant_tenue);
 
         $user = User::factory()->create(['nom' => 'Ngoua', 'prenom' => 'Alain']);
         $eleve = Eleve::create([
@@ -264,63 +266,15 @@ class InscriptionAdmissionTenueTest extends TestCase
             'statut' => 'validee',
         ]);
 
-        $this->assertEquals(10000.0, (float) $inscription->montant_tenue_exigible);
-        $this->assertEquals(10000.0, (float) $inscription->reste_tenue);
+        $this->assertEquals(12000.0, (float) $inscription->montant_tenue_exigible);
+        $this->assertEquals(12000.0, (float) $inscription->reste_tenue);
         $this->assertFalse($inscription->tenue_payee);
     }
 
     /**
-     * Test 5 : Tout le Secondaire (6e à Terminale) a un montant de tenue à 15 000 FCFA
+     * Test 5 : Lors de l'enregistrement sans montant explicite, le tarif uniforme de 12 000 FCFA est appliqué
      */
-    public function test_tenue_cycle_secondaire_est_15000(): void
-    {
-        $classeSecondaire = Classe::create([
-            'nom' => 'Terminale S',
-            'type' => 'secondaire',
-        ]);
-        $this->assertEquals(15000.0, (float) $classeSecondaire->montant_tenue);
-
-        $user = User::factory()->create(['nom' => 'Kombila', 'prenom' => 'Grace']);
-        $eleve = Eleve::create([
-            'user_id' => $user->id,
-            'matricule' => 'EL-SEC-01',
-            'sexe' => 'F',
-            'date_naissance' => '2009-08-15',
-            'lieu_naissance' => 'Franceville',
-        ]);
-
-        $inscription = Inscription::create([
-            'eleve_id' => $eleve->id,
-            'classe_id' => $classeSecondaire->id,
-            'annee_scolaire_id' => $this->annee->id,
-            'date_inscription' => '2026-09-04',
-            'total_frais' => 0,
-            'statut' => 'validee',
-        ]);
-
-        $this->assertEquals(15000.0, (float) $inscription->montant_tenue_exigible);
-        $this->assertEquals(15000.0, (float) $inscription->reste_tenue);
-        $this->assertFalse($inscription->tenue_payee);
-
-        // Paiement complet de 15 000 FCFA
-        Paiement::create([
-            'inscription_id' => $inscription->id,
-            'frais_type_id' => $this->fraisTenue->id,
-            'user_id' => $this->admin->id,
-            'montant' => 15000,
-            'date_paiement' => '2026-09-04',
-            'mode_paiement' => 'especes',
-        ]);
-
-        $inscription->refresh();
-        $this->assertTrue($inscription->tenue_payee);
-        $this->assertEquals(0.0, (float) $inscription->reste_tenue);
-    }
-
-    /**
-     * Test 6 : Lors de l'enregistrement sans montant explicite, le contrôleur applique 15000 F en secondaire et 10000 F en primaire
-     */
-    public function test_fallback_automatique_montant_tenue_selon_cycle(): void
+    public function test_fallback_automatique_montant_tenue_uniforme(): void
     {
         $classePrimaire = Classe::create(['nom' => 'CE2 B', 'type' => 'primaire']);
         $classeSecondaire = Classe::create(['nom' => '3ème B', 'type' => 'secondaire']);
@@ -342,7 +296,7 @@ class InscriptionAdmissionTenueTest extends TestCase
             'statut' => 'validee',
             'frais' => [
                 $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
-                $this->fraisTenue->id => ['selected' => true, 'montant' => null], // pas de montant fourni
+                $this->fraisTenue->id => ['selected' => true, 'montant' => null],
             ],
         ]);
 
@@ -350,7 +304,7 @@ class InscriptionAdmissionTenueTest extends TestCase
         $this->assertNotNull($insc1);
         $pTenue1 = Paiement::where('inscription_id', $insc1->id)->where('frais_type_id', $this->fraisTenue->id)->first();
         $this->assertNotNull($pTenue1);
-        $this->assertEquals(10000.0, (float) $pTenue1->montant, 'Le fallback primaire doit être 10 000 FCFA');
+        $this->assertEquals(12000.0, (float) $pTenue1->montant, 'Le montant de la tenue doit être 12 000 FCFA pour primaire');
 
         // 2. Secondaire sans montant explicite
         $user2 = User::factory()->create(['nom' => 'Sec', 'prenom' => 'Student']);
@@ -369,7 +323,7 @@ class InscriptionAdmissionTenueTest extends TestCase
             'statut' => 'validee',
             'frais' => [
                 $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
-                $this->fraisTenue->id => ['selected' => true, 'montant' => null], // pas de montant fourni
+                $this->fraisTenue->id => ['selected' => true, 'montant' => null],
             ],
         ]);
 
@@ -377,25 +331,23 @@ class InscriptionAdmissionTenueTest extends TestCase
         $this->assertNotNull($insc2);
         $pTenue2 = Paiement::where('inscription_id', $insc2->id)->where('frais_type_id', $this->fraisTenue->id)->first();
         $this->assertNotNull($pTenue2);
-        $this->assertEquals(15000.0, (float) $pTenue2->montant, 'Le fallback secondaire doit être 15 000 FCFA');
+        $this->assertEquals(12000.0, (float) $pTenue2->montant, 'Le montant de la tenue doit être 12 000 FCFA pour secondaire');
     }
 
     /**
-     * Test 7 : Application d'une remise de 50% STRICTEMENT sur les frais d'inscription (10 000 -> 5 000), nulle part ailleurs
+     * Test 6 : Vérifier qu'aucune remise de 50% n'est accordée à l'inscription (montant 100% plein)
      */
-    public function test_application_remise_50_pourcent_inscription_uniquement(): void
+    public function test_aucune_remise_a_l_inscription(): void
     {
-        $user = User::factory()->create(['nom' => 'Remise', 'prenom' => 'Test']);
+        $user = User::factory()->create(['nom' => 'InscSansRemise', 'prenom' => 'PleinTarif']);
         $eleve = Eleve::create([
             'user_id' => $user->id,
-            'matricule' => 'EL-REM-50',
+            'matricule' => 'EL-SANS-REMISE',
             'sexe' => 'M',
-            'date_naissance' => '2015-02-14',
+            'date_naissance' => '2015-05-15',
             'lieu_naissance' => 'Libreville',
         ]);
 
-        // Inscription en 6ème (secondaire : Inscription standard 10 000, Tenue standard 15 000 = Brut 25 000)
-        // Avec remise de 50% sur l'inscription UNIQUEMENT : Inscription = 5 000 F, Tenue = 15 000 F (pleine), Total net = 20 000 F, Économie = 5 000 F
         $payload = [
             'eleve_id' => $eleve->id,
             'classe_id' => $this->classe->id,
@@ -406,8 +358,8 @@ class InscriptionAdmissionTenueTest extends TestCase
             'remise_montant' => 5000,
             'statut' => 'validee',
             'frais' => [
-                $this->fraisInscription->id => ['selected' => true, 'montant' => 5000],
-                $this->fraisTenue->id => ['selected' => true, 'montant' => 15000],
+                $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
+                $this->fraisTenue->id => ['selected' => true, 'montant' => 12000],
             ],
         ];
 
@@ -416,24 +368,20 @@ class InscriptionAdmissionTenueTest extends TestCase
 
         $inscription = Inscription::where('eleve_id', $eleve->id)->first();
         $this->assertNotNull($inscription);
-        $this->assertTrue($inscription->has_remise);
-        $this->assertEquals(50.0, (float) $inscription->remise_pourcentage);
-        $this->assertEquals(5000.0, (float) $inscription->remise_montant);
-        $this->assertEquals(20000.0, (float) $inscription->total_frais);
+        $this->assertEquals(22000.0, (float) $inscription->total_frais, 'Les frais annexes d\'inscription ne subissent aucune remise');
 
-        // Vérifier les paiements individuels : Inscription remisée à 5 000 F, Tenue reste à 15 000 F
         $pInscription = Paiement::where('inscription_id', $inscription->id)->where('frais_type_id', $this->fraisInscription->id)->first();
         $this->assertNotNull($pInscription);
-        $this->assertEquals(5000.0, (float) $pInscription->montant);
+        $this->assertEquals(10000.0, (float) $pInscription->montant, 'L\'inscription est toujours au tarif plein de 10 000 FCFA sans remise');
 
         $pTenue = Paiement::where('inscription_id', $inscription->id)->where('frais_type_id', $this->fraisTenue->id)->first();
         $this->assertNotNull($pTenue);
-        $this->assertEquals(15000.0, (float) $pTenue->montant);
+        $this->assertEquals(12000.0, (float) $pTenue->montant);
         $this->assertTrue($inscription->tenue_payee);
     }
 
     /**
-     * Test 8 : Vérifier que la réinscription ne peut JAMAIS avoir de remise
+     * Test 7 : Vérifier que les frais de réinscription ne subissent aucune remise (10 000 FCFA plein)
      */
     public function test_reinscription_refuse_toute_remise(): void
     {
@@ -451,12 +399,12 @@ class InscriptionAdmissionTenueTest extends TestCase
             'classe_id' => $this->classe->id,
             'date_inscription' => '2026-09-04',
             'admission_type' => 'reinscription',
-            'has_remise' => true, // Tentative frauduleuse ou accidentelle d'activer la remise
+            'has_remise' => true,
             'remise_pourcentage' => 50,
-            'remise_montant' => 2500,
+            'remise_montant' => 5000,
             'statut' => 'validee',
             'frais' => [
-                $this->fraisReinscription->id => ['selected' => true, 'montant' => 5000],
+                $this->fraisReinscription->id => ['selected' => true, 'montant' => 10000],
             ],
         ];
 
@@ -466,29 +414,21 @@ class InscriptionAdmissionTenueTest extends TestCase
         $inscription = Inscription::where('eleve_id', $eleve->id)->first();
         $this->assertNotNull($inscription);
         $this->assertTrue($inscription->reinscription);
-        $this->assertFalse((bool)$inscription->has_remise, 'La remise doit être strictement désactivée en réinscription');
-        $this->assertEquals(0.0, (float)$inscription->remise_montant);
-        $this->assertEquals(5000.0, (float)$inscription->total_frais);
+        $this->assertEquals(10000.0, (float)$inscription->total_frais, 'Les frais de réinscription restent strictement à 10 000 FCFA sans réduction');
     }
 
     /**
-     * Test 9 : Au secondaire, l'élève ne paie pas le bulletin (0 FCFA - Aucun paiement de bulletin créé)
+     * Test 8 : Bulletin + Assurance est facturé à 5 000 FCFA pour tous les cycles
      */
-    public function test_secondaire_ne_paie_pas_le_bulletin_donc_0f(): void
+    public function test_bulletin_assurance_est_5000_tous_cycles(): void
     {
-        $fraisBulletin = FraisType::firstOrCreate(
-            ['nom' => 'Bulletin'],
-            ['code' => 'divers', 'montant' => 1000.00, 'is_scolarite' => false, 'globale' => true]
-        );
+        $classePrimaire = Classe::create(['nom' => 'CM1 A', 'type' => 'primaire']);
+        $classeSecondaire = Classe::create(['nom' => '5ème B', 'type' => 'secondaire']);
 
-        $classeSecondaire = Classe::create([
-            'nom' => '5ème B',
-            'type' => 'secondaire',
-        ]);
+        $this->assertEquals(5000.0, (float) $classePrimaire->montant_bulletin);
+        $this->assertEquals(5000.0, (float) $classeSecondaire->montant_bulletin);
 
-        $this->assertEquals(0.0, (float) $classeSecondaire->montant_bulletin);
-
-        $user = User::factory()->create(['nom' => 'Sec', 'prenom' => 'BulletinGratuit']);
+        $user = User::factory()->create(['nom' => 'Sec', 'prenom' => 'EleveBulletin']);
         $eleve = Eleve::create([
             'user_id' => $user->id,
             'matricule' => 'EL-SEC-01',
@@ -508,7 +448,7 @@ class InscriptionAdmissionTenueTest extends TestCase
             'statut' => 'validee',
             'frais' => [
                 $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
-                $fraisBulletin->id => ['selected' => true, 'montant' => 0], // Bulletin sélectionné mais à 0F
+                $this->fraisBulletinAssurance->id => ['selected' => true, 'montant' => 5000],
             ],
         ];
 
@@ -517,68 +457,13 @@ class InscriptionAdmissionTenueTest extends TestCase
 
         $inscription = Inscription::where('eleve_id', $eleve->id)->first();
         $this->assertNotNull($inscription);
-        // Seulement les 10 000 F d'inscription doivent être payés (aucun paiement de bulletin)
-        $this->assertEquals(10000.0, (float) $inscription->total_frais);
+        // 10 000 F d'inscription + 5 000 F Bulletin+Assurance = 15 000 F
+        $this->assertEquals(15000.0, (float) $inscription->total_frais);
 
-        $bulletinPaiement = Paiement::where('inscription_id', $inscription->id)
-            ->where('frais_type_id', $fraisBulletin->id)
+        $pBulletinAssurance = Paiement::where('inscription_id', $inscription->id)
+            ->where('frais_type_id', $this->fraisBulletinAssurance->id)
             ->first();
-        $this->assertNull($bulletinPaiement, 'Au secondaire, aucun paiement pour le bulletin ne doit être créé.');
-    }
-
-    /**
-     * Test 10 : Au primaire / maternelle, le bulletin est payant (1 000 FCFA)
-     */
-    public function test_primaire_paie_le_bulletin_1000f(): void
-    {
-        $fraisBulletin = FraisType::firstOrCreate(
-            ['nom' => 'Bulletin'],
-            ['code' => 'divers', 'montant' => 1000.00, 'is_scolarite' => false, 'globale' => true]
-        );
-
-        $classePrimaire = Classe::create([
-            'nom' => 'CM1 A',
-            'type' => 'primaire',
-        ]);
-
-        $this->assertEquals(1000.0, (float) $classePrimaire->montant_bulletin);
-
-        $user = User::factory()->create(['nom' => 'Prim', 'prenom' => 'BulletinPayant']);
-        $eleve = Eleve::create([
-            'user_id' => $user->id,
-            'matricule' => 'EL-PRIM-01',
-            'sexe' => 'F',
-            'date_naissance' => '2016-08-20',
-            'lieu_naissance' => 'Oyem',
-        ]);
-
-        $payload = [
-            'eleve_id' => $eleve->id,
-            'classe_id' => $classePrimaire->id,
-            'date_inscription' => '2026-09-04',
-            'admission_type' => 'inscription',
-            'has_remise' => false,
-            'remise_pourcentage' => 0,
-            'remise_montant' => 0,
-            'statut' => 'validee',
-            'frais' => [
-                $this->fraisInscription->id => ['selected' => true, 'montant' => 10000],
-                $fraisBulletin->id => ['selected' => true, 'montant' => 1000],
-            ],
-        ];
-
-        $response = $this->actingAs($this->admin)->post(route('inscriptions.store'), $payload);
-        $response->assertRedirect(route('inscriptions.index'));
-
-        $inscription = Inscription::where('eleve_id', $eleve->id)->first();
-        $this->assertNotNull($inscription);
-        // 10 000 F d'inscription + 1 000 F de bulletin = 11 000 F
-        $this->assertEquals(11000.0, (float) $inscription->total_frais);
-
-        $bulletinPaiement = Paiement::where('inscription_id', $inscription->id)
-            ->where('frais_type_id', $fraisBulletin->id)
-            ->first();
-        $this->assertNotNull($bulletinPaiement);
-        $this->assertEquals(1000.0, (float) $bulletinPaiement->montant);
+        $this->assertNotNull($pBulletinAssurance);
+        $this->assertEquals(5000.0, (float) $pBulletinAssurance->montant);
     }
 }

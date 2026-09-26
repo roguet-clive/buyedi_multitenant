@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
 import { Head, router, usePage } from '@inertiajs/react';
-import { Clock, Wallet, Plus } from 'lucide-react';
+import { Clock, Wallet, Plus, CheckCircle2, Printer, X } from 'lucide-react';
 import useTranslation from "@/Hooks/useTranslation";
 
 import ArriereStatsCards from './Partials/ArriereStatsCards';
@@ -15,7 +15,15 @@ import ArriereDeleteModal from './Partials/ArriereDeleteModal';
 
 export default function Index({ arrieres, filters, stats, anneesDisponibles }) {
     const { t } = useTranslation();
-    const { auth } = usePage().props;
+    const { auth, flash } = usePage().props;
+    const [showFlashBanner, setShowFlashBanner] = useState(true);
+
+    useEffect(() => {
+        if (flash?.dernier_recu_arriere_id) {
+            setShowFlashBanner(true);
+        }
+    }, [flash]);
+
     const permissions = auth?.permissions || [];
     const isSuperAdmin = auth?.roles?.some(role => role.toLowerCase() === 'super-admin' || role.toLowerCase() === 'superadmin');
     const can = (permission) => isSuperAdmin || permissions.includes(permission);
@@ -115,6 +123,47 @@ export default function Index({ arrieres, filters, stats, anneesDisponibles }) {
                     )}
                 </div>
             </div>
+
+            {/* BANDEAU NOTIFICATION QUITTANCE RÉCENTE */}
+            {flash?.dernier_recu_arriere_id && showFlashBanner && (
+                <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-transparent border-2 border-emerald-500/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-3 duration-200">
+                    <div className="flex items-center gap-3.5">
+                        <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-md shadow-emerald-600/30">
+                            <CheckCircle2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                                <span>Versement encaissé avec succès</span>
+                                <span className="font-mono text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold">
+                                    {flash.dernier_recu_arriere_numero}
+                                </span>
+                            </h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                                {flash.success || "La quittance officielle d'arriéré a été émise et est prête pour l'impression."}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <a
+                            href={route('arrieres.recu', flash.dernier_recu_arriere_id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/25 transition-all active:scale-95 cursor-pointer"
+                        >
+                            <Printer className="w-4 h-4" />
+                            <span>Imprimer la Quittance</span>
+                        </a>
+                        <button
+                            type="button"
+                            onClick={() => setShowFlashBanner(false)}
+                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+                            title="Masquer"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* 1. STATS CARDS & FILTRES DE STATUT */}
             <ArriereStatsCards

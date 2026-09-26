@@ -21,7 +21,7 @@ class ArriereController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth');
+        $this->middleware('auth')->except(['verify']);
         $this->middleware('permission:voir_arrieres')->only(['index']);
         $this->middleware('permission:ajouter_arrieres')->only(['store']);
         $this->middleware('permission:modifier_arrieres')->only(['update']);
@@ -308,7 +308,11 @@ class ArriereController extends Controller
 
             DB::commit();
 
-            return redirect()->back()->with('success', "Versement de " . number_format($montantVerse, 0, ',', ' ') . " FCFA encaissé avec succès (Reçu : {$numeroRecu}).");
+            return redirect()->back()->with([
+                'success' => "Versement de " . number_format($montantVerse, 0, ',', ' ') . " FCFA encaissé avec succès (Reçu : {$numeroRecu}).",
+                'dernier_recu_arriere_id' => $arrierePaiement->id,
+                'dernier_recu_arriere_numero' => $numeroRecu,
+            ]);
         } catch (Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', "Erreur lors de l'encaissement : " . $e->getMessage());
@@ -354,7 +358,51 @@ class ArriereController extends Controller
                 ],
             ],
             'etablissement' => $etablissement,
-            'url_verification' => url('/arrieres/paiements/' . $arrierePaiement->id . '/recu'),
+            'url_verification' => route('arrieres.verify', $arrierePaiement->numero_recu ?: $arrierePaiement->id),
+        ]);
+    }
+
+    /**
+     * Vérification publique d'un reçu de versement d'arriéré scanné par QR code.
+     */
+    public function verify($numero_recu)
+    {
+        $arrierePaiement = ArrierePaiement::where('numero_recu', $numero_recu)
+            ->orWhere('id', $numero_recu)
+            ->with(['arriere.eleve.user', 'user'])
+            ->first();
+
+        $etablissement = Etablissement::first();
+
+        return Inertia::render('Paiements/Verify', [
+            'paiement' => $arrierePaiement ? [
+                'id' => $arrierePaiement->id,
+                'reference_recu' => $arrierePaiement->numero_recu,
+                'montant' => (float) $arrierePaiement->montant,
+                'date_paiement' => $arrierePaiement->date_paiement ? $arrierePaiement->date_paiement->format('Y-m-d') : null,
+                'mode_paiement' => $arrierePaiement->mode_paiement,
+                'mois' => 'Arriérés Antérieurs',
+                'commentaire' => $arrierePaiement->commentaire,
+                'frais_type_nom' => 'Règlement Arriéré de Scolarité',
+                'is_scolarite' => false,
+                'caissier' => $arrierePaiement->user ? ($arrierePaiement->user->nom . ' ' . $arrierePaiement->user->prenom) : 'Caisse Principale',
+                'eleve_nom_complet' => $arrierePaiement->arriere->nom_complet ?? ($arrierePaiement->arriere->eleve?->user ? ($arrierePaiement->arriere->eleve->user->nom . ' ' . $arrierePaiement->arriere->eleve->user->prenom) : 'N/A'),
+                'eleve_matricule' => $arrierePaiement->arriere->matricule ?? ($arrierePaiement->arriere->eleve?->matricule ?? 'N/A'),
+                'classe_nom' => $arrierePaiement->arriere->classe_origine ?? 'N/A',
+                'annee_scolaire_nom' => $arrierePaiement->arriere->annee_scolaire_dette ?? 'Antérieure',
+                'created_at' => $arrierePaiement->created_at ? $arrierePaiement->created_at->toISOString() : null,
+            ] : null,
+            'reference' => $numero_recu,
+            'type_recu' => 'arriere',
+            'etablissement' => $etablissement ? [
+                'nom' => $etablissement->nom,
+                'telephone' => $etablissement->telephone,
+                'email' => $etablissement->email,
+                'adresse' => $etablissement->adresse,
+                'ville' => $etablissement->ville,
+                'devise' => $etablissement->devise ?? 'Discipline - Travail - Succès',
+                'logo_url' => $etablissement->logo_path ? asset('storage/' . $etablissement->logo_path) : null,
+            ] : null,
         ]);
     }
 }

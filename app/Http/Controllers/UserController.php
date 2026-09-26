@@ -117,19 +117,30 @@ class UserController extends Controller
         }
 
         // Envoyer l'email avec mot de passe généré/défini
+        $mailSent = false;
         try {
             Mail::to($user->email)->send(new NewUserCredentials($user, $plainPassword));
+            $mailSent = true;
         } catch (\Throwable $e) {
             Log::warning("Échec de l'envoi de l'email des identifiants à {$user->email}: " . $e->getMessage());
         }
 
+        $flashMessage = $mailSent
+            ? "Utilisateur créé avec succès ✅ Les identifiants ont été envoyés par email à {$user->email}."
+            : "Utilisateur créé avec succès ✅ (Note : l'email n'a pas pu être transmis. Mot de passe généré : {$plainPassword})";
+
         return redirect()
             ->route('users.index')
-            ->with('success', __('Utilisateur créé avec succès ✅'));
+            ->with('success', $flashMessage);
     }
 
     public function update(Request $request, User $user)
     {
+        // 🔒 Protection absolue : un non-superadmin ne peut jamais modifier un compte super-admin
+        if ($user->hasRole('super-admin') && !auth()->user()?->hasRole('super-admin')) {
+            abort(403, "Action non autorisée.");
+        }
+
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'prenom' => 'nullable|string|max:255',
@@ -175,8 +186,9 @@ class UserController extends Controller
             return back()->with('error', __('Vous ne pouvez pas supprimer votre propre compte.'));
         }
 
+        // 🔒 Protection absolue : le compte super-admin est intouchable
         if ($user->hasRole('super-admin')) {
-            return back()->with('error', __('Le compte Super Administrateur ne peut pas être supprimé.'));
+            abort(403, __('Le compte Super Administrateur ne peut pas être supprimé.'));
         }
 
         try {

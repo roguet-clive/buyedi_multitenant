@@ -18,6 +18,10 @@ return new class extends Migration
             $table->decimal('montant', 10, 2);
             $table->text('description')->nullable();
             $table->date('date_depense');
+            $table->string('facture_path')->nullable();
+            $table->string('numero_facture', 100)->nullable();
+            $table->string('mode_paiement', 50)->default('especes');
+            $table->string('beneficiaire')->nullable();
             $table->timestamps();
         });
     }
