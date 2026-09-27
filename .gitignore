@@ -23,5 +23,20 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 *.zip
+
+# Bases de données locales
+*.sqlite
+*.sqlite3
+
+# Fichiers SQL (dumps, backups, scripts locaux)
 *.sql
-!database/mise_a_jour_production.sql
+
+# Fichiers de test (non nécessaires en production)
+/tests/
+
+# Factories (uniquement pour le développement/seeding)
+/database/factories/
+
+# Cache divers
+*.cache
+.phpunit.result.cache
