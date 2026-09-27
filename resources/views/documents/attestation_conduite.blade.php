@@ -78,7 +78,7 @@
 
     <div class="footer-signature">
         <div class="signature-box">
-            <div class="date-line">Fait à Libreville, le {{ now()->format('d/m/Y') }}</div>
+            <div class="date-line">Fait à {{ $etablissement['ville'] ?? 'Libreville' }}, le {{ now()->format('d/m/Y') }}</div>
             <div style="font-weight: bold; text-transform: uppercase;">Le Directeur</div>
             <div class="signature-line"></div>
         </div>

@@ -112,7 +112,7 @@ export default function Journal({ paiements = [], par_classe = [], stats = {}, m
             </div>
 
             {/* FEUILLE OFFICIELLE DU BORDEREAU DE CAISSE */}
-            <div className="w-full max-w-[280mm] bg-white shadow-2xl print:shadow-none rounded-2xl print:rounded-none p-8 print:p-0 text-slate-800 relative">
+            <div className="w-full max-w-[280mm] min-h-[210mm] print:min-h-[190mm] bg-white shadow-2xl print:shadow-none rounded-2xl print:rounded-none p-8 print:p-0 text-slate-800 relative flex flex-col justify-between transition-all duration-300">
                 
                 {/* Filigrane en arrière-plan */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.02] pointer-events-none select-none font-black text-8xl tracking-widest uppercase">
@@ -196,11 +196,12 @@ export default function Journal({ paiements = [], par_classe = [], stats = {}, m
                     </div>
                 </div>
 
-                {/* ========================================================= */}
-                {/* 1. VUE SYNTHÉTIQUE PAR CLASSE                             */}
-                {/* ========================================================= */}
-                {viewMode === 'classe' ? (
-                    <div>
+                <div className="flex-1 flex flex-col mb-6">
+                    {/* ========================================================= */}
+                    {/* 1. VUE SYNTHÉTIQUE PAR CLASSE                             */}
+                    {/* ========================================================= */}
+                    {viewMode === 'classe' ? (
+                        <div className="flex-1">
                         {/* KPIs Spécifiques Synthèse par classe */}
                         <div className="grid grid-cols-4 gap-3 mb-4">
                             <div className="bg-emerald-50/70 border border-emerald-200 p-2.5 rounded-xl">
@@ -457,23 +458,31 @@ export default function Journal({ paiements = [], par_classe = [], stats = {}, m
                         </div>
                     </div>
                 )}
+                </div>
 
                 {/* ZONE DE SIGNATURE OFFICIELLE POUR CLÔTURE DE BORDEREAU */}
-                <div className="mt-8 pt-4 border-t border-slate-300 grid grid-cols-3 gap-8 text-center text-xs">
-                    <div>
-                        <p className="font-bold text-slate-700 mb-14">Le Caissier / L'Opérateur</p>
-                        <div className="border-b border-dotted border-slate-400 w-3/4 mx-auto"></div>
-                        <p className="text-[9px] text-slate-400 mt-1">Visa & Date</p>
+                <div className="mt-auto pt-6 border-t border-slate-300 relative z-10 print:break-inside-avoid">
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 mb-6">
+                        <span>Fait à {etablissement?.ville || 'Libreville'}, le {meta.date_edition || new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                        <span>Bordereau financier certifié conforme • {etablissement?.nom || 'BUYEDI'}</span>
                     </div>
-                    <div>
-                        <p className="font-bold text-slate-700 mb-14">Le Chef Comptable / L'Intendant</p>
-                        <div className="border-b border-dotted border-slate-400 w-3/4 mx-auto"></div>
-                        <p className="text-[9px] text-slate-400 mt-1">Visa & Date</p>
-                    </div>
-                    <div>
-                        <p className="font-bold text-slate-700 mb-14">Le Chef d'Établissement / La Direction</p>
-                        <div className="border-b border-dotted border-slate-400 w-3/4 mx-auto"></div>
-                        <p className="text-[9px] text-slate-400 mt-1">Signature & Cachet officiel</p>
+
+                    <div className="grid grid-cols-3 gap-8 text-center text-xs">
+                        <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/40 print:bg-transparent">
+                            <p className="font-bold text-slate-700 mb-10">Le Caissier / L'Opérateur</p>
+                            <div className="border-b border-dotted border-slate-400 w-3/4 mx-auto"></div>
+                            <p className="text-[9px] text-slate-400 mt-1">Visa & Date</p>
+                        </div>
+                        <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/40 print:bg-transparent">
+                            <p className="font-bold text-slate-700 mb-10">Le Chef Comptable / L'Intendant</p>
+                            <div className="border-b border-dotted border-slate-400 w-3/4 mx-auto"></div>
+                            <p className="text-[9px] text-slate-400 mt-1">Visa & Date</p>
+                        </div>
+                        <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/40 print:bg-transparent">
+                            <p className="font-bold text-slate-700 mb-10">Le Chef d'Établissement / La Direction</p>
+                            <div className="border-b border-dotted border-slate-400 w-3/4 mx-auto"></div>
+                            <p className="text-[9px] text-slate-400 mt-1">Signature & Cachet officiel</p>
+                        </div>
                     </div>
                 </div>
 

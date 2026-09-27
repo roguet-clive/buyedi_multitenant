@@ -9,6 +9,7 @@ import {
   ChevronDown, AlertCircle, Eye, Pencil, Trash2 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import InscriptionDeleteModal from './Partials/InscriptionDeleteModal';
 
 export default function Index() {
   const { t } = useTranslation();
@@ -46,10 +47,18 @@ export default function Index() {
     return () => clearTimeout(timeout);
   }, [search]);
 
-  const handleDelete = (id) => {
-    if (!confirm(t('confirm_delete', '⚠️ Supprimer cette inscription ? Cela pourrait supprimer d\'autres données liées.'))) return;
-    destroy(route('inscriptions.destroy', id), {
-      onSuccess: () => { },
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    router.delete(route("inscriptions.destroy", deleteTarget.id), {
+      preserveScroll: true,
+      onFinish: () => {
+        setIsDeleting(false);
+        setDeleteTarget(null);
+      },
     });
   };
 
@@ -594,7 +603,8 @@ export default function Index() {
 
                         {can('supprimer_inscriptions') && (
                           <button
-                            onClick={() => handleDelete(insc.id)}
+                            type="button"
+                            onClick={() => setDeleteTarget(insc)}
                             className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors"
                             title={t('delete', 'Supprimer')}
                           >
@@ -654,6 +664,14 @@ export default function Index() {
           </div>
         )}
       </motion.div>
+
+      {/* MODALE DE SUPPRESSION SÉCURISÉE DE L'INSCRIPTION */}
+      <InscriptionDeleteModal
+        target={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+        isDeleting={isDeleting}
+      />
     </DashboardLayout>
   );
 }

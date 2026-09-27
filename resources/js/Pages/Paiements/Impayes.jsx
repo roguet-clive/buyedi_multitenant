@@ -565,6 +565,9 @@ export default function Impayes({
 
             {/* SIGNATURE SECTION POUR IMPRESSION A4 UNIQUEMENT */}
             <div className="hidden print:block mt-8 pt-6 text-xs">
+                <div className="text-right text-[11px] font-medium text-slate-700 mb-6">
+                    Fait à {etablissement?.ville || 'Libreville'}, le {new Date().toLocaleDateString('fr-FR')}
+                </div>
                 <div className="flex justify-between items-start">
                     <div className="w-48 text-center border-t border-slate-800 pt-2">
                         <p className="font-bold">Le Chef Comptable / Économe</p>

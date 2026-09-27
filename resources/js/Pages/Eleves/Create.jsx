@@ -1,5 +1,5 @@
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import useTranslation from '@/Hooks/useTranslation';
@@ -19,7 +19,7 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
     prenom: eleveInitial?.prenom || '',
     email: eleveInitial?.email || '',
     sexe: eleveInitial?.sexe || 'M',
-    date_naissance: eleveInitial?.date_naissance || '',
+    date_naissance: eleveInitial?.date_naissance ? String(eleveInitial.date_naissance).substring(0, 10) : '',
     lieu_naissance: eleveInitial?.lieu_naissance || '',
     probleme_particulier: eleveInitial?.probleme_particulier || '',
     photo: null,
@@ -34,7 +34,8 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
   // Charger la preview si une photo existe déjà en mode édition
   useEffect(() => {
     if (mode === 'edit' && eleveInitial?.photo) {
-      setPreviewUrl(eleveInitial.photo);
+      const p = eleveInitial.photo;
+      setPreviewUrl(p.startsWith('http') || p.startsWith('/storage') ? p : `/storage/${p}`);
     }
   }, [mode, eleveInitial]);
 
@@ -103,12 +104,12 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
         },
       });
     } else {
-      post(route('eleves.update', eleveInitial?.id), {
-        data: {
-          ...data,
-          _method: 'PUT',
-        },
+      router.post(route('eleves.update', eleveInitial?.id), {
+        ...data,
+        _method: 'PUT',
+      }, {
         forceFormData: true,
+        preserveScroll: true,
         onSuccess: () => {
           toast.success("Dossier élève mis à jour avec succès !");
         },

@@ -245,6 +245,7 @@
                 </div>
             </td>
             <td style="width: 40%; vertical-align: bottom;" class="signature-box">
+                <div style="font-size: 8.5px; color: #475569; margin-bottom: 4px;">Fait à {{ $etablissement['ville'] ?? 'Libreville' }}, le {{ now()->format('d/m/Y') }}</div>
                 <div>Le Directeur / La Direction des Études</div>
                 <div class="signature-line"></div>
                 <div style="font-size: 8.5px; color: #64748b; font-weight: normal;">Signature & Cachet</div>

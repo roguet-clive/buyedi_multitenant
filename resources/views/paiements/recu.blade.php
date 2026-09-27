@@ -74,6 +74,7 @@
     </div>
 
     <div class="signature">
+        <p style="margin-bottom: 5px; font-weight: bold; color: #555;">Fait à {{ $etablissement->ville ?? 'Libreville' }}, le {{ \Carbon\Carbon::parse($paiement->date_paiement)->format('d/m/Y') }}</p>
         <p>Le Caissier<br>
         {{ $paiement->user ? $paiement->user->nom : 'Système' }}</p>
     </div>

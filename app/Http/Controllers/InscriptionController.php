@@ -13,6 +13,7 @@ use App\Models\Etablissement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class InscriptionController extends Controller
@@ -680,12 +681,38 @@ class InscriptionController extends Controller
     }
 
     // Supprimer une inscription
-    public function destroy(Inscription $inscription)
+    public function destroy($id)
     {
-        $inscription->delete();
+        $inscription = $id instanceof Inscription ? $id : Inscription::with('paiements')->find($id);
 
-        return redirect()->route('inscriptions.index')
-            ->with('success', 'Inscription supprimée ✅');
+        if (!$inscription) {
+            return redirect()->route('inscriptions.index')->with('error', 'Inscription introuvable.');
+        }
+
+        // 🛡️ Protection comptable : Empêcher la suppression si des versements financiers existent
+        $nbPaiements = $inscription->paiements()->count();
+        if ($nbPaiements > 0) {
+            $totalPaye = number_format($inscription->paiements()->sum('montant'), 0, ',', ' ');
+            return redirect()->back()->with(
+                'error',
+                "Impossible de supprimer cette inscription : {$nbPaiements} règlement(s) financier(s) ({$totalPaye} FCFA) y sont déjà rattachés. Pour garantir l'intégrité comptable de l'établissement, veuillez d'abord annuler ou supprimer ces paiements en caisse."
+            );
+        }
+
+        DB::beginTransaction();
+        try {
+            // Supprimer l'inscription (cascade automatique vers notes, absences, bulletin_infos)
+            $inscription->delete();
+
+            DB::commit();
+
+            return redirect()->route('inscriptions.index')
+                ->with('success', 'Inscription supprimée avec succès ✅');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Erreur lors de la suppression de l\'inscription ID ' . ($inscription->id ?? '?') . ': ' . $e->getMessage());
+            return redirect()->route('inscriptions.index')->with('error', 'Impossible de supprimer cette inscription : ' . $e->getMessage());
+        }
     }
 
 
@@ -708,16 +735,42 @@ class InscriptionController extends Controller
         ]);
     }
 
-    // Vérifier l'authenticité d'un reçu
+    // Vérifier l'authenticité d'un document scolaire ou reçu d'inscription scanné par QR code
     public function verify($code)
     {
         $inscription = Inscription::where('code_securite', $code)
-            ->with('eleve.user', 'classe', 'anneeScolaire')
+            ->orWhere('numero_recu', $code)
+            ->with(['eleve.user', 'classe', 'anneeScolaire', 'paiements.fraisType'])
             ->first();
 
+        $etablissement = \App\Models\Etablissement::first();
+
         return Inertia::render('Inscriptions/Verify', [
-            'inscription' => $inscription,
-            'code' => $code
+            'inscription' => $inscription ? [
+                'id' => $inscription->id,
+                'numero_recu' => $inscription->numero_recu ?: ('REC-INS-' . str_pad($inscription->id, 6, '0', STR_PAD_LEFT)),
+                'code_securite' => $inscription->code_securite,
+                'statut' => $inscription->statut ?? 'validee',
+                'reinscription' => (bool) $inscription->reinscription,
+                'total_frais' => (float) $inscription->total_frais,
+                'total_paye' => (float) $inscription->paiements->sum('montant'),
+                'date_inscription' => $inscription->date_inscription ? $inscription->date_inscription->format('Y-m-d') : ($inscription->created_at ? $inscription->created_at->format('Y-m-d') : null),
+                'eleve_nom_complet' => trim(($inscription->eleve?->user?->nom ?? '') . ' ' . ($inscription->eleve?->user?->prenom ?? '')),
+                'eleve_matricule' => $inscription->eleve?->matricule ?? 'N/A',
+                'classe_nom' => $inscription->classe?->nom ?? 'N/A',
+                'annee_scolaire_nom' => $inscription->anneeScolaire?->nom ?? 'N/A',
+                'created_at' => $inscription->created_at ? $inscription->created_at->toISOString() : null,
+            ] : null,
+            'code' => $code,
+            'etablissement' => $etablissement ? [
+                'nom' => $etablissement->nom,
+                'telephone' => $etablissement->telephone,
+                'email' => $etablissement->email,
+                'adresse' => $etablissement->adresse,
+                'ville' => $etablissement->ville,
+                'devise' => $etablissement->devise ?? 'Discipline - Travail - Succès',
+                'logo_url' => $etablissement->logo_path ? asset('storage/' . $etablissement->logo_path) : null,
+            ] : null,
         ]);
     }
 

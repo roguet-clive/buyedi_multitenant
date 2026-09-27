@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
         ]);
 
         //

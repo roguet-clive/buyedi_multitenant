@@ -70,5 +70,27 @@
             @endforeach
         </tbody>
     </table>
+
+    <div style="margin-top: 25px; page-break-inside: avoid;">
+        <div style="text-align: right; margin-bottom: 8px; font-size: 11px;">
+            <strong>Fait à {{ $etablissement['ville'] ?? 'Libreville' }}, le {{ now()->format('d/m/Y') }}</strong>
+        </div>
+
+        <table style="width: 100%; border: none; margin-top: 5px;">
+            <tr style="border: none;">
+                <td style="border: 1px solid #999; width: 45%; height: 75px; text-align: center; vertical-align: top; padding: 6px;">
+                    <strong style="text-transform: uppercase;">Le Président du Conseil / Titulaire</strong>
+                </td>
+                <td style="border: none; width: 10%;"></td>
+                <td style="border: 1px solid #999; width: 45%; height: 75px; text-align: center; vertical-align: top; padding: 6px;">
+                    <strong style="text-transform: uppercase;">Le Chef d'Établissement / La Direction</strong>
+                </td>
+            </tr>
+        </table>
+
+        <div style="text-align: center; font-size: 9px; color: #666; margin-top: 15px; border-top: 1px solid #ddd; padding-top: 5px;">
+            Procès-Verbal officiel certifié • Progiciel BUYEDI • Édité le {{ date('d/m/Y à H:i') }}
+        </div>
+    </div>
 </body>
 </html>

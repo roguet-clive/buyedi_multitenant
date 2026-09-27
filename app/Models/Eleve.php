@@ -33,22 +33,35 @@ class Eleve extends Model
     ];
 
     /**
-     * Auto-génération du matricule officiel selon la nomenclature : CSSD-{YEAR}-{NUM:04d}
-     * Exemple : CSSD-2026-0001
+     * Auto-génération du matricule officiel selon la nomenclature : {SIGLE}-{YEAR}-{NUM:04d}
+     * Exemple : CS-BUYEDI-2026-0001
      */
     public static function generateMatricule(?int $year = null): string
     {
         $year = $year ?? (int) date('Y');
-        $prefix = "CSSD-{$year}-";
 
-        // Récupérer le dernier matricule pour l'année
+        // Récupérer le sigle officiel de l'école (ex: CS-BUYEDI)
+        $etablissement = \App\Models\Etablissement::first();
+        $rawSigle = !empty($etablissement?->sigle) ? trim($etablissement->sigle) : 'CS-BUYEDI';
+        $sigle = strtoupper(preg_replace('/[^A-Za-z0-9\-]/', '', str_replace([' ', '_'], '-', $rawSigle)));
+        if (empty($sigle)) {
+            $sigle = 'CS-BUYEDI';
+        }
+
+        $prefix = "{$sigle}-{$year}-";
+
+        // Récupérer le dernier matricule pour l'année et ce sigle
         $latest = self::where('matricule', 'like', "{$prefix}%")
             ->orderBy('matricule', 'desc')
             ->value('matricule');
 
         $nextNumber = 1;
-        if ($latest && preg_match('/^CSSD-\d{4}-(\d+)$/', $latest, $matches)) {
-            $nextNumber = ((int) $matches[1]) + 1;
+        if ($latest) {
+            $parts = explode('-', $latest);
+            $lastPart = end($parts);
+            if (is_numeric($lastPart)) {
+                $nextNumber = ((int) $lastPart) + 1;
+            }
         }
 
         $matricule = $prefix . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);

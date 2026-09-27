@@ -22,7 +22,35 @@ class EtablissementController extends Controller
 
         return Inertia::render('Etablissement/Edit', [
             'etablissement' => $etablissement,
+            'modulesCatalogue' => config('modules.modules', []),
+            'formulesLicence' => config('modules.formules', []),
         ]);
+    }
+
+    /**
+     * Mise à jour des modules souscrits et de la formule de licence.
+     * RÉSERVÉ EXCLUSIVEMENT AU SUPER-ADMIN DE LA PLATEFORME.
+     */
+    public function updateModules(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user || (!$user->hasRole('super-admin') && !$user->hasRole('superadmin'))) {
+            abort(403, 'Action réservée exclusivement au Super-Administrateur de la plateforme.');
+        }
+
+        $validated = $request->validate([
+            'modules_actifs' => 'nullable|array',
+            'modules_actifs.*' => 'string',
+            'formule_licence' => 'nullable|string',
+        ]);
+
+        $etablissement = Etablissement::firstOrFail();
+        $etablissement->update([
+            'modules_actifs' => $validated['modules_actifs'] ?? [],
+            'formule_licence' => $validated['formule_licence'] ?? 'personnalise',
+        ]);
+
+        return redirect()->back()->with('success', 'Licence et modules de l\'établissement mis à jour avec succès ✅');
     }
 
     /**
@@ -36,10 +64,10 @@ class EtablissementController extends Controller
             'nom' => 'required|string|max:255',
             'sigle' => 'nullable|string|max:50',
             'adresse' => 'nullable|string|max:500',
+            'ville' => 'nullable|string|max:100',
             'telephone' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
             'logo' => 'nullable|image|max:2048', // 2MB Max
-            // 'modele_bulletin' => 'nullable|string', // Pour plus tard
         ]);
 
         if ($request->hasFile('logo')) {
@@ -52,6 +80,9 @@ class EtablissementController extends Controller
         } else {
             unset($validated['logo']);
         }
+
+        // Sécurité : Ne jamais permettre à un utilisateur standard de modifier modules_actifs via ce formulaire général
+        unset($validated['modules_actifs'], $validated['formule_licence']);
 
         $etablissement->update($validated);
 

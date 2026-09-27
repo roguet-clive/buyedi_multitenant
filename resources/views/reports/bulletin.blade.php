@@ -88,20 +88,28 @@
         </tbody>
     </table>
 
-    <div class="signatures">
-        <div class="sig-box">
-            <strong>Signature des Parents</strong>
-        </div>
-        <div class="sig-box">
-            <strong>Le Titulaire</strong>
-        </div>
-        <div class="sig-box">
-            <strong>Le Directeur</strong>
-        </div>
+    <div style="text-align: right; margin-bottom: 8px; font-size: 11px;">
+        <strong>Fait à {{ $etablissement['ville'] ?? 'Libreville' }}, le {{ now()->format('d/m/Y') }}</strong>
     </div>
 
+    <table style="width: 100%; border: none; margin-top: 5px; margin-bottom: 30px;">
+        <tr style="border: none;">
+            <td style="border: 1px solid #ccc; width: 30%; height: 80px; text-align: center; vertical-align: top; padding: 6px;">
+                <strong style="font-size: 10px; text-transform: uppercase;">Signature des Parents</strong>
+            </td>
+            <td style="border: none; width: 5%;"></td>
+            <td style="border: 1px solid #ccc; width: 30%; height: 80px; text-align: center; vertical-align: top; padding: 6px;">
+                <strong style="font-size: 10px; text-transform: uppercase;">Le Titulaire</strong>
+            </td>
+            <td style="border: none; width: 5%;"></td>
+            <td style="border: 1px solid #ccc; width: 30%; height: 80px; text-align: center; vertical-align: top; padding: 6px;">
+                <strong style="font-size: 10px; text-transform: uppercase;">Le Chef d'Établissement</strong>
+            </td>
+        </tr>
+    </table>
+
     <div class="footer">
-        <p>Bulletin généré automatiquement le {{ date('d/m/Y H:i') }} - Buyedi School Management System</p>
+        <p>Bulletin officiel certifié • Buyedi School Management System • Édité le {{ date('d/m/Y H:i') }}</p>
     </div>
 
 </body>

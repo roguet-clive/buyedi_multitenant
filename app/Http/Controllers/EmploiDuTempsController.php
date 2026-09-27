@@ -466,6 +466,7 @@ class EmploiDuTempsController extends Controller
         return [
             'nom' => $etablissement->nom ?? config('app.name', 'École Buyedi'),
             'adresse' => $etablissement->adresse ?? 'Adresse non configurée',
+            'ville' => $etablissement->ville ?? 'Libreville',
             'telephone' => $etablissement->telephone ?? '',
             'email' => $etablissement->email ?? '',
             'logo' => $etablissement->logo ? public_path('storage/' . $etablissement->logo) : public_path('images/logo.png'),

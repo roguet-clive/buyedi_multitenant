@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import useTranslation from '@/Hooks/useTranslation';
 import { PencilSquareIcon, TrashIcon, EyeIcon, UserPlusIcon, MagnifyingGlassIcon, FunnelIcon, UserGroupIcon, IdentificationIcon, CheckCircleIcon, PrinterIcon } from '@heroicons/react/24/solid';
 import { motion } from 'framer-motion';
+import EleveDeleteModal from './Partials/EleveDeleteModal';
 
 export default function Index({ filters, classes }) {
   const { t } = useTranslation();
@@ -34,11 +35,17 @@ export default function Index({ filters, classes }) {
     return () => clearTimeout(timeout);
   }, [search, filterSexe, filterClasse]);
 
-  const handleDelete = (id) => {
-    if (!confirm(t("confirm_delete", "Voulez-vous vraiment supprimer définitivement cet élève de la base de données ?"))) return;
-    destroy(route("eleves.destroy", id), {
-      onSuccess: () => {
-        // Toast géré par middleware
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    router.delete(route("eleves.destroy", deleteTarget.id), {
+      preserveScroll: true,
+      onFinish: () => {
+        setIsDeleting(false);
+        setDeleteTarget(null);
       },
     });
   };
@@ -265,7 +272,8 @@ export default function Index({ filters, classes }) {
 
                       {can('supprimer_eleves') && (
                         <button
-                          onClick={() => handleDelete(eleve.id)}
+                          type="button"
+                          onClick={() => setDeleteTarget(eleve)}
                           className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-500 rounded-xl transition-all shadow-sm"
                           title={t("delete", "Supprimer")}
                         >
@@ -312,6 +320,13 @@ export default function Index({ filters, classes }) {
         )}
       </motion.div>
 
+      {/* MODALE DE CONFIRMATION DE SUPPRESSION SÉCURISÉE */}
+      <EleveDeleteModal
+        target={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+        isDeleting={isDeleting}
+      />
     </DashboardLayout>
   );
 }

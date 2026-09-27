@@ -98,6 +98,7 @@ class BulletinController extends Controller
             'nom' => $etablissement->nom ?? config('app.name', 'Buyedi'),
             'sigle' => $etablissement->sigle ?? 'BUYEDI',
             'adresse' => $etablissement->adresse ?? 'Libreville, Gabon',
+            'ville' => $etablissement->ville ?? 'Libreville',
             'telephone' => $etablissement->telephone ?? '',
             'email' => $etablissement->email ?? '',
             'logo' => $logoPath,

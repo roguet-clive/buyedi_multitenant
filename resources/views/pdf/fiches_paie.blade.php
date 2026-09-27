@@ -475,6 +475,9 @@
     @endif
 
     <!-- CADRES DE SIGNATURES OFFICIELLES -->
+    <div style="text-align: right; margin-bottom: 8px; font-size: 11px; font-weight: bold; color: #334155;">
+        Fait à {{ $etablissement->ville ?? 'Libreville' }}, le {{ $datePaiement ?? now()->format('d/m/Y') }}
+    </div>
     <table class="signature-table">
         <tr>
             <td class="signature-box">

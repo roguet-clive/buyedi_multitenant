@@ -26,10 +26,20 @@ class GrandeurNatureSeeder extends Seeder
                 'nom' => 'COMPLEXE SCOLAIRE BUYEDI',
                 'sigle' => 'CS-BUYEDI',
                 'adresse' => 'Boulevard Triomphal, Libreville',
+                'ville' => 'Libreville',
                 'telephone' => '+241 77 00 00 00',
                 'email' => 'contact@buyedi.com',
-                'modele_bulletin' => 'standard',
-                'modele_fiche_etudiant' => 'standard',
+                'modules_actifs' => [
+                    'notes_bulletins',
+                    'communication',
+                    'rh_paie',
+                    'emploi_du_temps',
+                    'documents_pedagogiques',
+                    'depenses',
+                    'arrieres',
+                    'ia_statistiques',
+                ],
+                'formule_licence' => 'integral',
             ]
         );
         $this->command->info("🏫 Établissement configuré : {$etablissement->nom}");

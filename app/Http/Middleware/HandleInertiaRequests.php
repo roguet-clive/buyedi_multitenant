@@ -20,8 +20,9 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user(),
-                'roles' => $request->user() ? $request->user()->getRoleNames() : [],
-                'permissions' => $request->user() ? $request->user()->getAllPermissions()->pluck('name') : [],
+                'roles' => $request->user() ? $request->user()->getRoleNames()->values()->all() : [],
+                'isSuperAdmin' => $request->user() ? ($request->user()->hasRole('super-admin') || $request->user()->hasRole('superadmin')) : false,
+                'permissions' => $request->user() ? $request->user()->getAllPermissions()->pluck('name')->values()->all() : [],
                 'unreadCount' => $request->user() ? $request->user()->unreadNotifications()->count() : 0,
             ],
             'unreadNotificationsCount' => $request->user() ? $request->user()->unreadNotifications()->where('type', '!=', 'App\Notifications\MessageNotification')->count() : 0,

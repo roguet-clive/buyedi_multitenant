@@ -374,7 +374,11 @@ export default function TenuesFournisseur({
             </div>
 
             {/* FEUILLE IMPRIMABLE A4 */}
-            <div className="max-w-[297mm] mx-auto bg-white p-8 print:p-0 rounded-2xl shadow-xl print:shadow-none border border-slate-200 print:border-none">
+            <div className={`w-full ${
+                orientation === 'landscape'
+                    ? 'max-w-[297mm] min-h-[210mm] print:min-h-[190mm]'
+                    : 'max-w-[215mm] min-h-[297mm] print:min-h-[277mm]'
+            } mx-auto bg-white text-slate-900 p-8 print:p-0 rounded-2xl shadow-xl print:shadow-none border border-slate-200 print:border-none relative flex flex-col justify-between transition-all duration-300`}>
                 
                 {/* EN-TÊTE ÉTABLISSEMENT & TITRE DU DOCUMENT */}
                 <div className="border-b-2 border-slate-800 pb-3 mb-4">
@@ -454,12 +458,14 @@ export default function TenuesFournisseur({
                     </div>
                 </div>
 
-                {/* VUE PAR CLASSE */}
-                {viewMode === 'classe' ? (
-                    <div className="space-y-6">
-                        {displayedParClasse.length > 0 ? (
-                            displayedParClasse.map((groupe, idx) => (
-                                <div key={groupe.classe_id} className="print-break-inside-avoid">
+                {/* LISTE DÉTAILLÉE PAR CLASSE OU GLOBALE */}
+                <div className="flex-1 flex flex-col mb-6 space-y-5">
+                    {/* VUE PAR CLASSE */}
+                    {viewMode === 'classe' ? (
+                        <div className="space-y-6 flex-1">
+                            {displayedParClasse.length > 0 ? (
+                                displayedParClasse.map((groupe, idx) => (
+                                    <div key={groupe.classe_id} className={`space-y-2 mb-4 ${idx < displayedParClasse.length - 1 ? 'print-break-after' : ''}`}>
                                     {/* Titre de la classe avec sous-totaux pour le tailleur */}
                                     <div className="bg-slate-800 text-white px-3 py-1.5 rounded-t-lg flex items-center justify-between text-xs font-bold">
                                         <div className="flex items-center gap-2">
@@ -615,12 +621,18 @@ export default function TenuesFournisseur({
                         </table>
                     </div>
                 )}
+                </div>
 
                 {/* SIGNATURES OFFICIELLES & DÉCHARGE DE COMMANDE */}
-                <div className="mt-8 pt-4 border-t-2 border-slate-400 print-break-inside-avoid">
+                <div className="mt-auto pt-6 border-t-2 border-slate-400 print-break-inside-avoid">
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 mb-4">
+                        <span>Fait à {etablissement?.ville || 'Libreville'}, le {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                        <span>Document officiel de commande certifié • {etablissement?.nom || 'BUYEDI'}</span>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-12 text-xs">
                         {/* Direction de l'Établissement */}
-                        <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/50">
+                        <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/50 print:bg-transparent">
                             <span className="font-extrabold uppercase text-slate-800 block text-[10px]">
                                 Pour l'Établissement (Donneur d'Ordre)
                             </span>
@@ -633,7 +645,7 @@ export default function TenuesFournisseur({
                         </div>
 
                         {/* Fournisseur / Tailleur */}
-                        <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/50">
+                        <div className="border border-slate-300 rounded-xl p-3 bg-slate-50/50 print:bg-transparent">
                             <span className="font-extrabold uppercase text-slate-800 block text-[10px]">
                                 Pour le Fournisseur / Confectionneur (Accusé de Réception)
                             </span>

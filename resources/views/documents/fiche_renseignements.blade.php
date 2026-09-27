@@ -546,11 +546,12 @@
     $fullName = trim(($eleve->user->nom ?? '') . ' ' . ($eleve->user->prenom ?? ''));
     $schoolName = $etablissement['nom'] ?? 'COMPLEXE SCOLAIRE BUYEDI';
     $schoolAddress = $etablissement['adresse'] ?? 'Libreville, République Gabonaise';
+    $schoolCity = $etablissement['ville'] ?? 'Libreville';
     $schoolPhone = $etablissement['telephone'] ?? '';
     $schoolEmail = $etablissement['email'] ?? '';
     $schoolYear = $inscription->anneeScolaire->nom ?? date('Y') . '-' . (date('Y')+1);
     $className = $inscription->classe->nom ?? 'Non assignée';
-    $matricule = $eleve->matricule ?? ('CSSD-' . date('Y') . '-' . str_pad($eleve->id ?? 1, 4, '0', STR_PAD_LEFT));
+    $matricule = $eleve->matricule ?? (($etablissement['sigle'] ?? 'CS-BUYEDI') . '-' . date('Y') . '-' . str_pad($eleve->id ?? 1, 4, '0', STR_PAD_LEFT));
     $dateNaissance = $eleve->date_naissance ? $eleve->date_naissance->format('d/m/Y') : 'Non renseignée';
     $lieuNaissance = $eleve->lieu_naissance ?? 'Libreville';
     $sexe = $eleve->sexe === 'M' ? 'Masculin' : ($eleve->sexe === 'F' ? 'Féminin' : 'Non spécifié');
@@ -755,7 +756,7 @@
                         </div>
                     </td>
                     <td class="sig-right">
-                        <div class="sig-date">Fait à Libreville, le {{ now()->format('d/m/Y') }}</div>
+                        <div class="sig-date">Fait à {{ $schoolCity }}, le {{ now()->format('d/m/Y') }}</div>
                         <div class="sig-title">Le Secrétariat / Chef d'Établissement</div>
                         <div class="stamp-placeholder">
                             <span class="stamp-hint">Sceau & Visa Officiels</span>

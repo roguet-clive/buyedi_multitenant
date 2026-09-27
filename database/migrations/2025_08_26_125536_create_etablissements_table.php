@@ -17,11 +17,12 @@ return new class extends Migration
                 $table->string('nom')->default('Buyedi');
                 $table->string('sigle')->nullable();
                 $table->string('logo')->nullable();
-                $table->string('modele_bulletin')->nullable();
-                $table->string('modele_fiche_etudiant')->nullable();
                 $table->string('adresse')->nullable();
+                $table->string('ville')->default('Libreville');
                 $table->string('telephone')->nullable();
                 $table->string('email')->nullable();
+                $table->json('modules_actifs')->nullable();
+                $table->string('formule_licence')->default('integral');
                 $table->timestamps();
             });
         }

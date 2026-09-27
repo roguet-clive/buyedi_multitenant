@@ -43,7 +43,7 @@ function ArriereReceiptVoucher({ recu, etablissement, url_verification, copyLabe
                                 </span>
                             )}
                             <p className="text-[10px] text-slate-600 leading-tight mt-0.5">
-                                {[etablissement?.adresse, etablissement?.telephone, etablissement?.email].filter(Boolean).join(' • ')}
+                                {[etablissement?.adresse, etablissement?.ville, etablissement?.telephone, etablissement?.email].filter(Boolean).join(' • ')}
                             </p>
                         </div>
                     </div>

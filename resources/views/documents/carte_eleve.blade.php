@@ -367,7 +367,7 @@
     // Élève
     $fullName = trim(($eleve->user->nom ?? '') . ' ' . ($eleve->user->prenom ?? ''));
     $className = $inscription->classe->nom ?? 'Classe';
-    $matricule = $eleve->matricule ?? ('CSSD-' . date('Y') . '-' . str_pad($eleve->id ?? 1, 4, '0', STR_PAD_LEFT));
+    $matricule = $eleve->matricule ?? (($etablissement['sigle'] ?? 'CS-BUYEDI') . '-' . date('Y') . '-' . str_pad($eleve->id ?? 1, 4, '0', STR_PAD_LEFT));
     $dateNaissance = $eleve->date_naissance ? $eleve->date_naissance->format('d/m/Y') : null;
     $lieuNaissance = $eleve->lieu_naissance ?? null;
     $sexe = $eleve->sexe ? strtoupper($eleve->sexe) : '-';

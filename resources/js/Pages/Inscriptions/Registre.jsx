@@ -210,10 +210,11 @@ export default function Registre({
                 @media print {
                     @page {
                         size: A4 ${orientation};
-                        margin: 7mm 8mm;
+                        margin: 8mm 8mm;
                     }
-                    body {
+                    html, body {
                         background: white !important;
+                        height: 100% !important;
                         -webkit-print-color-adjust: exact;
                         print-color-adjust: exact;
                         font-size: 10px;
@@ -223,17 +224,19 @@ export default function Registre({
                         display: none !important;
                     }
                     .page-break {
+                        break-after: page;
                         page-break-after: always;
                     }
                     .avoid-break {
+                        break-inside: avoid;
                         page-break-inside: avoid;
                     }
                     thead {
                         display: table-header-group;
                     }
                     tr {
+                        break-inside: avoid;
                         page-break-inside: avoid;
-                        page-break-after: auto;
                     }
                 }
             `}</style>
@@ -414,7 +417,11 @@ export default function Registre({
             </div>
 
             {/* DOCUMENT OFFICIEL D'IMPRESSION (FORMAT A4 DYNAMIQUE) */}
-            <div className={`w-full ${orientation === 'landscape' ? 'max-w-[297mm]' : 'max-w-[215mm]'} bg-white text-slate-900 p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-200/80 print:border-none print:shadow-none print:p-0 print:max-w-none print:rounded-none relative transition-all duration-300`}>
+            <div className={`w-full ${
+                orientation === 'landscape'
+                    ? 'max-w-[297mm] min-h-[210mm] print:min-h-[190mm]'
+                    : 'max-w-[215mm] min-h-[297mm] print:min-h-[277mm]'
+            } bg-white text-slate-900 p-8 sm:p-10 rounded-3xl shadow-xl border border-slate-200/80 print:border-none print:shadow-none print:p-0 print:max-w-none print:rounded-none relative flex flex-col justify-between transition-all duration-300`}>
                 
                 {/* Filigrane d'authentification en arrière-plan */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.02] pointer-events-none select-none font-black text-8xl tracking-widest uppercase">
@@ -509,17 +516,17 @@ export default function Registre({
                 </div>
 
                 {/* 2. CORPS DE LA LISTE */}
-
-                {/* CAS A : VUE PAR CLASSE */}
-                {viewMode === 'classe' ? (
-                    <div className="space-y-6 relative z-10">
-                        {displayedParClasse.length === 0 ? (
-                            <div className="p-8 text-center bg-slate-50 rounded-2xl text-slate-500">
-                                Aucun élève inscrit trouvé pour les critères sélectionnés.
-                            </div>
-                        ) : (
-                            displayedParClasse.map((classeGroup, cIdx) => (
-                                <div key={classeGroup.classe_id || cIdx} className="page-break avoid-break space-y-2 mb-6">
+                <div className="flex-1 flex flex-col mb-6">
+                    {/* CAS A : VUE PAR CLASSE */}
+                    {viewMode === 'classe' ? (
+                        <div className="space-y-6 relative z-10 flex-1">
+                            {displayedParClasse.length === 0 ? (
+                                <div className="p-8 text-center bg-slate-50 rounded-2xl text-slate-500">
+                                    Aucun élève inscrit trouvé pour les critères sélectionnés.
+                                </div>
+                            ) : (
+                                displayedParClasse.map((classeGroup, cIdx) => (
+                                    <div key={classeGroup.classe_id || cIdx} className={`space-y-2 mb-6 ${cIdx < displayedParClasse.length - 1 ? 'page-break' : ''}`}>
                                     {/* Titre de section de classe */}
                                     <div className="flex items-center justify-between bg-slate-800 text-white px-3 py-2 rounded-lg font-bold text-xs uppercase tracking-wider">
                                         <div className="flex items-center gap-2">
@@ -614,7 +621,7 @@ export default function Registre({
                     </div>
                 ) : (
                     /* CAS B : REGISTRE GÉNÉRAL DE TOUTE L'ÉCOLE (A À Z) */
-                    <div className="overflow-x-auto border border-slate-200 rounded-lg relative z-10">
+                    <div className="overflow-x-auto border border-slate-200 rounded-lg relative z-10 flex-1">
                         <table className="w-full text-left text-[11px] border-collapse">
                             <thead>
                                 <tr className="bg-slate-800 text-white font-bold uppercase text-[9.5px]">
@@ -685,24 +692,25 @@ export default function Registre({
                         </table>
                     </div>
                 )}
+                </div>
 
                 {/* 3. PIED DE PAGE OFFICIEL AVEC SIGNATURES */}
-                <div className="avoid-break mt-8 pt-4 border-t border-slate-300 text-xs relative z-10">
-                    <div className="flex items-center justify-between text-[11px] text-slate-600 mb-6">
-                        <span>Édité le {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                        <span>Document certifié conforme par le progiciel BUYEDI</span>
+                <div className="avoid-break mt-auto pt-6 border-t border-slate-300 text-xs relative z-10">
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 mb-5">
+                        <span>Fait à {etablissement?.ville || 'Libreville'}, le {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                        <span>Document certifié conforme • BUYEDI School Management</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-8 text-center">
-                        <div className="border border-slate-300 rounded-xl p-4 h-28 flex flex-col justify-between">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        <div className="border border-slate-300 rounded-xl p-4 h-28 flex flex-col justify-between bg-slate-50/40 print:bg-transparent">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
                                 Le Secrétaire Administratif
                             </span>
                             <span className="text-[10px] text-slate-400 italic">Signature</span>
                         </div>
 
-                        <div className="border border-slate-300 rounded-xl p-4 h-28 flex flex-col justify-between">
-                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        <div className="border border-slate-300 rounded-xl p-4 h-28 flex flex-col justify-between bg-slate-50/40 print:bg-transparent">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
                                 Le Chef d'Établissement / La Direction
                             </span>
                             <span className="text-[10px] text-slate-400 italic">Date, Visa et Cachet officiel</span>

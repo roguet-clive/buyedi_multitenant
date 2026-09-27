@@ -46,6 +46,7 @@
     </div>
 
     <div class="footer">
+        <p style="margin-bottom: 5px;">Fait à {{ $etablissement['ville'] ?? 'Libreville' }}, le {{ now()->format('d/m/Y') }}</p>
         <p>Signature (Surveillant / Dir) :</p>
         <br><br>
         ______________________

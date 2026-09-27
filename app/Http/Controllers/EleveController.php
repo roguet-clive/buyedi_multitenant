@@ -12,6 +12,7 @@ use App\Mail\NewUserCredentials;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Http\Requests\StoreEleveRequest;
 
 class EleveController extends Controller
@@ -596,8 +597,10 @@ class EleveController extends Controller
         ]);
     }
 
-    public function update(Request $request, Eleve $eleve)
+    public function update(Request $request, $eleve)
     {
+        $eleve = $eleve instanceof Eleve ? $eleve : Eleve::with('user')->findOrFail($eleve);
+
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
             'prenom' => 'nullable|string|max:255',
@@ -615,32 +618,85 @@ class EleveController extends Controller
             'email' => $validated['email'],
         ]);
 
-        if ($request->hasFile('photo')) {
-            if ($eleve->photo) {
-                Storage::disk('public')->delete($eleve->photo);
-            }
-            $eleve->photo = $request->file('photo')->store('eleves', 'public');
-        }
-
-        $eleve->update([
+        $eleveData = [
             'sexe' => $validated['sexe'],
             'date_naissance' => $validated['date_naissance'] ?? null,
             'lieu_naissance' => $validated['lieu_naissance'] ?? null,
             'probleme_particulier' => $validated['probleme_particulier'] ?? null,
-        ]);
+        ];
+
+        if ($request->hasFile('photo')) {
+            if ($eleve->photo && Storage::disk('public')->exists($eleve->photo)) {
+                Storage::disk('public')->delete($eleve->photo);
+            }
+            $eleveData['photo'] = $request->file('photo')->store('eleves', 'public');
+        }
+
+        $eleve->update($eleveData);
 
         return redirect()->route('eleves.index')->with('success', 'Élève mis à jour ✅');
     }
 
-    public function destroy(Eleve $eleve)
+    public function destroy($eleve)
     {
-        if ($eleve->photo) {
-            Storage::disk('public')->delete($eleve->photo);
+        $eleve = $eleve instanceof Eleve ? $eleve : Eleve::with(['user', 'documents', 'inscriptions.paiements'])->find($eleve);
+
+        if (!$eleve) {
+            return redirect()->route('eleves.index')->with('error', 'Élève introuvable.');
         }
 
-        $eleve->user->delete();
+        // 🛡️ Protection comptable : Empêcher la suppression si des versements financiers sont rattachés
+        $inscriptionsIds = $eleve->inscriptions->pluck('id');
+        $nbPaiements = \App\Models\Paiement::whereIn('inscription_id', $inscriptionsIds)->count();
+        if ($nbPaiements > 0) {
+            $totalPaye = number_format(
+                \App\Models\Paiement::whereIn('inscription_id', $inscriptionsIds)->sum('montant'),
+                0, ',', ' '
+            );
+            return redirect()->back()->with(
+                'error',
+                "Impossible de supprimer cet élève : {$nbPaiements} versement(s) de scolarité ({$totalPaye} FCFA) sont enregistrés dans son historique. Pour préserver l'intégrité comptable et l'historique financier de l'école, cet élève ne peut pas être supprimé."
+            );
+        }
 
-        return redirect()->route('eleves.index')->with('success', 'Élève supprimé ✅');
+        // 🛡️ Protection administrative : Empêcher la suppression s'il a encore des inscriptions actives
+        $nbInscriptions = $eleve->inscriptions()->count();
+        if ($nbInscriptions > 0) {
+            return redirect()->back()->with(
+                'error',
+                "Impossible de supprimer cet élève : il possède {$nbInscriptions} inscription(s) scolaire(s) enregistrée(s). Supprimez d'abord son dossier d'inscription pour autoriser le retrait de la fiche élève."
+            );
+        }
+
+        DB::beginTransaction();
+        try {
+            // 1. Supprimer la photo de profil si existante
+            if ($eleve->photo && Storage::disk('public')->exists($eleve->photo)) {
+                Storage::disk('public')->delete($eleve->photo);
+            }
+
+            // 2. Supprimer les fichiers physiques des documents administratifs
+            foreach ($eleve->documents as $doc) {
+                if ($doc->fichier && Storage::disk('public')->exists($doc->fichier)) {
+                    Storage::disk('public')->delete($doc->fichier);
+                }
+            }
+
+            // 3. Supprimer l'élève et son compte utilisateur
+            $user = $eleve->user;
+            $eleve->delete();
+            if ($user) {
+                $user->delete();
+            }
+
+            DB::commit();
+
+            return redirect()->route('eleves.index')->with('success', 'Élève supprimé avec succès ✅');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Erreur lors de la suppression de l\'élève ID ' . ($eleve->id ?? '?') . ': ' . $e->getMessage());
+            return redirect()->route('eleves.index')->with('error', 'Erreur lors de la suppression de l\'élève : ' . $e->getMessage());
+        }
     }
 
     private function getEtablissementData()
@@ -649,6 +705,7 @@ class EleveController extends Controller
         return [
             'nom' => $etablissement->nom ?? config('app.name', 'École Buyedi'),
             'adresse' => $etablissement->adresse ?? 'Adresse non configurée',
+            'ville' => $etablissement->ville ?? 'Libreville',
             'telephone' => $etablissement->telephone ?? '',
             'email' => $etablissement->email ?? '',
             'logo' => $etablissement->logo ? public_path('storage/' . $etablissement->logo) : public_path('images/logo.png'),

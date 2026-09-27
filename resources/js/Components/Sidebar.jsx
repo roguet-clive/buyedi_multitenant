@@ -59,20 +59,20 @@ export default function Sidebar() {
         ...(isStudent ? [
           { icon: <IdCard className="w-5 h-5" />, label: "Mon Dossier Scolaire", href: route("eleves.mon-dossier"), routeName: "eleves.mon-dossier" },
           { icon: <Users className="w-5 h-5" />, label: "Mes Inscriptions", href: route("inscriptions.index"), routeName: "inscriptions.index" },
-          { icon: <CalendarDays className="w-5 h-5" />, label: "Mon Emploi du temps", href: route("emploi_du_temps.index"), routeName: "emploi_du_temps.index" },
-          { icon: <FileText className="w-5 h-5" />, label: "Mes Notes", href: route("notes.index"), routeName: "notes.index" },
-          { icon: <BookOpen className="w-5 h-5" />, label: "Mes Cours & Devoirs", href: route("documents.index"), routeName: "documents.index" },
-          { icon: <FileText className="w-5 h-5" />, label: "Demandes de Documents", href: route("demandes-documents.index"), routeName: "demandes-documents.index" },
-          { icon: <FileText className="w-5 h-5" />, label: "Mes Bulletins", href: route("bulletins.index"), routeName: "bulletins.index" },
-          { icon: <ShieldCheck className="w-5 h-5" />, label: "Mes Absences", href: route("absences.index"), routeName: "absences.index" },
+          { icon: <CalendarDays className="w-5 h-5" />, label: "Mon Emploi du temps", href: route("emploi_du_temps.index"), routeName: "emploi_du_temps.index", module: "emploi_du_temps" },
+          { icon: <FileText className="w-5 h-5" />, label: "Mes Notes", href: route("notes.index"), routeName: "notes.index", module: "notes_bulletins" },
+          { icon: <BookOpen className="w-5 h-5" />, label: "Mes Cours & Devoirs", href: route("documents.index"), routeName: "documents.index", module: "documents_pedagogiques" },
+          { icon: <FileText className="w-5 h-5" />, label: "Demandes de Documents", href: route("demandes-documents.index"), routeName: "demandes-documents.index", module: "documents_pedagogiques" },
+          { icon: <FileText className="w-5 h-5" />, label: "Mes Bulletins", href: route("bulletins.index"), routeName: "bulletins.index", module: "notes_bulletins" },
+          { icon: <ShieldCheck className="w-5 h-5" />, label: "Mes Absences", href: route("absences.index"), routeName: "absences.index", module: "notes_bulletins" },
           { icon: <CreditCard className="w-5 h-5" />, label: "Mes Paiements", href: route("paiements.index"), routeName: "paiements.index" },
         ] : []),
         ...(isParent ? [
           { icon: <IdCard className="w-5 h-5" />, label: "Dossier de l'Élève", href: route("eleves.mon-dossier"), routeName: "eleves.mon-dossier" },
-          { icon: <FileText className="w-5 h-5" />, label: "Demandes de Documents", href: route("demandes-documents.index"), routeName: "demandes-documents.index" },
+          { icon: <FileText className="w-5 h-5" />, label: "Demandes de Documents", href: route("demandes-documents.index"), routeName: "demandes-documents.index", module: "documents_pedagogiques" },
         ] : []),
         // Common
-        { icon: <Mail className="w-5 h-5" />, label: "Mes Messages", href: route("communications.index"), routeName: "communications.index" },
+        { icon: <Mail className="w-5 h-5" />, label: "Mes Messages", href: route("communications.index"), routeName: "communications.index", module: "communication" },
         {
           icon: <Bell className="w-5 h-5" />,
           label: t("notifications"),
@@ -94,12 +94,12 @@ export default function Sidebar() {
           href: route("cours.mes-cours"),
           routeName: "cours.mes-cours"
         },
-        { icon: <CalendarDays className="w-5 h-5" />, label: "Mon Emploi du temps", href: route("emploi_du_temps.index"), routeName: "emploi_du_temps.index" },
-        { icon: <UploadCloud className="w-5 h-5" />, label: "Partage Documents", href: route("documents.index"), routeName: "documents.index" },
-        { icon: <ShieldCheck className="w-5 h-5" />, label: "Saisie Absences", href: route("absences.index"), routeName: "absences.index" },
-        { icon: <FileText className="w-5 h-5" />, label: "Saisie Notes", href: route("notes.index"), routeName: "notes.index" },
+        { icon: <CalendarDays className="w-5 h-5" />, label: "Mon Emploi du temps", href: route("emploi_du_temps.index"), routeName: "emploi_du_temps.index", module: "emploi_du_temps" },
+        { icon: <UploadCloud className="w-5 h-5" />, label: "Partage Documents", href: route("documents.index"), routeName: "documents.index", module: "documents_pedagogiques" },
+        { icon: <ShieldCheck className="w-5 h-5" />, label: "Saisie Absences", href: route("absences.index"), routeName: "absences.index", module: "notes_bulletins" },
+        { icon: <FileText className="w-5 h-5" />, label: "Saisie Notes", href: route("notes.index"), routeName: "notes.index", module: "notes_bulletins" },
         { icon: <Users className="w-5 h-5" />, label: "Contacts Parents", href: route("parents.index"), routeName: "parents.index" },
-        { icon: <Mail className="w-5 h-5" />, label: t("communications"), href: route("communications.index"), routeName: "communications.index" },
+        { icon: <Mail className="w-5 h-5" />, label: t("communications"), href: route("communications.index"), routeName: "communications.index", module: "communication" },
         {
           icon: <Bell className="w-5 h-5" />,
           label: t("notifications"),
@@ -124,12 +124,12 @@ export default function Sidebar() {
           { icon: <GraduationCap className="w-4 h-4" />, label: t("enregistrement_eleve", "Enregistrement élève"), href: route("eleves.index"), can: "voir_eleves", routeName: "eleves.index" },
           { icon: <Users className="w-4 h-4" />, label: t("parents"), href: route("parents.index"), can: "voir_parents", routeName: "parents.index" },
           { icon: <BookOpen className="w-4 h-4" />, label: "Affectations (Cours)", href: route("cours.index"), can: "voir_cours", routeName: "cours.index" },
-          { icon: <CalendarDays className="w-4 h-4" />, label: t("emploi_du_temps"), href: route("emploi_du_temps.index"), can: "voir_emplois_du_temps", routeName: "emploi_du_temps.index" },
-          { icon: <FileText className="w-4 h-4" />, label: t("notes"), href: route("notes.index"), can: "voir_notes", routeName: "notes.index" },
-          { icon: <UploadCloud className="w-4 h-4" />, label: t("documents_pedagogiques", "Documents Pédagogiques"), href: route("documents.index"), can: "voir_documents", routeName: "documents.index" },
-          { icon: <FileText className="w-4 h-4 text-emerald-400" />, label: "Demandes Documents", href: route("demandes-documents.index"), can: "voir_documents", routeName: "demandes-documents.index" },
-          { icon: <FileText className="w-4 h-4" />, label: t("bulletins"), href: route("bulletins.index"), can: "voir_bulletins", routeName: "bulletins.index" },
-          { icon: <FileText className="w-4 h-4" />, label: t("absences"), href: route("absences.index"), can: "voir_absences", routeName: "absences.index" },
+          { icon: <CalendarDays className="w-4 h-4" />, label: t("emploi_du_temps"), href: route("emploi_du_temps.index"), can: "voir_emplois_du_temps", routeName: "emploi_du_temps.index", module: "emploi_du_temps" },
+          { icon: <FileText className="w-4 h-4" />, label: t("notes"), href: route("notes.index"), can: "voir_notes", routeName: "notes.index", module: "notes_bulletins" },
+          { icon: <UploadCloud className="w-4 h-4" />, label: t("documents_pedagogiques", "Documents Pédagogiques"), href: route("documents.index"), can: "voir_documents", routeName: "documents.index", module: "documents_pedagogiques" },
+          { icon: <FileText className="w-4 h-4 text-emerald-400" />, label: "Demandes Documents", href: route("demandes-documents.index"), can: "voir_documents", routeName: "demandes-documents.index", module: "documents_pedagogiques" },
+          { icon: <FileText className="w-4 h-4" />, label: t("bulletins"), href: route("bulletins.index"), can: "voir_bulletins", routeName: "bulletins.index", module: "notes_bulletins" },
+          { icon: <FileText className="w-4 h-4" />, label: t("absences"), href: route("absences.index"), can: "voir_absences", routeName: "absences.index", module: "notes_bulletins" },
         ],
       },
 
@@ -141,8 +141,8 @@ export default function Sidebar() {
           { icon: <TrendingUp className="w-4 h-4" />, label: "Vue Globale", href: route("finances.index"), can: "voir_stats", routeName: "finances.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("caisse"), href: route("paiements.index"), can: "voir_paiements", routeName: "paiements.index" },
           { icon: <AlertTriangle className="w-4 h-4 text-rose-500" />, label: "État des Impayés", href: route("paiements.impayes"), can: "voir_paiements", routeName: "paiements.impayes" },
-          { icon: <Clock className="w-4 h-4 text-amber-400" />, label: t("previous_arrears", "Arriérés Antérieurs"), href: route("arrieres.index"), can: "voir_arrieres", routeName: "arrieres.index" },
-          { icon: <CreditCard className="w-4 h-4" />, label: t("depenses"), href: route("depenses.index"), can: "voir_depenses", routeName: "depenses.index" },
+          { icon: <Clock className="w-4 h-4 text-amber-400" />, label: t("previous_arrears", "Arriérés Antérieurs"), href: route("arrieres.index"), can: "voir_arrieres", routeName: "arrieres.index", module: "arrieres" },
+          { icon: <CreditCard className="w-4 h-4" />, label: t("depenses"), href: route("depenses.index"), can: "voir_depenses", routeName: "depenses.index", module: "depenses" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("frais_classes"), href: route("frais_classes.index"), can: "voir_frais_classes", routeName: "frais_classes.index" },
           { icon: <CreditCard className="w-4 h-4" />, label: t("types_de_frais"), href: route("frais_types.index"), can: "voir_frais_types", routeName: "frais_types.index" },
         ],
@@ -153,14 +153,14 @@ export default function Sidebar() {
         icon: <Users className="w-5 h-5" />,
         label: t("gestion_rh"),
         children: [
-          { icon: <Users className="w-4 h-4" />, label: t("enseignants"), href: route("enseignants.index"), can: "voir_enseignants", routeName: "enseignants.index" },
-          { icon: <IdCard className="w-4 h-4" />, label: t("employes"), href: route("personnels.index"), can: "voir_personnels", routeName: "personnels.index" },
-          { icon: <CreditCard className="w-4 h-4" />, label: "Salaires & Paie", href: route("rh.paie.index"), can: "voir_paie", routeName: "rh.paie.index" },
+          { icon: <Users className="w-4 h-4" />, label: t("enseignants"), href: route("enseignants.index"), can: "voir_enseignants", routeName: "enseignants.index", module: "rh_paie" },
+          { icon: <IdCard className="w-4 h-4" />, label: t("employes"), href: route("personnels.index"), can: "voir_personnels", routeName: "personnels.index", module: "rh_paie" },
+          { icon: <CreditCard className="w-4 h-4" />, label: "Salaires & Paie", href: route("rh.paie.index"), can: "voir_paie", routeName: "rh.paie.index", module: "rh_paie" },
         ],
       },
 
       // 📨 COMMUNICATION & APPS
-      { icon: <Mail className="w-5 h-5" />, label: t("communications"), href: route("communications.index"), can: "voir_communications", routeName: "communications.index" },
+      { icon: <Mail className="w-5 h-5" />, label: t("communications"), href: route("communications.index"), can: "voir_communications", routeName: "communications.index", module: "communication" },
       {
         icon: <Bell className="w-5 h-5" />,
         label: t("notifications"),
@@ -169,8 +169,8 @@ export default function Sidebar() {
       },
 
       // 📊 STATS & IA
-      { icon: <BarChart3 className="w-5 h-5" />, label: t("statistiques"), href: route("stats.index"), can: "voir_stats", routeName: "stats.index" },
-      { icon: <Brain className="w-5 h-5" />, label: t("ia_alertes"), href: route("ia.index"), can: "voir_stats", routeName: "ia.index" },
+      { icon: <BarChart3 className="w-5 h-5" />, label: t("statistiques"), href: route("stats.index"), can: "voir_stats", routeName: "stats.index", module: "ia_statistiques" },
+      { icon: <Brain className="w-5 h-5" />, label: t("ia_alertes"), href: route("ia.index"), can: "voir_stats", routeName: "ia.index", module: "ia_statistiques" },
 
       // ⚙️ ADMINISTRATION (En bas)
       {
@@ -207,6 +207,14 @@ export default function Sidebar() {
         // Vérification Super-Admin spécifique
         if (link.superAdminOnly && !isSuperAdmin) return null;
 
+        // Vérification du module actif pour l'établissement (si non SuperAdmin)
+        if (link.module && !isSuperAdmin) {
+          const modulesActifs = etablissement?.modules_actifs || [];
+          if (!modulesActifs.includes(link.module)) {
+            return null;
+          }
+        }
+
         // Vérification permission simple
         if (link.can && !can(link.can) && !isSuperAdmin) return null;
 
@@ -214,7 +222,7 @@ export default function Sidebar() {
       })
       .filter(Boolean);
 
-  const filteredLinks = useMemo(() => filterLinks(links), [links]);
+  const filteredLinks = useMemo(() => filterLinks(links), [links, etablissement, isSuperAdmin]);
 
   const [open, setOpen] = useState(true);
   const [openDropdowns, setOpenDropdowns] = useState({});
