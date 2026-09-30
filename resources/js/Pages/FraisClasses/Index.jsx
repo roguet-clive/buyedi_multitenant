@@ -775,364 +775,484 @@ export default function Index({
         )}
       </div>
 
-      {/* 5. MODAL INTERACTIF D'AJOUT / MODIFICATION D'UN FRAIS DE CLASSE */}
+      {/* 5. MODAL LARGE HORIZONTAL UI/UX HAUT DE GAMME */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-700 max-w-2xl w-full p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto"
+              initial={{ opacity: 0, scale: 0.96, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 15 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 max-w-6xl w-full my-6 overflow-hidden flex flex-col max-h-[92vh]"
             >
-              {/* Entête du modal */}
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-700 mb-6">
-                <div>
-                  <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                    {editingFraisClasse ? "Modifier le Frais de Classe" : "Configurer un Frais de Classe"}
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Définissez le tarif et le mode d'échéance (Unique, Tranches ou Mensualités).
-                  </p>
+              {/* EN-TÊTE PREMIUM DU MODAL */}
+              <div className="relative bg-[#0B1A2D] dark:bg-slate-950 text-white p-6 sm:px-8 sm:py-6 shrink-0 border-b border-white/10 flex items-center justify-between">
+                <div className="absolute top-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="relative flex items-center gap-4 z-10">
+                  <div className="p-3 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded-2xl shadow-sm shrink-0">
+                    <Wallet className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                        {editingFraisClasse ? "Modifier le Frais de Classe" : "Studio de Configuration des Frais"}
+                      </h3>
+                      <span className="text-[11px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2.5 py-0.5 rounded-full">
+                        {currentSchoolYear.nom}
+                      </span>
+                    </div>
+                    <p className="text-xs text-blue-200/70 mt-0.5">
+                      Paramétrez le montant, le mode de paiement et l'échéancier financier sur-mesure.
+                    </p>
+                  </div>
                 </div>
+
                 <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                  className="relative z-10 p-2.5 text-slate-400 hover:text-white rounded-2xl hover:bg-white/10 transition-colors border border-transparent hover:border-white/10"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleFormSubmit} className="space-y-6">
-                {/* 1. SELECTION DES CLASSES */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                    Classe(s) concernée(s) <span className="text-red-500">*</span>
-                  </label>
-                  {editingFraisClasse ? (
-                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-800 dark:text-white">
-                      {editingFraisClasse.classe?.nom}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900">
-                        {classes.map((cls) => {
-                          const isChecked = formData.classe_ids.includes(cls.id);
-                          return (
+              {/* CORPS DU MODAL : SPLIT HORIZONTAL 2 COLONNES */}
+              <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-6 sm:p-8 flex flex-col justify-between">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  
+                  {/* COLONNE GAUCHE (5 / 12) : PARAMÉTRAGE DE BASE */}
+                  <div className="lg:col-span-5 space-y-6">
+                    {/* 1. CLASSE(S) CIBLÉE(S) */}
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <GraduationCap className="w-4 h-4 text-blue-600" />
+                          <span>1. Classe(s) Cible(s)</span>
+                        </label>
+                        {!editingFraisClasse && (
+                          <div className="flex items-center gap-2 text-[11px]">
                             <button
                               type="button"
-                              key={cls.id}
-                              onClick={() => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  classe_ids: isChecked
-                                    ? prev.classe_ids.filter((id) => id !== cls.id)
-                                    : [...prev.classe_ids, cls.id],
-                                }));
-                              }}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                                isChecked
-                                  ? "bg-blue-600 text-white shadow-sm"
-                                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
-                              }`}
+                              onClick={() => setFormData((prev) => ({ ...prev, classe_ids: classes.map((c) => c.id) }))}
+                              className="text-blue-600 hover:underline font-bold"
                             >
-                              {isChecked && <Check className="w-3.5 h-3.5" />}
-                              <span>{cls.nom}</span>
+                              Tout cocher
                             </button>
-                          );
-                        })}
+                            <span className="text-slate-300">•</span>
+                            <button
+                              type="button"
+                              onClick={() => setFormData((prev) => ({ ...prev, classe_ids: [] }))}
+                              className="text-slate-400 hover:underline"
+                            >
+                              Effacer
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between items-center text-[11px] text-slate-400">
-                        <span>{formData.classe_ids.length} classe(s) sélectionnée(s)</span>
-                        <div className="space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => setFormData((prev) => ({ ...prev, classe_ids: classes.map((c) => c.id) }))}
-                            className="text-blue-600 hover:underline font-bold"
-                          >
-                            Tout cocher
-                          </button>
-                          <span>•</span>
-                          <button
-                            type="button"
-                            onClick={() => setFormData((prev) => ({ ...prev, classe_ids: [] }))}
-                            className="text-slate-500 hover:underline"
-                          >
-                            Tout décocher
-                          </button>
+
+                      {editingFraisClasse ? (
+                        <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-blue-200 dark:border-blue-900 text-sm font-black text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                          {editingFraisClasse.classe?.nom} ({editingFraisClasse.classe?.type?.toUpperCase()})
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 pr-1">
+                            {classes.map((cls) => {
+                              const isChecked = formData.classe_ids.includes(cls.id);
+                              return (
+                                <button
+                                  type="button"
+                                  key={cls.id}
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      classe_ids: isChecked
+                                        ? prev.classe_ids.filter((id) => id !== cls.id)
+                                        : [...prev.classe_ids, cls.id],
+                                    }));
+                                  }}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                    isChecked
+                                      ? "bg-blue-600 text-white shadow-sm"
+                                      : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                                  }`}
+                                >
+                                  {isChecked && <Check className="w-3.5 h-3.5" />}
+                                  <span>{cls.nom}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-medium">
+                            💡 <strong>{formData.classe_ids.length}</strong> classe(s) sélectionnée(s). Ce frais leur sera automatiquement appliqué.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 2. CATÉGORIE DU FRAIS & MONTANT TOTAL */}
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-4">
+                      <div>
+                        <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
+                          <Award className="w-4 h-4 text-emerald-600" />
+                          <span>2. Type de Frais</span>
+                        </label>
+                        <select
+                          value={formData.frais_type_id}
+                          onChange={(e) => {
+                            const newTypeId = e.target.value;
+                            const ft = fraisTypes.find((item) => String(item.id) === String(newTypeId));
+                            setFormData((prev) => ({
+                              ...prev,
+                              frais_type_id: newTypeId,
+                              montant: prev.montant || ft?.montant || "",
+                            }));
+                          }}
+                          disabled={Boolean(editingFraisClasse)}
+                          className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 shadow-sm"
+                          required
+                        >
+                          <option value="">Sélectionner un frais (Examen, Scolarité...)</option>
+                          {fraisTypes.map((ft) => (
+                            <option key={ft.id} value={ft.id}>
+                              {ft.nom} {ft.is_scolarite ? "— [Scolarité Annuelle]" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2 flex items-center justify-between">
+                          <span>3. Montant Total Exigible</span>
+                          <span className="text-[11px] font-bold text-blue-600">Devise : FCFA</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="500"
+                            value={formData.montant}
+                            onChange={(e) => handleTotalMontantChange(e.target.value)}
+                            placeholder="Ex: 135000"
+                            className="w-full py-3 pl-4 pr-16 bg-white dark:bg-slate-900 border-2 border-blue-200 dark:border-blue-900 rounded-xl text-lg font-black font-mono text-blue-700 dark:text-blue-400 focus:ring-2 focus:ring-blue-500 shadow-sm"
+                            required
+                          />
+                          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
+                            FCFA
+                          </span>
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* 2. CHOIX DU TYPE DE FRAIS & MONTANT TOTAL */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                      Type de Frais <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.frais_type_id}
-                      onChange={(e) => {
-                        const newTypeId = e.target.value;
-                        const ft = fraisTypes.find((item) => String(item.id) === String(newTypeId));
-                        setFormData((prev) => ({
-                          ...prev,
-                          frais_type_id: newTypeId,
-                          montant: prev.montant || ft?.montant || "",
-                        }));
-                      }}
-                      disabled={Boolean(editingFraisClasse)}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">Sélectionner un type...</option>
-                      {fraisTypes.map((ft) => (
-                        <option key={ft.id} value={ft.id}>
-                          {ft.nom} {ft.is_scolarite ? "— [Scolarité]" : ""}
-                        </option>
-                      ))}
-                    </select>
+                    {/* 3. RYTHME DE PAIEMENT */}
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                      <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-purple-600" />
+                        <span>4. Rythme de Paiement</span>
+                      </label>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* UNIQUE */}
+                        <button
+                          type="button"
+                          onClick={() => handleModeChange("unique")}
+                          className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center text-center gap-1.5 ${
+                            formData.mode_paiement === "unique"
+                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20 shadow-sm font-black"
+                              : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          <div className={`p-2 rounded-xl ${formData.mode_paiement === "unique" ? "bg-emerald-500 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
+                            <Wallet className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-bold leading-tight">En 1 Fois (Unique)</span>
+                        </button>
+
+                        {/* TRANCHES */}
+                        <button
+                          type="button"
+                          onClick={() => handleModeChange("tranches")}
+                          className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center text-center gap-1.5 ${
+                            formData.mode_paiement === "tranches"
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 ring-2 ring-blue-500/20 shadow-sm font-black"
+                              : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          <div className={`p-2 rounded-xl ${formData.mode_paiement === "tranches" ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-bold leading-tight">Par Tranches</span>
+                        </button>
+
+                        {/* MENSUEL */}
+                        <button
+                          type="button"
+                          onClick={() => handleModeChange("mensuel")}
+                          className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center text-center gap-1.5 ${
+                            formData.mode_paiement === "mensuel"
+                              ? "border-purple-500 bg-purple-50 dark:bg-purple-950/60 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20 shadow-sm font-black"
+                              : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          <div className={`p-2 rounded-xl ${formData.mode_paiement === "mensuel" ? "bg-purple-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>
+                            <Clock className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-bold leading-tight">Par Mois (9m)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 4. DESCRIPTION FACULTATIVE */}
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                        Consigne / Note explicative (Optionnelle)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.description}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                        placeholder="Ex: Frais obligatoires pour les épreuves du BEPC..."
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 font-medium"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                      Montant Total (FCFA) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="500"
-                        value={formData.montant}
-                        onChange={(e) => handleTotalMontantChange(e.target.value)}
-                        placeholder="Ex: 135000"
-                        className="w-full p-3 pr-16 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-black font-mono text-blue-700 dark:text-blue-400 focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                      <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                        FCFA
+                  {/* COLONNE DROITE (7 / 12) : STUDIO D'ÉCHÉANCIER EN DIRECT */}
+                  <div className="lg:col-span-7 bg-slate-50/90 dark:bg-slate-800/80 p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-700 flex flex-col justify-between h-full">
+                    <div>
+                      {/* Entête du studio */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-700 gap-3 mb-5">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <CalendarRange className="w-5 h-5 text-blue-600" />
+                            <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                              Studio d'Échéancier ({formData.echeances.length} échéance{formData.echeances.length > 1 ? "s" : ""})
+                            </h4>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Personnalisez les intitulés, montants partiels et dates limites de versement.
+                          </p>
+                        </div>
+
+                        {formData.mode_paiement !== "unique" && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const total = parseFloat(formData.montant) || 0;
+                                const count = formData.echeances.length;
+                                if (count === 0 || total <= 0) return;
+                                const base = Math.floor(total / count);
+                                const rem = total - base * count;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  echeances: prev.echeances.map((ech, idx) => ({
+                                    ...ech,
+                                    montant: idx === 0 ? base + rem : base,
+                                  })),
+                                }));
+                                toast.success("Montants équilibrés !");
+                              }}
+                              className="px-2.5 py-1.5 bg-white dark:bg-slate-700 hover:bg-slate-100 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-600 flex items-center gap-1 transition-all shadow-sm"
+                              title="Répartir le montant total équitablement"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5 text-blue-500" />
+                              <span>Équilibrer</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={addEcheanceRow}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-all shadow-sm"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>+ Tranche</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* JAUGE DE VÉRIFICATION DU TOTAL */}
+                      <div className="mb-5 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-700 shadow-sm">
+                        <div className="flex items-center justify-between text-xs mb-2">
+                          <span className="font-bold text-slate-500">Équilibre de l'échéancier :</span>
+                          <span
+                            className={`font-mono font-black text-sm ${
+                              Math.abs(totalEcheancesSum - (parseFloat(formData.montant) || 0)) < 1
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-amber-600 dark:text-amber-400"
+                            }`}
+                          >
+                            {formatMoney(totalEcheancesSum)} / {formatMoney(formData.montant || 0)}
+                          </span>
+                        </div>
+
+                        {/* Barre de progression */}
+                        <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${
+                              Math.abs(totalEcheancesSum - (parseFloat(formData.montant) || 0)) < 1
+                                ? "bg-emerald-500"
+                                : totalEcheancesSum < (parseFloat(formData.montant) || 0)
+                                ? "bg-blue-500"
+                                : "bg-red-500"
+                            }`}
+                            style={{
+                              width: `${
+                                parseFloat(formData.montant) > 0
+                                  ? Math.min(100, (totalEcheancesSum / parseFloat(formData.montant)) * 100)
+                                  : 0
+                              }%`,
+                            }}
+                          ></div>
+                        </div>
+
+                        {/* Statut textuel */}
+                        <div className="mt-2 flex items-center justify-between text-[11px]">
+                          {Math.abs(totalEcheancesSum - (parseFloat(formData.montant) || 0)) < 1 ? (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5" /> Répartition parfaite : somme des échéances conforme au montant total.
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5" /> Écart : {formatMoney(totalEcheancesSum - (parseFloat(formData.montant) || 0))} restant à ajuster.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* LISTE DÉTAILLÉE DES ÉCHÉANCES */}
+                      {formData.mode_paiement === "unique" ? (
+                        <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 text-center space-y-4">
+                          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                            <Wallet className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h4 className="text-base font-black text-slate-800 dark:text-white">Paiement Comptant (1 seule fois)</h4>
+                            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                              La totalité du montant ({formatMoney(formData.montant || 0)}) est exigible en un seul versement.
+                            </p>
+                          </div>
+                          <div className="inline-flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                            <Calendar className="w-4 h-4 text-slate-400" />
+                            <span>Date limite d'exigibilité :</span>
+                            <input
+                              type="date"
+                              value={formData.date_limite}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  date_limite: val,
+                                  echeances: prev.echeances.map((ech) => ({ ...ech, date_limite: val })),
+                                }));
+                              }}
+                              className="bg-transparent border-0 font-bold text-blue-600 focus:ring-0 p-0 text-xs"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                          {formData.echeances.map((ech, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-blue-300 transition-colors"
+                            >
+                              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                                <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-mono font-black text-xs flex items-center justify-center shrink-0">
+                                  {idx + 1}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={ech.nom}
+                                  onChange={(e) => updateEcheanceField(idx, "nom", e.target.value)}
+                                  placeholder="Intitulé tranche"
+                                  className="w-full sm:w-44 px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500"
+                                  required
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                                <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <input
+                                    type="date"
+                                    value={ech.date_limite || ""}
+                                    onChange={(e) => updateEcheanceField(idx, "date_limite", e.target.value)}
+                                    className="bg-transparent border-0 text-[11px] font-medium text-slate-600 dark:text-slate-300 p-0 focus:ring-0"
+                                  />
+                                </div>
+
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="500"
+                                    value={ech.montant}
+                                    onChange={(e) => updateEcheanceField(idx, "montant", parseFloat(e.target.value) || 0)}
+                                    placeholder="Montant"
+                                    className="w-28 px-2.5 py-1.5 text-xs font-black font-mono text-blue-700 dark:text-blue-400 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-right focus:ring-2 focus:ring-blue-500"
+                                    required
+                                  />
+                                </div>
+
+                                {formData.echeances.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEcheanceRow(idx)}
+                                    className="p-1.5 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                    title="Supprimer cette échéance"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Résumé de fin de colonne droite */}
+                    <div className="mt-5 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs text-slate-400">
+                      <span>Calendrier synchronisé avec le Journal de Caisse & Reçus</span>
+                      <span className="font-bold text-slate-600 dark:text-slate-300">
+                        {formData.echeances.length} versement(s) prévus
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* 3. RYTHME DE PAIEMENT */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                    Rythme / Mode de Paiement <span className="text-red-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* OPTION 1 : UNIQUE */}
-                    <div
-                      onClick={() => handleModeChange("unique")}
-                      className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                        formData.mode_paiement === "unique"
-                          ? "border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20 shadow-sm"
-                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Wallet className="w-4 h-4 text-emerald-600" />
-                        <span className="text-sm font-black">Paiement Unique</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        En 1 seule fois (Ex: Examen, Inscription, Sortie).
-                      </p>
-                    </div>
-
-                    {/* OPTION 2 : TRANCHES */}
-                    <div
-                      onClick={() => handleModeChange("tranches")}
-                      className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                        formData.mode_paiement === "tranches"
-                          ? "border-blue-500 bg-blue-50/60 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 ring-2 ring-blue-500/20 shadow-sm"
-                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Calendar className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm font-black">Par Tranches</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Trimestriel (Ex: 3 Tranches pour le secondaire).
-                      </p>
-                    </div>
-
-                    {/* OPTION 3 : MENSUEL */}
-                    <div
-                      onClick={() => handleModeChange("mensuel")}
-                      className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
-                        formData.mode_paiement === "mensuel"
-                          ? "border-purple-500 bg-purple-50/60 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20 shadow-sm"
-                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <Clock className="w-4 h-4 text-purple-600" />
-                        <span className="text-sm font-black">Par Mois</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        9 Mensualités de Septembre à Mai (Maternelle/Primaire).
-                      </p>
-                    </div>
+                {/* BARRE D'ACTIONS INFERIEURE DU MODAL */}
+                <div className="mt-8 pt-5 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-xs text-slate-400">
+                    * Tous les paramètres d'échéances seront immédiatement effectifs pour les inscriptions et paiements.
                   </div>
-                </div>
 
-                {/* 4. DATE LIMITE OU ÉCHÉANCIER DÉTAILLÉ */}
-                {formData.mode_paiement === "unique" ? (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                      Date limite d'exigibilité (Optionnelle)
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.date_limite}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData((prev) => ({
-                          ...prev,
-                          date_limite: val,
-                          echeances: prev.echeances.map((ech) => ({ ...ech, date_limite: val })),
-                        }));
-                      }}
-                      className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="px-6 py-3 rounded-2xl font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors text-xs sm:text-sm"
+                    >
+                      Annuler
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={formSubmitting}
+                      className="px-8 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-xl shadow-blue-600/30 disabled:opacity-50 text-xs sm:text-sm flex items-center gap-2.5 active:scale-95"
+                    >
+                      {formSubmitting ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
+                      <span>{editingFraisClasse ? "Enregistrer les modifications" : "Valider et Appliquer le Frais"}</span>
+                    </button>
                   </div>
-                ) : (
-                  <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-1.5">
-                          <CalendarRange className="w-4 h-4 text-blue-600" />
-                          <span>Détail des Échéances ({formData.echeances.length})</span>
-                        </h4>
-                        <p className="text-[11px] text-slate-400">
-                          Ajustez les montants partiels et les dates limites de chaque échéance.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={addEcheanceRow}
-                        className="px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-slate-100 text-blue-600 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 flex items-center gap-1 transition-colors"
-                      >
-                        <Plus className="w-3 h-3" /> Ajouter Tranche
-                      </button>
-                    </div>
-
-                    {/* Liste des échéances */}
-                    <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-                      {formData.echeances.map((ech, idx) => (
-                        <div
-                          key={idx}
-                          className="grid grid-cols-12 gap-2 items-center bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm"
-                        >
-                          <div className="col-span-5">
-                            <input
-                              type="text"
-                              value={ech.nom}
-                              onChange={(e) => updateEcheanceField(idx, "nom", e.target.value)}
-                              placeholder="Nom de l'échéance"
-                              className="w-full px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-1 focus:ring-blue-500"
-                              required
-                            />
-                          </div>
-                          <div className="col-span-4">
-                            <input
-                              type="number"
-                              min="0"
-                              step="500"
-                              value={ech.montant}
-                              onChange={(e) => updateEcheanceField(idx, "montant", parseFloat(e.target.value) || 0)}
-                              placeholder="Montant"
-                              className="w-full px-2.5 py-1.5 text-xs font-black font-mono text-blue-700 dark:text-blue-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-right focus:ring-1 focus:ring-blue-500"
-                              required
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <input
-                              type="date"
-                              value={ech.date_limite || ""}
-                              onChange={(e) => updateEcheanceField(idx, "date_limite", e.target.value)}
-                              className="w-full px-1.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
-                            />
-                          </div>
-                          <div className="col-span-1 text-center">
-                            {formData.echeances.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removeEcheanceRow(idx)}
-                                className="p-1 text-slate-400 hover:text-red-500 transition-colors"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Contrôle de la somme */}
-                    <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
-                      <span className="font-semibold text-slate-500">Total réparti sur les échéances :</span>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`font-mono font-black ${
-                            Math.abs(totalEcheancesSum - (parseFloat(formData.montant) || 0)) < 1
-                              ? "text-emerald-600 dark:text-emerald-400"
-                              : "text-amber-600 dark:text-amber-400"
-                          }`}
-                        >
-                          {formatMoney(totalEcheancesSum)} / {formatMoney(formData.montant)}
-                        </span>
-                        {Math.abs(totalEcheancesSum - (parseFloat(formData.montant) || 0)) < 1 ? (
-                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
-                            Équilibré ✅
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
-                            Écart : {formatMoney(totalEcheancesSum - (parseFloat(formData.montant) || 0))}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 5. DESCRIPTION FACULTATIVE */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Description ou Consignes (Optionnelle)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                    placeholder="Ex: Exigible avant les épreuves orales du BEPC..."
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* BOUTONS ACTIONS MODAL */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors text-xs sm:text-sm"
-                  >
-                    Annuler
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={formSubmitting}
-                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 text-xs sm:text-sm flex items-center gap-2"
-                  >
-                    {formSubmitting && <RefreshCw className="w-4 h-4 animate-spin" />}
-                    <span>{editingFraisClasse ? "Enregistrer les modifications" : "Créer le Frais de Classe"}</span>
-                  </button>
                 </div>
               </form>
             </motion.div>
@@ -1142,3 +1262,4 @@ export default function Index({
     </DashboardLayout>
   );
 }
+
