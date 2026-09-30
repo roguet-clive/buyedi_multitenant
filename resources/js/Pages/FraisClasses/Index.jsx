@@ -23,6 +23,7 @@ import {
   Search,
   Award,
   Wallet,
+  CalendarRange,
   CalendarCheck,
   Layers,
   ArrowRight,
