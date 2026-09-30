@@ -17,6 +17,9 @@ return new class extends Migration
             $table->foreignId('annee_scolaire_id')->constrained()->onDelete('cascade');
             $table->foreignId('frais_type_id')->constrained()->onDelete('cascade');
             $table->decimal('montant', 10, 2)->default(0);
+            $table->string('mode_paiement')->default('unique'); // unique, tranches, mensuel
+            $table->string('description')->nullable();
+            $table->date('date_limite')->nullable();
             $table->timestamps();
 
             $table->unique(['classe_id', 'annee_scolaire_id', 'frais_type_id']);

@@ -13,7 +13,7 @@ class FraisClasse extends Model
     public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
     {
         return \Spatie\Activitylog\LogOptions::defaults()
-            ->logOnly(['classe_id', 'annee_scolaire_id', 'frais_type_id', 'montant'])
+            ->logOnly(['classe_id', 'annee_scolaire_id', 'frais_type_id', 'montant', 'mode_paiement', 'description', 'date_limite'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs()
             ->setDescriptionForEvent(fn(string $eventName) => "Frais de Classe {$eventName}");
@@ -24,6 +24,14 @@ class FraisClasse extends Model
         'annee_scolaire_id',
         'frais_type_id',
         'montant',
+        'mode_paiement',
+        'description',
+        'date_limite',
+    ];
+
+    protected $casts = [
+        'montant' => 'float',
+        'date_limite' => 'date',
     ];
 
     // Relation vers la classe
