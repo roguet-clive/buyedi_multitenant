@@ -121,6 +121,15 @@ class PersonnelController extends Controller
                 'date_debut' => $validated['date_embauche'] ?? now(),
                 'actif' => true,
             ]);
+
+            // 4. Envoi des identifiants de connexion par email
+            try {
+                if (!empty($user->email)) {
+                    \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\NewUserCredentials($user, $plainPassword));
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Échec de l'envoi de l'email au personnel {$user->email} : " . $e->getMessage());
+            }
         });
 
         return redirect()->route('personnels.index')->with('success', 'Employé, compte d\'accès utilisateur et contrat créés avec succès en 1 seule étape.');

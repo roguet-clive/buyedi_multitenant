@@ -118,14 +118,14 @@ function EnseignantForm({ enseignant, onClose }) {
                             <div className="md:col-span-1">
                                 <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("nom", "Nom")} <span className="text-red-500">*</span></label>
                                 <input type="text" required className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
-                                    value={form.data.nom} onChange={(e) => form.setData("nom", e.target.value)} />
+                                    value={form.data.nom} onChange={(e) => form.setData("nom", e.target.value)} placeholder="Ex: OBAME" />
                                 {form.errors.nom && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.nom}</p>}
                             </div>
 
                             <div className="md:col-span-1">
                                 <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300">{t("prenom", "Prénom")} <span className="text-red-500">*</span></label>
                                 <input type="text" required className="w-full border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
-                                    value={form.data.prenom} onChange={(e) => form.setData("prenom", e.target.value)} />
+                                    value={form.data.prenom} onChange={(e) => form.setData("prenom", e.target.value)} placeholder="Ex: Marc" />
                                 {form.errors.prenom && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.prenom}</p>}
                             </div>
 
@@ -182,14 +182,14 @@ function EnseignantForm({ enseignant, onClose }) {
                             <div className="md:col-span-1">
                                 <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400" /> {t("telephone", "Téléphone")}</label>
                                 <input type="text" className="w-full border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
-                                    value={form.data.telephone} onChange={(e) => form.setData("telephone", e.target.value)} placeholder="+241 00 00 00 00" />
+                                    value={form.data.telephone} onChange={(e) => form.setData("telephone", e.target.value)} placeholder="+241 07 XX XX XX" />
                                 {form.errors.telephone && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.telephone}</p>}
                             </div>
 
                             <div className="md:col-span-1">
                                 <label className="block mb-2 text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-400" /> {t("adresse", "Adresse")}</label>
                                 <input type="text" className="w-full border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-900 p-3 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors shadow-sm font-medium"
-                                    value={form.data.adresse} onChange={(e) => form.setData("adresse", e.target.value)} placeholder="Quartier, Ville" />
+                                    value={form.data.adresse} onChange={(e) => form.setData("adresse", e.target.value)} placeholder="Ex: Mont-Bouët, Libreville" />
                                 {form.errors.adresse && <p className="text-red-500 text-xs font-bold mt-1.5">{form.errors.adresse}</p>}
                             </div>
 

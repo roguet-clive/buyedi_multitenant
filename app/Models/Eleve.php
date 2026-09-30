@@ -139,9 +139,9 @@ class Eleve extends Model
     // Helper pour le nom complet
     public function getFullNameAttribute(): string
     {
-        if ($this->relationLoaded('user') && $this->user) {
+        if ($this->user) {
             return trim(($this->user->prenom ?? '') . ' ' . ($this->user->nom ?? ''));
         }
-        return $this->matricule;
+        return $this->matricule ?? 'Élève';
     }
 }

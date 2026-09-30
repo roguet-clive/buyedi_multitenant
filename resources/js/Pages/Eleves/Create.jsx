@@ -8,7 +8,11 @@ import { motion } from 'framer-motion';
 
 export default function EleveForm({ mode = 'create', eleveInitial = null }) {
   const { t } = useTranslation();
-  const { permissions = {} } = usePage().props;
+  const { auth = {} } = usePage().props;
+  const permissions = auth?.permissions || [];
+  const roles = auth?.roles || [];
+  const can = (permission) => permissions.includes(permission) || roles.includes('super-admin') || roles.includes('directeur') || roles.includes('admin');
+  const canInscrire = can('ajouter_inscriptions');
   const fileInputRef = useRef(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -94,7 +98,11 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
       post(route('eleves.store'), {
         forceFormData: true,
         onSuccess: () => {
-          toast.success("Dossier élève créé avec succès !");
+          toast.success(
+            canInscrire
+              ? "Dossier élève créé avec succès ! Redirection vers l'inscription..."
+              : "Dossier élève créé avec succès !"
+          );
           reset();
           setPreviewUrl(null);
         },
@@ -236,6 +244,7 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
                       type="text"
                       value={data.nom}
                       onChange={(e) => setData('nom', e.target.value)}
+                      placeholder="Ex: NDONG, MOUSSAVOU, BIYOGO..."
                       className={`block w-full pl-10 pr-3 py-3 border rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors sm:text-sm font-bold
                            ${errors.nom ? 'border-red-300 focus:border-red-500' : 'border-slate-200 dark:border-slate-600 focus:border-blue-500'}
                          `}
@@ -251,6 +260,7 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
                     type="text"
                     value={data.prenom}
                     onChange={(e) => setData('prenom', e.target.value)}
+                    placeholder="Ex: Brice, Audrey, Kevin..."
                     className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors sm:text-sm font-medium"
                   />
                   {errors?.prenom && <p className="text-red-500 text-xs font-semibold">{errors.prenom}</p>}
@@ -322,7 +332,7 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300">Lieu de naissance</label>
                 <input
                   type="text"
-                  placeholder="Ville, Pays..."
+                  placeholder="Ex: Libreville, Port-Gentil, Oyem..."
                   value={data.lieu_naissance}
                   onChange={(e) => setData('lieu_naissance', e.target.value)}
                   className="block w-full px-4 py-3 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors sm:text-sm font-medium"
@@ -363,28 +373,49 @@ export default function EleveForm({ mode = 'create', eleveInitial = null }) {
         </div>
 
         {/* BOUTONS ACTIONS */}
-        <div className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-6 border-t border-slate-200 dark:border-slate-700">
-          <Link
-            href={route('eleves.index')}
-            className="text-slate-500 font-bold hover:text-slate-800 dark:hover:text-white px-6 py-3 transition-colors"
-          >
-            Annuler
-          </Link>
-          <button
-            type="submit"
-            disabled={processing}
-            className="w-full sm:w-auto bg-[#0B1A2D] hover:bg-slate-800 text-white font-bold px-8 py-3.5 rounded-2xl transition-all shadow-xl shadow-blue-900/30 disabled:opacity-50 flex justify-center items-center gap-2 text-lg active:scale-95"
-          >
-            {processing ? (
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            ) : (
-              <CheckCircleIcon className="w-5 h-5" />
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <div className="text-sm w-full sm:w-auto">
+            {mode === 'create' && (
+              canInscrire ? (
+                <p className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300 font-medium bg-blue-50 dark:bg-blue-950/40 px-3.5 py-2 rounded-xl border border-blue-200 dark:border-blue-900/50">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shrink-0"></span>
+                  Après enregistrement, vous serez redirigé pour finaliser l'affectation en classe.
+                </p>
+              ) : (
+                <p className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 font-medium bg-amber-50 dark:bg-amber-950/40 px-3.5 py-2 rounded-xl border border-amber-200 dark:border-amber-900/50">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                  L'inscription dans une classe sera finalisée par le service compétent.
+                </p>
+              )
             )}
-            {mode === 'create' ? 'Déposer le Dossier' : 'Mettre à jour la fiche'}
-          </button>
+          </div>
+
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-end">
+            <Link
+              href={route('eleves.index')}
+              className="text-slate-500 font-bold hover:text-slate-800 dark:hover:text-white px-5 py-3 transition-colors text-sm"
+            >
+              Annuler
+            </Link>
+            <button
+              type="submit"
+              disabled={processing}
+              className="w-full sm:w-auto bg-[#0B1A2D] hover:bg-slate-800 text-white font-bold px-7 py-3.5 rounded-2xl transition-all shadow-xl shadow-blue-900/30 disabled:opacity-50 flex justify-center items-center gap-2 text-sm sm:text-base active:scale-95"
+            >
+              {processing ? (
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <CheckCircleIcon className="w-5 h-5" />
+              )}
+              {mode === 'create'
+                ? (canInscrire ? 'Enregistrer et inscrire dans une classe' : 'Enregistrer le dossier élève')
+                : 'Mettre à jour la fiche'
+              }
+            </button>
+          </div>
         </div>
 
       </form>

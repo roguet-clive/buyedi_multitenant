@@ -7,13 +7,17 @@ import {
   TrendingUp, TrendingDown, Coins, UserPlus, Receipt 
 } from "lucide-react";
 import useTranslation from "@/Hooks/useTranslation";
-import { Link } from "@inertiajs/react";
+import { Link, usePage } from "@inertiajs/react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useState } from "react";
 
 
 export default function Dashboard({ counts, recentRegistrations, financialStats, financialChart, todayStats, currentYear }) {
   const { t } = useTranslation();
+  const { auth = {} } = usePage().props;
+  const permissions = auth?.permissions || [];
+  const roles = auth?.roles || [];
+  const can = (permission) => permissions.includes(permission) || roles.includes('super-admin') || roles.includes('directeur') || roles.includes('admin') || roles.includes('comptable');
 
   // Données réelles venant du contrôleur
   const stats = [
@@ -54,13 +58,15 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
             <span className="tracking-wide">Activité en direct aujourd'hui</span>
           </div>
 
-          <Link
-            href={route('paiements.index')}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 hover:text-white transition border border-white/10"
-          >
-            <Wallet className="w-3.5 h-3.5 text-emerald-400" />
-            Journal de Caisse &rarr;
-          </Link>
+          {todayStats?.can_see_finances && (
+            <Link
+              href={route('paiements.index')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 hover:text-white transition border border-white/10"
+            >
+              <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+              Journal de Caisse &rarr;
+            </Link>
+          )}
         </div>
 
         {/* Cartes métriques du jour */}
@@ -93,14 +99,23 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
               </div>
             </div>
           ) : (
-            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10">
-              <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30 shrink-0">
+            <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.06] border border-white/10 hover:bg-white/[0.09] transition-all group">
+              <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30 shrink-0 group-hover:scale-105 transition-transform">
                 <Calendar className="w-4.5 h-4.5" />
               </div>
-              <div>
-                <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Journée en cours</p>
-                <p className="text-base font-bold text-white mt-0.5">Opérations Ouvertes</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Activités scolaires normales</p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase font-bold text-slate-300 tracking-wider">Journée en cours</p>
+                  <span className="text-[10px] bg-emerald-500/30 text-emerald-300 font-extrabold px-1.5 py-0.5 rounded-md border border-emerald-500/30">
+                    Actif
+                  </span>
+                </div>
+                <p className="text-base font-bold text-white mt-0.5 truncate">
+                  {todayStats?.date_complete || 'Opérations Ouvertes'}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Accueil et services scolaires opérationnels
+                </p>
               </div>
             </div>
           )}
@@ -558,24 +573,30 @@ export default function Dashboard({ counts, recentRegistrations, financialStats,
               </Link>
             )}
 
-            <Link href={route('inscriptions.create')} className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-green-500/20 rounded-2xl transition-all border border-white/10 hover:border-green-400/30 group">
-              <span className="font-semibold text-sm group-hover:text-green-300 transition-colors">Nouvelle Inscription</span>
-              <div className="p-1.5 rounded-full bg-white/10 group-hover:bg-green-400/20 transition-colors">
-                <ArrowUpRight className="w-4 h-4 text-blue-200 group-hover:text-green-400" />
-              </div>
-            </Link>
-            <Link href={route('paiements.index')} className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-green-500/20 rounded-2xl transition-all border border-white/10 hover:border-green-400/30 group">
-              <span className="font-semibold text-sm group-hover:text-green-300 transition-colors">Encaisser un Paiement</span>
-              <div className="p-1.5 rounded-full bg-white/10 group-hover:bg-green-400/20 transition-colors">
-                <ArrowUpRight className="w-4 h-4 text-blue-200 group-hover:text-green-400" />
-              </div>
-            </Link>
-            <Link href={route('cours.index')} className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-green-500/20 rounded-2xl transition-all border border-white/10 hover:border-green-400/30 group">
-              <span className="font-semibold text-sm group-hover:text-green-300 transition-colors">Saisir des Notes</span>
-              <div className="p-1.5 rounded-full bg-white/10 group-hover:bg-green-400/20 transition-colors">
-                <ArrowUpRight className="w-4 h-4 text-blue-200 group-hover:text-green-400" />
-              </div>
-            </Link>
+            {can('ajouter_inscriptions') && (
+              <Link href={route('inscriptions.create')} className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-green-500/20 rounded-2xl transition-all border border-white/10 hover:border-green-400/30 group">
+                <span className="font-semibold text-sm group-hover:text-green-300 transition-colors">Nouvelle Inscription</span>
+                <div className="p-1.5 rounded-full bg-white/10 group-hover:bg-green-400/20 transition-colors">
+                  <ArrowUpRight className="w-4 h-4 text-blue-200 group-hover:text-green-400" />
+                </div>
+              </Link>
+            )}
+            {can('ajouter_paiements') && (
+              <Link href={route('paiements.index')} className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-green-500/20 rounded-2xl transition-all border border-white/10 hover:border-green-400/30 group">
+                <span className="font-semibold text-sm group-hover:text-green-300 transition-colors">Encaisser un Paiement</span>
+                <div className="p-1.5 rounded-full bg-white/10 group-hover:bg-green-400/20 transition-colors">
+                  <ArrowUpRight className="w-4 h-4 text-blue-200 group-hover:text-green-400" />
+                </div>
+              </Link>
+            )}
+            {(can('voir_notes') || can('ajouter_notes')) && (
+              <Link href={route('cours.index')} className="w-full flex items-center justify-between p-4 bg-white/5 hover:bg-green-500/20 rounded-2xl transition-all border border-white/10 hover:border-green-400/30 group">
+                <span className="font-semibold text-sm group-hover:text-green-300 transition-colors">Saisir des Notes</span>
+                <div className="p-1.5 rounded-full bg-white/10 group-hover:bg-green-400/20 transition-colors">
+                  <ArrowUpRight className="w-4 h-4 text-blue-200 group-hover:text-green-400" />
+                </div>
+              </Link>
+            )}
           </div>
         </motion.div>
       </div>

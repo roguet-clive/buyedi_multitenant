@@ -318,9 +318,9 @@ class DashboardController extends Controller
                 });
         }
 
-        // 3. KPI Financiers (Mois en cours)
-        // 3. KPI Financiers (Mois en cours)
-        $canSeeFinances = $user->can('voir_paiements') && $user->can('voir_depenses');
+        // 3. KPI Financiers (Mois en cours) - Réservé strictement aux postes de direction/comptabilité ou porteurs de voir_stats
+        $canSeeFinances = $user->hasRole(['super-admin', 'fondateur', 'directeur', 'admin', 'comptable']) 
+            || $user->can('voir_stats');
         $financialStats = null;
         $financialChart = [];
 
@@ -388,23 +388,22 @@ class DashboardController extends Controller
 
         $recettesJour = 0;
         $depensesJour = 0;
-        $nbPaiementsJour = 0;
-        $nbOperationsJour = 0;
         $especesJour = 0;
         $mobileJour = 0;
         $banqueJour = 0;
 
+        // Nombre de flux / opérations administratives du jour (accessible pour le suivi d'activité guichet)
+        $nbPaiementsJour = (int) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->count();
+        $nbOperationsJour = (int) \App\Models\Paiement::whereDate('date_paiement', $todayStr)
+            ->distinct('reference_recu')
+            ->count('reference_recu');
+        if ($nbOperationsJour === 0 && $nbPaiementsJour > 0) {
+            $nbOperationsJour = $nbPaiementsJour;
+        }
+
         if ($canSeeFinances) {
             $recettesJour = (float) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->sum('montant');
             $depensesJour = (float) \App\Models\Depense::whereDate('date_depense', $todayStr)->sum('montant');
-            $nbPaiementsJour = (int) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->count();
-            $nbOperationsJour = (int) \App\Models\Paiement::whereDate('date_paiement', $todayStr)
-                ->distinct('reference_recu')
-                ->count('reference_recu');
-            if ($nbOperationsJour === 0 && $nbPaiementsJour > 0) {
-                $nbOperationsJour = $nbPaiementsJour;
-            }
-
             $especesJour = (float) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->where('mode_paiement', 'especes')->sum('montant');
             $mobileJour = (float) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->where('mode_paiement', 'mobile')->sum('montant');
             $banqueJour = (float) \App\Models\Paiement::whereDate('date_paiement', $todayStr)->whereIn('mode_paiement', ['virement', 'cheque'])->sum('montant');
@@ -413,15 +412,15 @@ class DashboardController extends Controller
         $todayStats = [
             'date_complete' => ucfirst(now()->locale('fr')->isoFormat('dddd D MMMM YYYY')),
             'inscriptions_count' => $inscriptionsJour,
-            'recettes' => $recettesJour,
-            'depenses' => $depensesJour,
-            'solde' => $recettesJour - $depensesJour,
+            'recettes' => $canSeeFinances ? $recettesJour : 0,
+            'depenses' => $canSeeFinances ? $depensesJour : 0,
+            'solde' => $canSeeFinances ? ($recettesJour - $depensesJour) : 0,
             'nb_operations' => $nbOperationsJour,
             'nb_flux' => $nbPaiementsJour,
-            'especes' => $especesJour,
-            'mobile' => $mobileJour,
-            'banque' => $banqueJour,
-            'can_see_finances' => $canSeeFinances,
+            'especes' => $canSeeFinances ? $especesJour : 0,
+            'mobile' => $canSeeFinances ? $mobileJour : 0,
+            'banque' => $canSeeFinances ? $banqueJour : 0,
+            'can_see_finances' => (bool) $canSeeFinances,
         ];
 
         return Inertia::render('Dashboard', [

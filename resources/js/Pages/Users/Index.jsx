@@ -159,7 +159,7 @@ function UserForm({ user, roles, onClose }) {
               value={form.data.nom} 
               onChange={(e) => form.setData("nom", e.target.value)}
               className="w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
-              placeholder="Ex: DIALLO" 
+              placeholder="Ex: NDONG" 
             />
             {form.errors.nom && <p className="text-red-500 text-xs mt-1">{form.errors.nom}</p>}
           </div>
@@ -173,7 +173,7 @@ function UserForm({ user, roles, onClose }) {
               value={form.data.prenom} 
               onChange={(e) => form.setData("prenom", e.target.value)}
               className="w-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
-              placeholder="Ex: Mamadou" 
+              placeholder="Ex: Jean-Pierre" 
             />
             {form.errors.prenom && <p className="text-red-500 text-xs mt-1">{form.errors.prenom}</p>}
           </div>

@@ -192,14 +192,31 @@ class EleveController extends Controller
 
             try {
                 if (!empty($validated['email'])) {
-                    Mail::to($user->email)->queue(new NewUserCredentials($user, $defaultPassword));
+                    Mail::to($user->email)->send(new NewUserCredentials($user, $defaultPassword));
                 }
-            } catch (\Exception $e) {
-                // Si la file d'attente ou mailer échoue, on ne bloque pas l'utilisateur
+            } catch (\Throwable $e) {
+                // Si l'envoi email échoue, on consigne dans les logs sans bloquer la création
+                Log::warning("Échec de l'envoi de l'email des identifiants à l'élève {$user->email}: " . $e->getMessage());
             }
 
-            return redirect()->route('inscriptions.create.eleve', $eleve->id)
-                ->with('success', "Dossier de l'élève {$user->nom} {$user->prenom} créé avec succès ✅ Vous pouvez maintenant choisir sa classe et finaliser son inscription.");
+            $authUser = $request->user();
+            $nomComplet = trim(($user->prenom ?? '') . ' ' . $user->nom);
+
+            // 1. Si l'utilisateur a la permission d'inscrire : on l'oriente vers la suite logique
+            if ($authUser && ($authUser->can('ajouter_inscriptions') || $authUser->hasRole(['super-admin', 'directeur']))) {
+                return redirect()->route('inscriptions.create.eleve', $eleve->id)
+                    ->with('success', "Dossier de l'élève {$nomComplet} créé avec succès ✅ Vous pouvez maintenant choisir sa classe et finaliser son inscription.");
+            }
+
+            // 2. S'il a le droit de voir les élèves : on le ramène à la liste
+            if ($authUser && $authUser->can('voir_eleves')) {
+                return redirect()->route('eleves.index')
+                    ->with('success', "Dossier de l'élève {$nomComplet} créé avec succès ✅ (En attente d'inscription dans une classe par le service habilité).");
+            }
+
+            // 3. Repli sécurisé par défaut
+            return redirect()->route('dashboard')
+                ->with('success', "Dossier de l'élève {$nomComplet} créé avec succès ✅");
         } catch (\Exception $e) {
             DB::rollBack();
             if ($path && Storage::disk('public')->exists($path)) {

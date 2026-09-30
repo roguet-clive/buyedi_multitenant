@@ -52,42 +52,49 @@ class GrandeurNatureSeeder extends Seeder
         $anneeActive->setAsCurrent();
         $this->command->info("📅 Année scolaire active : {$anneeActive->nom}");
 
-        // 4. Frais Types proposés par défaut
+        // 4. Frais Types — Nettoyage des anciens codes obsolètes
+        $codesAutorises = ['inscription', 'reinscription', 'assurance', 'informatique_anglais', 'uniforme', 'tenue_sport', 'scolarite'];
+        $fraisObsoletes = FraisType::whereNotIn('code', $codesAutorises)->get();
+        if ($fraisObsoletes->isNotEmpty()) {
+            $idsObsoletes = $fraisObsoletes->pluck('id');
+            // Supprimer d'abord les paiements liés (contrainte FK)
+            \App\Models\Paiement::whereIn('frais_type_id', $idsObsoletes)->delete();
+            $nbSupprimes = FraisType::whereIn('id', $idsObsoletes)->delete();
+            $this->command->warn("🗑️  {$nbSupprimes} frais type(s) obsolète(s) supprimé(s) avec leurs paiements associés.");
+        }
+
+        // 4b. Frais Types officiels
         $fraisTypes = [
             'inscription' => FraisType::updateOrCreate(
                 ['code' => 'inscription'],
-                ['nom' => "Frais d'Inscription", 'montant' => 10000.00, 'globale' => true, 'is_scolarite' => false]
+                ['nom' => "Frais d'Inscription", 'montant' => 20000.00, 'globale' => true, 'is_scolarite' => false]
             ),
             'reinscription' => FraisType::updateOrCreate(
                 ['code' => 'reinscription'],
-                ['nom' => "Frais de Réinscription", 'montant' => 10000.00, 'globale' => true, 'is_scolarite' => false]
+                ['nom' => "Frais de Réinscription", 'montant' => 15000.00, 'globale' => true, 'is_scolarite' => false]
             ),
-            'tenue' => FraisType::updateOrCreate(
-                ['code' => 'tenue'],
-                ['nom' => "Tenue Scolaire", 'montant' => 5000.00, 'globale' => true, 'is_scolarite' => false]
+            'assurance' => FraisType::updateOrCreate(
+                ['code' => 'assurance'],
+                ['nom' => "Assurance", 'montant' => 5000.00, 'globale' => true, 'is_scolarite' => false]
             ),
-            'bulletin_assurance' => FraisType::updateOrCreate(
-                ['code' => 'bulletin_assurance'],
-                ['nom' => "Bulletin + Assurance", 'montant' => 5000.00, 'globale' => true, 'is_scolarite' => false]
+            'informatique_anglais' => FraisType::updateOrCreate(
+                ['code' => 'informatique_anglais'],
+                ['nom' => "Informatique et Anglais", 'montant' => 20000.00, 'globale' => false, 'is_scolarite' => false]
+            ),
+            'uniforme' => FraisType::updateOrCreate(
+                ['code' => 'uniforme'],
+                ['nom' => "Uniforme", 'montant' => 15000.00, 'globale' => true, 'is_scolarite' => false]
             ),
             'tenue_sport' => FraisType::updateOrCreate(
                 ['code' => 'tenue_sport'],
                 ['nom' => "Tenue de sport", 'montant' => 5000.00, 'globale' => true, 'is_scolarite' => false]
             ),
-            'tee_shirt' => FraisType::updateOrCreate(
-                ['code' => 'tee_shirt'],
-                ['nom' => "Tee-Shirt", 'montant' => 5000.00, 'globale' => true, 'is_scolarite' => false]
-            ),
             'scolarite' => FraisType::updateOrCreate(
                 ['code' => 'scolarite'],
                 ['nom' => "Scolarité", 'montant' => 0.00, 'globale' => false, 'is_scolarite' => true]
             ),
-            'ape' => FraisType::updateOrCreate(
-                ['code' => 'ape'],
-                ['nom' => 'APE', 'montant' => 2000.00, 'globale' => true, 'is_scolarite' => false]
-            ),
         ];
-        $this->command->info("💰 Frais types configurés (Inscription 10k, Réinscription 10k, Tenue 12k, Bulletin+Assurance 5k, Tenue sport 5k, Tee-Shirt 5k, Scolarité, APE).");
+        $this->command->info("💰 Frais types configurés (Inscription 20k, Réinscription 15k, Assurance 5k, Informatique+Anglais 20k, Uniforme 15k, Tenue sport 5k, Scolarité).");
 
         // 5. Classes & Grille tarifaire de scolarité
         $startYear = 2026;
@@ -159,6 +166,25 @@ class GrandeurNatureSeeder extends Seeder
             }
         }
         $this->command->info("🎓 10 Classes et tarifs de scolarité configurés avec succès (Crèche, Maternelle, Primaire).");
+
+        // 6. Informatique et Anglais — uniquement à partir de 5 ans jusqu'en 5ème Année
+        $classesInfoAnglais = ['5 ans', '1ère Année', '2ème Année', '3ème Année', '4ème Année', '5ème Année'];
+        foreach ($classesInfoAnglais as $nomClasse) {
+            $classe = Classe::where('nom', $nomClasse)->first();
+            if ($classe) {
+                FraisClasse::updateOrCreate(
+                    [
+                        'classe_id'        => $classe->id,
+                        'annee_scolaire_id' => $anneeActive->id,
+                        'frais_type_id'    => $fraisTypes['informatique_anglais']->id,
+                    ],
+                    [
+                        'montant' => 20000.00,
+                    ]
+                );
+            }
+        }
+        $this->command->info("💻 Frais « Informatique et Anglais » (20 000 F) configurés pour les classes de 5 ans à 5ème Année.");
 
         $this->command->info("✅ Base de données initialisée avec succès (Classes et Frais de scolarité opérationnels).");
     }

@@ -380,6 +380,76 @@ Route::middleware([SetLocale::class])->group(function () {
         ->name('paiements.verify');
     Route::get('/verify/arriere/{numero_recu}', [\App\Http\Controllers\ArriereController::class, 'verify'])
         ->name('arrieres.verify');
+    // 🖼️ Route de secours pour servir les fichiers publics de stockage
+    // Indispensable si l'hébergeur cPanel désactive symlink() ou si le lien symbolique n'a pas été créé
+    Route::get('/storage/{path}', function ($path) {
+        $filePath = storage_path('app/public/' . $path);
+        if (!file_exists($filePath)) {
+            abort(404);
+        }
+        return response()->file($filePath);
+    })->where('path', '.*')->name('storage.local');
+
+    // 🔗 Route utilitaire pour créer le lien symbolique sans terminal SSH
+    Route::get('/linkstorage', function () {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('storage:link');
+            return response()->json(['success' => true, 'message' => 'Lien symbolique storage:link créé avec succès ✅']);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    })->middleware(['auth', 'role:super-admin|admin|directeur']);
+
+    // 🧹 Route utilitaire pour vider tous les caches sur cPanel sans terminal SSH
+    Route::get('/clearcache', function () {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('config:clear');
+            \Illuminate\Support\Facades\Artisan::call('cache:clear');
+            \Illuminate\Support\Facades\Artisan::call('route:clear');
+            \Illuminate\Support\Facades\Artisan::call('view:clear');
+            return response()->json([
+                'success' => true,
+                'message' => 'Tous les caches Laravel (config, cache, routes, vues) ont été vidés avec succès ✅'
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    })->middleware(['auth', 'role:super-admin|admin|directeur']);
+
+    // 📧 Route de diagnostic d'envoi d'e-mail en direct
+    Route::get('/testmail', function (\Illuminate\Http\Request $request) {
+        $to = $request->query('to', 'wdtgabon@gmail.com');
+        try {
+            \Illuminate\Support\Facades\Mail::raw("Ceci est un email de test envoyé depuis le serveur Buyedi vers {$to}.", function ($m) use ($to) {
+                $m->to($to)->subject('Test d\'envoi en production - Buyedi');
+            });
+            return response()->json([
+                'success' => true,
+                'message' => "Email envoyé avec succès à {$to} ✅",
+                'configuration' => [
+                    'mailer' => config('mail.default'),
+                    'host' => config('mail.mailers.smtp.host'),
+                    'port' => config('mail.mailers.smtp.port'),
+                    'username' => config('mail.mailers.smtp.username'),
+                    'from' => config('mail.from'),
+                    'queue' => config('queue.default'),
+                ]
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'configuration' => [
+                    'mailer' => config('mail.default'),
+                    'host' => config('mail.mailers.smtp.host'),
+                    'port' => config('mail.mailers.smtp.port'),
+                    'username' => config('mail.mailers.smtp.username'),
+                    'from' => config('mail.from'),
+                    'queue' => config('queue.default'),
+                ]
+            ], 500);
+        }
+    })->middleware(['auth', 'role:super-admin|admin|directeur']);
 });
 
 require __DIR__.'/auth.php';
