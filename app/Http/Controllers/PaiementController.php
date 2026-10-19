@@ -717,6 +717,7 @@ class PaiementController extends Controller
         })->get();
 
         $fraisClasses = FraisClasse::where('annee_scolaire_id', $anneeId)
+            ->whereHas('fraisType', fn($q) => $q->where('is_scolarite', true))
             ->with(['echeances', 'classe'])
             ->get()
             ->keyBy('classe_id');

@@ -99,10 +99,26 @@ class Classe extends Model
     }
 
     /**
-     * Résout la mensualité officielle selon la grille tarifaire CSSD
+     * Résout la mensualité officielle selon la grille tarifaire CSSD ou le paramétrage FraisClasse
      */
     public function getMontantMensuelOfficielAttribute(): float
     {
+        // 1. Vérifier si un paramétrage de scolarité par classe existe pour l'année en cours
+        $anneeId = AnneeScolaire::where('en_cours', true)->value('id');
+        if ($anneeId) {
+            $fraisClasse = FraisClasse::where('classe_id', $this->id)
+                ->where('annee_scolaire_id', $anneeId)
+                ->whereHas('fraisType', fn($q) => $q->where('is_scolarite', true))
+                ->first();
+
+            if ($fraisClasse && (float)$fraisClasse->montant > 0) {
+                if ($fraisClasse->mode_paiement === 'mensuel' && $fraisClasse->echeances()->count() > 0) {
+                    return (float) $fraisClasse->echeances()->first()->montant;
+                }
+                return round((float)$fraisClasse->montant / 9, 2);
+            }
+        }
+
         $nom = mb_strtolower($this->nom);
 
         // Crèche
@@ -137,10 +153,21 @@ class Classe extends Model
     }
 
     /**
-     * Montant de la tenue scolaire (extrait dynamiquement de la table frais_types)
+     * Montant de la tenue scolaire (priorité au paramétrage de classe, repli sur frais_types)
      */
     public function getMontantTenueAttribute(): float
     {
+        $anneeId = AnneeScolaire::where('en_cours', true)->value('id');
+        if ($anneeId) {
+            $fc = FraisClasse::where('classe_id', $this->id)
+                ->where('annee_scolaire_id', $anneeId)
+                ->whereHas('fraisType', fn($q) => $q->where('code', 'tenue')->orWhere('nom', 'like', '%tenue%')->where('code', '!=', 'tenue_sport')->where('nom', 'not like', '%sport%'))
+                ->first();
+            if ($fc && (float)$fc->montant > 0) {
+                return (float)$fc->montant;
+            }
+        }
+
         $montant = FraisType::where('code', 'tenue')
             ->orWhere('nom', 'like', '%tenue%')
             ->where('code', '!=', 'tenue_sport')
@@ -151,10 +178,21 @@ class Classe extends Model
     }
 
     /**
-     * Montant Bulletin / Assurance (extrait dynamiquement de la table frais_types)
+     * Montant Bulletin / Assurance (priorité au paramétrage de classe, repli sur frais_types)
      */
     public function getMontantBulletinAttribute(): float
     {
+        $anneeId = AnneeScolaire::where('en_cours', true)->value('id');
+        if ($anneeId) {
+            $fc = FraisClasse::where('classe_id', $this->id)
+                ->where('annee_scolaire_id', $anneeId)
+                ->whereHas('fraisType', fn($q) => $q->where('code', 'bulletin_assurance')->orWhere('code', 'bulletin')->orWhere('nom', 'like', '%bulletin%'))
+                ->first();
+            if ($fc && (float)$fc->montant > 0) {
+                return (float)$fc->montant;
+            }
+        }
+
         $montant = FraisType::where('code', 'bulletin_assurance')
             ->orWhere('code', 'bulletin')
             ->orWhere('nom', 'like', '%bulletin%')

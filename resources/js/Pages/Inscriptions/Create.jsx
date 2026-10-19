@@ -16,9 +16,18 @@ export default function Create(props) {
     classes = [],
     annee_en_cours,
     fraisTypes = [],
+    fraisClasses = [],
     flash,
     forfait_config = { montant_forfait: 70000, frais_inscription: 10000, frais_reinscription: 5000 },
   } = props;
+
+  // Helper pour trouver un tarif spécifique configuré pour une classe dans frais_classes
+  const getClassFee = (targetClasseId, fraisTypeId) => {
+    if (!targetClasseId || !fraisClasses?.length) return null;
+    return fraisClasses.find(
+      fc => String(fc.classe_id) === String(targetClasseId) && String(fc.frais_type_id) === String(fraisTypeId)
+    );
+  };
 
   // Helper to safely format date for input (YYYY-MM-DD)
   const formatDate = (dateString) => {
@@ -26,7 +35,7 @@ export default function Create(props) {
     return dateString.split('T')[0];
   };
 
-  // Identification des types d'admission (10 000 FCFA chacun)
+  // Identification des types d'admission
   const typeInscription = useMemo(() => {
     return fraisTypes.find(ft => ft.code === 'inscription') || { id: 1, code: 'inscription', nom: "Frais d'Inscription", montant: 10000 };
   }, [fraisTypes]);
@@ -112,7 +121,12 @@ export default function Create(props) {
     fraisTypes.forEach(type => {
       const isPaid = paidFeeIds.includes(type.id);
       let isSelected = isPaid;
-      let montant = Number(type.montant || 0);
+
+      // 1. Priorité au tarif spécifique de la classe dans frais_classes
+      const classOverride = getClassFee(initialClasseId, type.id);
+      let montant = (classOverride && Number(classOverride.montant) > 0)
+        ? Number(classOverride.montant)
+        : Number(type.montant || 0);
 
       const code = type.code?.toLowerCase() || '';
       const nom = type.nom?.toLowerCase() || '';
@@ -173,8 +187,12 @@ export default function Create(props) {
     montant_scolarite_mois: existingScolaritePayment ? existingScolaritePayment.montant : '',
   });
 
-  // Détermination du tarif standard pour un type de frais (dynamique depuis FraisType)
-  const getBaseMontant = (fraisTypeId) => {
+  // Détermination du tarif standard pour un type de frais (dynamique selon la classe puis FraisType)
+  const getBaseMontant = (fraisTypeId, targetClasseId = data.classe_id) => {
+    const classOverride = getClassFee(targetClasseId, fraisTypeId);
+    if (classOverride && Number(classOverride.montant) > 0) {
+      return Number(classOverride.montant);
+    }
     if (typeInscription?.id && String(fraisTypeId) === String(typeInscription.id)) {
       return Number(typeInscription.montant || 0);
     }
@@ -267,12 +285,35 @@ export default function Create(props) {
     });
   };
 
-  // Changement de classe
+  // Changement de classe : actualisation dynamique des frais selon le barème de la classe choisie
   const handleClasseChange = (classeId) => {
-    setData(prev => ({
-      ...prev,
-      classe_id: classeId,
-    }));
+    setData(prev => {
+      const updatedFrais = { ...prev.frais };
+
+      // Si l'inscription n'a pas déjà de paiements enregistrés pour ce frais, réaligner les tarifs selon la classe
+      fraisTypes.forEach(type => {
+        if (updatedFrais[type.id] && !updatedFrais[type.id].already_paid) {
+          const classOverride = getClassFee(classeId, type.id);
+          if (classOverride && Number(classOverride.montant) > 0) {
+            updatedFrais[type.id] = {
+              ...updatedFrais[type.id],
+              montant: Number(classOverride.montant),
+            };
+          } else if (type.montant) {
+            updatedFrais[type.id] = {
+              ...updatedFrais[type.id],
+              montant: Number(type.montant),
+            };
+          }
+        }
+      });
+
+      return {
+        ...prev,
+        classe_id: classeId,
+        frais: updatedFrais,
+      };
+    });
   };
 
   // Gestion libre des modifications de montants (admission ou annexes)
@@ -297,15 +338,19 @@ export default function Create(props) {
   // Gestion des modifications de fournitures et frais annexes
   const handleFeeChange = (id, field, value) => {
     const feeType = fraisAnnexes.find(ft => String(ft.id) === String(id)) || fraisTypes.find(ft => String(ft.id) === String(id));
+    const classOverride = getClassFee(data.classe_id, id);
+    const standardMontant = (classOverride && Number(classOverride.montant) > 0)
+      ? Number(classOverride.montant)
+      : Number(feeType?.montant || 0);
 
     let updatedItem = {
-      ...(data.frais[id] || { selected: false, montant: Number(feeType?.montant || 0) }),
+      ...(data.frais[id] || { selected: false, montant: standardMontant }),
       [field]: value
     };
 
     // Si on coche et qu'aucun montant n'est encore défini, initialiser au montant standard
     if (field === 'selected' && value === true && (updatedItem.montant === undefined || updatedItem.montant === null || updatedItem.montant === '')) {
-      updatedItem.montant = Number(feeType?.montant || 0);
+      updatedItem.montant = standardMontant;
     }
 
     setData('frais', {
@@ -347,10 +392,12 @@ export default function Create(props) {
     handleFeeChange(id, 'selected', !current?.selected);
   };
 
-  // Tuitions info for the selected class
+  // Tuitions info for the selected class (cibler la ligne de scolarité spécifiquement)
   const selectedClasseFrais = useMemo(() => {
     if (!data.classe_id || !props.fraisClasses) return null;
-    return props.fraisClasses.find(fc => String(fc.classe_id) === String(data.classe_id));
+    return props.fraisClasses.find(
+      fc => String(fc.classe_id) === String(data.classe_id) && (fc.frais_type?.is_scolarite || fc.is_scolarite)
+    );
   }, [data.classe_id, props.fraisClasses]);
 
   const selectedClasseObj = useMemo(() => {

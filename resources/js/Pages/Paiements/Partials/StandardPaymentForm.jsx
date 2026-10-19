@@ -49,6 +49,7 @@ export default function StandardPaymentForm({
     paiement, 
     inscriptions = [], 
     fraisTypes = [], 
+    fraisClasses = [],
     onClose,
     preselectedInscriptionId = null,
     onSuccessCallback = null
@@ -68,17 +69,27 @@ export default function StandardPaymentForm({
 
     useEffect(() => {
         if (form.data.frais_type_id) {
-            const feeType = otherFees.find(ft => ft.id == form.data.frais_type_id);
+            const feeType = otherFees.find(ft => String(ft.id) === String(form.data.frais_type_id));
             if (feeType) {
-                const isTenue = feeType.code === 'tenue' || feeType.nom?.toLowerCase().includes('tenue');
-                if (isTenue && selectedInsc?.montant_tenue_exigible) {
-                    form.setData("montant", selectedInsc.montant_tenue_exigible);
+                // 1. Vérifier si un tarif spécifique est configuré pour la classe de cet élève
+                const classFee = fraisClasses?.find(
+                    fc => String(fc.classe_id) === String(selectedInsc?.classe_id) && 
+                          String(fc.frais_type_id) === String(form.data.frais_type_id)
+                );
+
+                if (classFee && Number(classFee.montant) > 0) {
+                    form.setData("montant", Number(classFee.montant));
                 } else {
-                    form.setData("montant", feeType.montant);
+                    const isTenue = feeType.code === 'tenue' || feeType.nom?.toLowerCase().includes('tenue');
+                    if (isTenue && selectedInsc?.montant_tenue_exigible) {
+                        form.setData("montant", selectedInsc.montant_tenue_exigible);
+                    } else {
+                        form.setData("montant", feeType.montant || 0);
+                    }
                 }
             }
         }
-    }, [form.data.frais_type_id, form.data.inscription_id]);
+    }, [form.data.frais_type_id, form.data.inscription_id, fraisClasses]);
 
     const submit = (e) => {
         e.preventDefault();

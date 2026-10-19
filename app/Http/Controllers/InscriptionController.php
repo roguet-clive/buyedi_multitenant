@@ -670,13 +670,26 @@ class InscriptionController extends Controller
     }
 
     /**
-     * Résout le montant d'un type de frais (lu dynamiquement depuis frais_types)
+     * Résout le montant d'un type de frais (priorité au barème FraisClasse de la classe, repli sur frais_types)
      */
     private function resolveFraisMontant(FraisType $fraisType, ?Classe $classe, ?array $data, bool $isReinscription, bool $hasRemise = false): float
     {
         if (isset($data['montant']) && is_numeric($data['montant'])) {
             return (float) $data['montant'];
         }
+
+        if ($classe) {
+            $anneeId = AnneeScolaire::where('en_cours', true)->value('id');
+            $fc = FraisClasse::where('classe_id', $classe->id)
+                ->when($anneeId, fn($q) => $q->where('annee_scolaire_id', $anneeId))
+                ->where('frais_type_id', $fraisType->id)
+                ->first();
+
+            if ($fc && (float) $fc->montant > 0) {
+                return (float) $fc->montant;
+            }
+        }
+
         return (float) ($fraisType->montant ?? 0);
     }
 

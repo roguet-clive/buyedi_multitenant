@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\NewUserCredentials;
+use App\Mail\ResetUserCredentials;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -81,6 +82,7 @@ class UserController extends Controller
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),
+                'credentialsModal' => session('credentialsModal'),
             ],
         ]);
     }
@@ -127,11 +129,23 @@ class UserController extends Controller
 
         $flashMessage = $mailSent
             ? "Utilisateur créé avec succès ✅ Les identifiants ont été envoyés par email à {$user->email}."
-            : "Utilisateur créé avec succès ✅ (Note : l'email n'a pas pu être transmis. Mot de passe généré : {$plainPassword})";
+            : "Utilisateur créé avec succès ✅ (Note : l'email n'a pas pu être transmis. Vous pouvez envoyer les accès par WhatsApp ou copier le mot de passe).";
+
+        $credentialsModal = [
+            'type' => 'creation',
+            'title' => 'Compte créé avec succès',
+            'user_name' => $user->full_name ?: trim(($user->prenom ?? '') . ' ' . $user->nom),
+            'email' => $user->email,
+            'telephone' => $user->telephone ?? '',
+            'password' => $plainPassword,
+            'mail_sent' => $mailSent,
+            'login_url' => route('login'),
+        ];
 
         return redirect()
             ->route('users.index')
-            ->with('success', $flashMessage);
+            ->with('success', $flashMessage)
+            ->with('credentialsModal', $credentialsModal);
     }
 
     public function update(Request $request, User $user)
@@ -200,5 +214,56 @@ class UserController extends Controller
         } catch (\Throwable $e) {
             return back()->with('error', __('Impossible de supprimer cet utilisateur car il est rattaché à d\'autres enregistrements.'));
         }
+    }
+
+    /**
+     * Réinitialise les identifiants d'un utilisateur et génère un nouveau mot de passe.
+     * 🔒 STRICTEMENT RÉSERVÉ AU SUPER ADMINISTRATEUR.
+     */
+    public function resetCredentials(Request $request, User $user)
+    {
+        // 🔒 Sécurité absolue : Seul le super-admin est autorisé
+        if (!auth()->user()?->hasRole('super-admin')) {
+            abort(403, "Action non autorisée. Seul le Super Administrateur peut réinitialiser les identifiants.");
+        }
+
+        if (auth()->id() === $user->id) {
+            return back()->with('error', "Vous ne pouvez pas réinitialiser votre propre compte depuis ce bouton. Rendez-vous dans 'Mon Profil' pour changer votre mot de passe.");
+        }
+
+        // Génération d'un mot de passe temporaire robuste (10 caractères)
+        $plainPassword = Str::random(10);
+
+        $user->update([
+            'password' => Hash::make($plainPassword),
+        ]);
+
+        $mailSent = false;
+        try {
+            Mail::to($user->email)->send(new ResetUserCredentials($user, $plainPassword));
+            $mailSent = true;
+        } catch (\Throwable $e) {
+            Log::warning("Échec de l'envoi de l'email de réinitialisation à {$user->email}: " . $e->getMessage());
+        }
+
+        $flashMessage = $mailSent
+            ? "Identifiants réinitialisés avec succès ✅ Un nouveau mot de passe a été envoyé par email à {$user->email}."
+            : "Identifiants réinitialisés avec succès ✅ (Note : L'envoi de l'email a échoué. Vous pouvez transmettre les identifiants par WhatsApp).";
+
+        $credentialsModal = [
+            'type' => 'reset',
+            'title' => 'Identifiants réinitialisés',
+            'user_name' => $user->full_name ?: trim(($user->prenom ?? '') . ' ' . $user->nom),
+            'email' => $user->email,
+            'telephone' => $user->telephone ?? '',
+            'password' => $plainPassword,
+            'mail_sent' => $mailSent,
+            'login_url' => route('login'),
+        ];
+
+        return redirect()
+            ->route('users.index')
+            ->with('success', $flashMessage)
+            ->with('credentialsModal', $credentialsModal);
     }
 }

@@ -93,7 +93,9 @@ class DemandeDocumentController extends Controller
                 $totalPaye = 0;
 
                 if ($inscription) {
-                    $totalDu = FraisClasse::where('classe_id', $inscription->classe_id)->sum('montant');
+                    $totalDu = FraisClasse::where('classe_id', $inscription->classe_id)
+                        ->where('annee_scolaire_id', $inscription->annee_scolaire_id)
+                        ->sum('montant');
                     $totalPaye = Paiement::where('inscription_id', $inscription->id)->sum('montant');
                 }
 

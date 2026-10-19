@@ -2,10 +2,10 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Certificat de Scolarité - {{ $eleve->user->nom }} {{ $eleve->user->prenom }}</title>
+    <title>Certificat de Scolarité - {{ $eleve->user->nom ?? '' }} {{ $eleve->user->prenom ?? '' }}</title>
     <style>
         @page {
-            margin: 10mm 14mm 10mm 14mm;
+            margin: 7mm 12mm 18mm 12mm;
             size: A4 portrait;
         }
         
@@ -20,49 +20,51 @@
             margin: 0;
             padding: 0;
             width: 100%;
-            height: 100%;
             font-family: 'DejaVu Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
             color: #1A202C;
             background-color: #FFFFFF;
-            font-size: 11pt;
+            font-size: 10.2pt;
             line-height: 1.5;
         }
 
-        .page-container {
+        /* 1. CADRE OFFICIEL DOUBLE LIGNE PRESTIGE */
+        .certificate-frame {
             width: 100%;
-            height: 275mm;
-            border: 2.2px solid #0B3C5D;
+            border: 2px solid #0B3C5D;
+            border-radius: 6px;
             padding: 2.5px;
             box-sizing: border-box;
+            background-color: #FFFFFF;
             position: relative;
         }
 
-        .inner-container {
-            width: 100%;
-            height: 100%;
+        .certificate-inner {
             border: 1px solid #007A48;
-            padding: 16px 22px 14px 22px;
+            border-radius: 4px;
+            padding: 20px 22px 18px 22px;
             box-sizing: border-box;
             position: relative;
+            /* Hauteur fixe = page A4 (297mm) - marges (@page top+bot = 25mm) - frame outer padding (5px*2) - footer (18mm) */
+            min-height: 235mm;
         }
 
-        /* FILIGRANE */
+        /* FILIGRANE RÉPUBLIQUE */
         .watermark {
             position: absolute;
-            top: 50%;
+            top: 48%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 360px;
+            width: 320px;
             opacity: 0.035;
             z-index: 0;
             pointer-events: none;
         }
 
-        /* 1. EN-TÊTE RÉPUBLICAIN & ÉTABLISSEMENT */
+        /* 3. EN-TÊTE RÉPUBLICAIN & ÉTABLISSEMENT */
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             position: relative;
             z-index: 1;
         }
@@ -74,49 +76,49 @@
         }
 
         .republic-title {
-            font-size: 11pt;
+            font-size: 10.2pt;
             font-weight: 900;
             color: #0B3C5D;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
+            letter-spacing: 0.4px;
+            margin-bottom: 1px;
         }
 
         .republic-motto {
-            font-size: 8.5pt;
+            font-size: 8pt;
             font-style: italic;
             font-weight: bold;
             color: #4A5568;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
 
         .flag-emblem-bar {
-            margin: 4px auto;
+            margin: 2px auto;
             text-align: center;
         }
 
         .emblem-img {
-            height: 28px;
+            height: 25px;
             width: auto;
             vertical-align: middle;
             margin-right: 4px;
         }
 
         .flag-img {
-            height: 16px;
-            width: 24px;
+            height: 14px;
+            width: 22px;
             vertical-align: middle;
             border: 0.5px solid rgba(0,0,0,0.2);
             border-radius: 1px;
         }
 
         .ministry-title {
-            font-size: 7.5pt;
+            font-size: 7.2pt;
             font-weight: 800;
             color: #007A48;
             text-transform: uppercase;
             line-height: 1.25;
-            margin-top: 3px;
+            margin-top: 2px;
         }
 
         .header-center {
@@ -127,8 +129,8 @@
         }
 
         .main-school-logo {
-            max-height: 56px;
-            max-width: 75px;
+            max-height: 54px;
+            max-width: 72px;
             object-fit: contain;
             display: inline-block;
         }
@@ -140,7 +142,7 @@
         }
 
         .school-name-header {
-            font-size: 11pt;
+            font-size: 10.5pt;
             font-weight: 900;
             color: #0B3C5D;
             text-transform: uppercase;
@@ -150,24 +152,24 @@
         }
 
         .school-sub-info {
-            font-size: 7.8pt;
+            font-size: 7.6pt;
             color: #4A5568;
-            line-height: 1.35;
+            line-height: 1.3;
         }
 
         .school-contact-info {
-            font-size: 7.2pt;
+            font-size: 7pt;
             color: #2D3748;
             font-weight: 600;
-            margin-top: 2px;
+            margin-top: 1px;
         }
 
-        /* SÉPARATEUR TRICOLORE */
+        /* SÉPARATEUR TRICOLORE GABONAIS */
         .divider-table {
             width: 100%;
             height: 3px;
             border-collapse: collapse;
-            margin: 8px 0 12px 0;
+            margin: 6px 0 9px 0;
             position: relative;
             z-index: 1;
         }
@@ -176,11 +178,11 @@
         .flag-y { background-color: #FCD116; width: 33.33%; height: 3px; }
         .flag-b { background-color: #3A75C4; width: 33.34%; height: 3px; }
 
-        /* 2. BANDEAU DE RÉFÉRENCE & DATE */
+        /* 4. BANDEAU RÉFÉRENCE & DATE */
         .ref-bar {
             width: 100%;
-            margin-bottom: 14px;
-            font-size: 8.5pt;
+            margin-bottom: 10px;
+            font-size: 8.4pt;
             position: relative;
             z-index: 1;
         }
@@ -194,7 +196,7 @@
             text-align: left;
             font-weight: 800;
             color: #0B3C5D;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
         }
 
         .ref-right {
@@ -203,10 +205,10 @@
             font-style: italic;
         }
 
-        /* 3. TITRE DU DOCUMENT */
+        /* 5. TITRE CENTRAL CALIBRÉ */
         .title-container {
             text-align: center;
-            margin: 12px 0 20px 0;
+            margin: 8px 0 14px 0;
             position: relative;
             z-index: 1;
         }
@@ -214,15 +216,15 @@
         .title-badge {
             display: inline-block;
             background: #F8FAFC;
-            border: 1.6px solid #0B3C5D;
+            border: 1.5px solid #0B3C5D;
             border-radius: 4px;
-            padding: 9px 34px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            padding: 7px 32px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
         .title-badge h1 {
             margin: 0;
-            font-size: 16pt;
+            font-size: 14.5pt;
             font-weight: 900;
             color: #0B3C5D;
             text-transform: uppercase;
@@ -230,33 +232,33 @@
         }
 
         .title-badge .subtitle {
-            margin-top: 3px;
-            font-size: 8pt;
+            margin-top: 2px;
+            font-size: 7.5pt;
             font-weight: 700;
             color: #007A48;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.8px;
         }
 
-        /* 4. CONTENU DE L'ATTESTATION */
+        /* 6. TEXTE D'INTRODUCTION */
         .intro-text {
-            font-size: 11pt;
-            line-height: 1.65;
+            font-size: 10.4pt;
+            line-height: 1.6;
             color: #2D3748;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
             text-align: justify;
             position: relative;
             z-index: 1;
         }
 
-        /* CADRE DES INFORMATIONS ÉLÈVE */
+        /* 7. CADRE ÉLÈVE CENTRÉ & ÉQUILIBRÉ */
         .student-card-box {
             background-color: #F8FAFC;
-            border: 1.2px solid #CBD5E1;
+            border: 1px solid #CBD5E1;
             border-left: 4.5px solid #007A48;
             border-radius: 4px;
-            padding: 12px 16px;
-            margin: 14px 0 18px 0;
+            padding: 10px 16px;
+            margin: 10px 0 14px 0;
             position: relative;
             z-index: 1;
         }
@@ -267,14 +269,14 @@
         }
 
         .student-photo-td {
-            width: 78px;
-            vertical-align: top;
-            padding-right: 14px;
+            width: 88px;
+            vertical-align: middle;
+            padding-right: 16px;
         }
 
         .student-photo-frame {
-            width: 72px;
-            height: 90px;
+            width: 80px;
+            height: 102px;
             border: 1px solid #94A3B8;
             border-radius: 3px;
             overflow: hidden;
@@ -292,8 +294,8 @@
         .student-photo-placeholder {
             width: 100%;
             height: 100%;
-            line-height: 90px;
-            font-size: 20pt;
+            line-height: 102px;
+            font-size: 24pt;
             font-weight: 900;
             color: #64748B;
             background-color: #E2E8F0;
@@ -301,7 +303,7 @@
         }
 
         .student-info-td {
-            vertical-align: top;
+            vertical-align: middle;
         }
 
         .info-grid-table {
@@ -310,27 +312,38 @@
         }
 
         .info-grid-table td {
-            padding: 3.5px 0;
-            vertical-align: top;
-            font-size: 10.2pt;
+            padding: 4px 0;
+            vertical-align: middle;
+            font-size: 10pt;
         }
 
         .lbl {
-            width: 165px;
+            width: 195px;
+            white-space: nowrap;
             font-weight: bold;
             color: #4A5568;
             text-transform: uppercase;
-            font-size: 8.8pt;
-            letter-spacing: 0.3px;
+            font-size: 8.5pt;
+            letter-spacing: 0.25px;
+        }
+
+        .colon {
+            width: 14px;
+            text-align: center;
+            font-weight: 900;
+            color: #4A5568;
+            font-size: 9pt;
+            padding: 0 4px;
         }
 
         .val {
             font-weight: 700;
             color: #1A202C;
+            padding-left: 4px;
         }
 
         .val-highlight {
-            font-size: 11.5pt;
+            font-size: 11pt;
             font-weight: 900;
             color: #0B3C5D;
             text-transform: uppercase;
@@ -338,7 +351,7 @@
         }
 
         .val-class {
-            font-size: 11.5pt;
+            font-size: 11pt;
             font-weight: 900;
             color: #007A48;
             text-transform: uppercase;
@@ -348,36 +361,38 @@
             font-family: 'DejaVu Sans', monospace;
             font-weight: 900;
             color: #C53030;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
         }
 
-        /* CLAUSE ET MENTIONS LÉGALES */
+        /* 8. CLAUSES ACADÉMIQUES & LÉGALES */
         .academic-statement {
-            font-size: 10.8pt;
-            line-height: 1.6;
+            font-size: 10.2pt;
+            line-height: 1.55;
             color: #2D3748;
-            margin: 14px 0;
+            margin: 12px 0;
             text-align: justify;
             position: relative;
             z-index: 1;
         }
 
         .legal-closing {
-            font-size: 10.2pt;
-            line-height: 1.6;
+            font-size: 9.8pt;
+            line-height: 1.55;
             color: #2D3748;
-            margin: 14px 0 24px 0;
+            margin: 12px 0 140px 0;
             text-align: justify;
             font-style: italic;
             position: relative;
             z-index: 1;
         }
 
-        /* 5. BLOC SIGNATURE, CACHET ET QR CODE - AU BAS DE PAGE */
+        /* 9. SIGNATURES & QR CODE */
         .signature-section {
             width: 100%;
-            margin-top: 25px;
-            position: relative;
+            position: absolute;
+            bottom: 18px;
+            left: 22px;
+            right: 22px;
             z-index: 1;
         }
 
@@ -387,30 +402,30 @@
         }
 
         .sig-left {
-            width: 38%;
+            width: 32%;
             vertical-align: bottom;
-            text-align: left;
-            padding-bottom: 6px;
+            text-align: center;
+            padding-bottom: 2px;
         }
 
         .qr-box {
             display: inline-block;
-            text-align: center;
-            border: 1px dashed #CBD5E1;
-            padding: 6px;
+            padding: 6px 8px;
+            border: 1px solid #CBD5E1;
             border-radius: 4px;
-            background-color: #FAFAFA;
+            background-color: #F8FAFC;
+            text-align: center;
         }
 
         .qr-img {
-            width: 68px;
-            height: 68px;
+            width: 66px;
+            height: 66px;
             display: block;
             margin: 0 auto;
         }
 
         .qr-caption {
-            font-size: 5.5pt;
+            font-size: 5.8pt;
             font-weight: 800;
             color: #007A48;
             text-transform: uppercase;
@@ -418,62 +433,73 @@
             letter-spacing: 0.3px;
         }
 
+        .qr-ref {
+            font-size: 5.5pt;
+            color: #64748B;
+            margin-top: 1px;
+            font-weight: 600;
+        }
+
         .sig-right {
-            width: 62%;
+            width: 68%;
             vertical-align: top;
-            text-align: center;
+            text-align: right;
+            padding-left: 20px;
         }
 
         .sig-date {
-            font-size: 10pt;
+            font-size: 9.5pt;
             font-weight: 600;
             color: #2D3748;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
+            text-align: right;
         }
 
         .sig-title {
-            font-size: 10.5pt;
+            font-size: 10pt;
             font-weight: 900;
             text-transform: uppercase;
             color: #0B3C5D;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.3px;
+            margin-bottom: 6px;
+            text-align: right;
         }
 
         .stamp-placeholder {
-            height: 72px;
-            margin-top: 6px;
-            border-bottom: 1px dotted #CBD5E1;
+            height: 85px;
+            border: 1.2px dashed #94A3B8;
+            border-radius: 4px;
+            background-color: #FAFAFA;
             position: relative;
+            margin-left: auto;
+            width: 230px;
         }
 
         .stamp-hint {
             position: absolute;
             bottom: 4px;
-            right: 12px;
-            font-size: 6.8pt;
-            color: #A0AEC0;
+            right: 8px;
+            font-size: 6.5pt;
+            color: #94A3B8;
             font-style: italic;
         }
 
-        /* 6. PIED DE PAGE DE SÉCURITÉ */
-        .footer-security {
-            position: absolute;
-            bottom: 10px;
-            left: 22px;
-            right: 22px;
-            text-align: center;
-            border-top: 0.8px solid #E2E8F0;
+        /* 9. MENTION DE SÉCURITÉ BAS DE CADRE */
+        .security-footer-note {
+            margin-top: 18px;
             padding-top: 6px;
-        }
-
-        .security-note {
-            font-size: 6.8pt;
+            border-top: 0.6px solid #E2E8F0;
+            text-align: center;
+            font-size: 6.5pt;
             color: #718096;
             line-height: 1.35;
         }
+
+
     </style>
 </head>
 <body>
+
 @php
     // Photo de l'élève
     $photoPath = null;
@@ -501,8 +527,9 @@
     $schoolName = $etablissement['nom'] ?? 'COMPLEXE SCOLAIRE BUYEDI';
     $schoolAddress = $etablissement['adresse'] ?? 'Libreville, République Gabonaise';
     $schoolCity = $etablissement['ville'] ?? 'Libreville';
-    $schoolPhone = $etablissement['telephone'] ?? '';
-    $schoolEmail = $etablissement['email'] ?? '';
+    $schoolPhone = $etablissement['telephone'] ?? '+241 77 00 00 00';
+    $schoolEmail = $etablissement['email'] ?? 'contact@buyedi.com';
+    $siteWeb = $etablissement['site_web'] ?? 'https://appbuyedi.com';
     $schoolYear = $inscription->anneeScolaire->nom ?? date('Y') . '-' . (date('Y')+1);
     $className = $inscription->classe->nom ?? 'Non assignée';
     $matricule = $eleve->matricule ?? (($etablissement['sigle'] ?? 'CS-BUYEDI') . '-' . date('Y') . '-' . str_pad($eleve->id ?? 1, 4, '0', STR_PAD_LEFT));
@@ -510,24 +537,33 @@
     $lieuNaissance = $eleve->lieu_naissance ?? 'Libreville';
     $sexe = $eleve->sexe === 'M' ? 'Masculin' : ($eleve->sexe === 'F' ? 'Féminin' : 'Non spécifié');
 
+    $documentTitle = 'Certificat de Scolarité Officiel';
     $docRef = $reference ?? ('CS/' . $schoolYear . '/' . $matricule);
 @endphp
 
-<div class="page-container">
-    <div class="inner-container">
+{{-- PIED DE PAGE OFFICIEL BUYEDI (DOMPDF FIXE EN BAS DE PAGE) --}}
+@include('documents.partials.footer', [
+    'etablissement' => $etablissement,
+    'documentTitle' => $documentTitle,
+    'schoolYear' => $schoolYear,
+])
+
+{{-- CADRE PRESTIGE DIPLÔME DU CERTIFICAT --}}
+<div class="certificate-frame">
+    <div class="certificate-inner">
         
-        <!-- FILIGRANE -->
+        <!-- FILIGRANE ARMOIRIES -->
         @if(file_exists($emblemPath))
             <img src="{{ $emblemPath }}" class="watermark" alt="Filigrane">
         @endif
 
-        <!-- 1. EN-TÊTE RÉPUBLICAIN ET ÉTABLISSEMENT -->
+        <!-- EN-TÊTE RÉPUBLICAIN & ÉTABLISSEMENT -->
         <table class="header-table">
             <tr>
-                <!-- GAUCHE : RÉPUBLIQUE DU GABON -->
+                <!-- Gauche : République Gabonaise -->
                 <td class="header-left">
-                    <div class="republic-title">RÉPUBLIQUE GABONAISE</div>
-                    <div class="republic-motto">Union - Travail - Justice</div>
+                    <div class="republic-title">République Gabonaise</div>
+                    <div class="republic-motto">Union &bull; Travail &bull; Justice</div>
                     <div class="flag-emblem-bar">
                         @if(file_exists($emblemPath))
                             <img src="{{ $emblemPath }}" class="emblem-img" alt="Armoiries">
@@ -537,37 +573,33 @@
                         @endif
                     </div>
                     <div class="ministry-title">
-                        MINISTÈRE DE L'ÉDUCATION NATIONALE<br>
-                        CHARGÉ DE LA FORMATION CIVIQUE
+                        Ministère de l'Éducation Nationale<br>
+                        Direction d'Académie Provinciale
                     </div>
                 </td>
 
-                <!-- CENTRE : LOGO OFFICIEL -->
+                <!-- Centre : Logo Officiel -->
                 <td class="header-center">
                     @if($schoolLogo)
-                        <img src="{{ $schoolLogo }}" class="main-school-logo" alt="Logo Établissement">
+                        <img src="{{ $schoolLogo }}" class="main-school-logo" alt="Logo École">
                     @endif
                 </td>
 
-                <!-- DROITE : ÉTABLISSEMENT SCOLAIRE -->
+                <!-- Droite : Établissement -->
                 <td class="header-right">
                     <div class="school-name-header">{{ $schoolName }}</div>
                     <div class="school-sub-info">
-                        Enseignement Général &bull; Primaire & Secondaire<br>
+                        Enseignement Général &bull; Cycles Primaire & Secondaire<br>
                         {{ $schoolAddress }}
                     </div>
-                    @if($schoolPhone || $schoolEmail)
-                        <div class="school-contact-info">
-                            @if($schoolPhone) <span>Tél : {{ $schoolPhone }}</span> @endif
-                            @if($schoolPhone && $schoolEmail) &bull; @endif
-                            @if($schoolEmail) <span>{{ $schoolEmail }}</span> @endif
-                        </div>
-                    @endif
+                    <div class="school-contact-info">
+                        Tél : {{ $schoolPhone }} &bull; {{ $schoolEmail }}
+                    </div>
                 </td>
             </tr>
         </table>
 
-        <!-- FILET TRICOLORE GABONAIS -->
+        <!-- RUBAN TRICOLORE GABON -->
         <table class="divider-table">
             <tr>
                 <td class="flag-g"></td>
@@ -576,71 +608,75 @@
             </tr>
         </table>
 
-        <!-- 2. RÉFÉRENCE & DATE -->
+        <!-- BANDEAU DE RÉFÉRENCE & DATE -->
         <div class="ref-bar">
             <table class="ref-table">
                 <tr>
-                    <td class="ref-left">N° RÉF : {{ $docRef }}</td>
-                    <td class="ref-right">Année Académique : <strong>{{ $schoolYear }}</strong></td>
+                    <td class="ref-left">RÉF : <strong>{{ $docRef }}</strong></td>
+                    <td class="ref-right">Fait à {{ $schoolCity }}, le {{ now()->format('d/m/Y') }}</td>
                 </tr>
             </table>
         </div>
 
-        <!-- 3. TITRE OFFICIEL -->
+        <!-- TITRE DU DOCUMENT CENTRÉ -->
         <div class="title-container">
             <div class="title-badge">
-                <h1>CERTIFICAT DE SCOLARITÉ</h1>
-                <div class="subtitle">Attestation d'inscription et de fréquentation scolaire</div>
+                <h1>Certificat de Scolarité</h1>
+                <div class="subtitle">Attestation Officielle d'Inscription &bull; Année {{ $schoolYear }}</div>
             </div>
         </div>
 
-        <!-- 4. CONTENU OFFICIEL -->
+        <!-- FORMULATION ACADÉMIQUE -->
         <div class="intro-text">
-            Le Chef d'Établissement soussigné certifie par la présente que l'élève désigné(e) ci-après est régulièrement inscrit(e) et poursuit assidûment ses études au sein du <strong>{{ $schoolName }}</strong> :
+            Le Chef d'Établissement soussigné certifie par la présente que l'élève désigné(e) ci-après est régulièrement inscrit(e) et poursuit son cursus académique au sein de cette institution pour l'année scolaire <strong>{{ $schoolYear }}</strong> :
         </div>
 
-        <!-- CADRE RÉCAPITULATIF DE L'ÉLÈVE -->
+        <!-- CADRE DES INFORMATIONS ÉLÈVE AVEC PHOTO -->
         <div class="student-card-box">
             <table class="student-table">
                 <tr>
-                    <!-- Photo d'Identité -->
+                    <!-- Photo d'identité -->
                     <td class="student-photo-td">
                         <div class="student-photo-frame">
-                            @if($photoPath && file_exists($photoPath))
-                                <img src="{{ $photoPath }}" alt="{{ $fullName }}">
+                            @if($photoPath)
+                                <img src="{{ $photoPath }}" alt="Photo">
                             @else
-                                <div class="student-photo-placeholder">
-                                    {{ strtoupper(substr($eleve->user->nom ?? 'E', 0, 1) . substr($eleve->user->prenom ?? '', 0, 1)) }}
-                                </div>
+                                <div class="student-photo-placeholder">&#128100;</div>
                             @endif
                         </div>
                     </td>
 
-                    <!-- Données Élève -->
+                    <!-- Données administratives -->
                     <td class="student-info-td">
                         <table class="info-grid-table">
                             <tr>
-                                <td class="lbl">Nom & Prénom(s) :</td>
+                                <td class="lbl">Nom & Prénom(s)</td>
+                                <td class="colon">:</td>
                                 <td class="val val-highlight">{{ $fullName }}</td>
                             </tr>
                             <tr>
-                                <td class="lbl">Matricule Scolaire :</td>
+                                <td class="lbl">Matricule Scolaire</td>
+                                <td class="colon">:</td>
                                 <td class="val val-matricule">{{ $matricule }}</td>
                             </tr>
                             <tr>
-                                <td class="lbl">Date & Lieu de Naissance :</td>
+                                <td class="lbl">Date & Lieu de Naissance</td>
+                                <td class="colon">:</td>
                                 <td class="val">{{ $dateNaissance }} à {{ $lieuNaissance }}</td>
                             </tr>
                             <tr>
-                                <td class="lbl">Sexe :</td>
+                                <td class="lbl">Sexe</td>
+                                <td class="colon">:</td>
                                 <td class="val">{{ $sexe }}</td>
                             </tr>
                             <tr>
-                                <td class="lbl">Classe Fréquentée :</td>
+                                <td class="lbl">Classe Fréquentée</td>
+                                <td class="colon">:</td>
                                 <td class="val val-class">{{ $className }}</td>
                             </tr>
                             <tr>
-                                <td class="lbl">Statut / Régime :</td>
+                                <td class="lbl">Statut / Régime</td>
+                                <td class="colon">:</td>
                                 <td class="val">Élève Régulier(e) &bull; Externe</td>
                             </tr>
                         </table>
@@ -659,41 +695,41 @@
             En foi de quoi, le présent certificat de scolarité lui est délivré pour servir et valoir ce que de droit, notamment auprès des organismes administratifs, sociaux et d'état civil.
         </div>
 
-        <!-- 5. SIGNATURES, CACHET ET QR CODE - AU BAS DE PAGE -->
+        <!-- SIGNATURES, CACHET ET QR CODE -->
         <div class="signature-section">
             <table class="sig-table">
                 <tr>
-                    <!-- QR Code de Vérification -->
+                    <!-- QR Code de Sécurité -->
                     <td class="sig-left">
                         <div class="qr-box">
                             @if(!empty($qrCode))
                                 <img src="data:image/svg+xml;base64,{{ $qrCode }}" class="qr-img" alt="QR Code Sécurité">
                                 <div class="qr-caption">AUTHENTICITÉ VÉRIFIÉE</div>
+                                <div class="qr-ref">{{ $docRef }}</div>
                             @endif
                         </div>
                     </td>
 
-                    <!-- Signature & Cachet de la Direction -->
+                    <!-- Signature & Cachet Direction -->
                     <td class="sig-right">
                         <div class="sig-date">Fait à {{ $schoolCity }}, le {{ now()->format('d/m/Y') }}</div>
                         <div class="sig-title">Le Chef d'Établissement / La Direction</div>
                         <div class="stamp-placeholder">
-                            <span class="stamp-hint">Sceau & Signature Officiels</span>
+                            <span class="stamp-hint">Sceau officiel & Signature</span>
                         </div>
                     </td>
                 </tr>
             </table>
-        </div>
 
-        <!-- 6. PIED DE PAGE DE SÉCURITÉ -->
-        <div class="footer-security">
-            <div class="security-note">
-                Document officiel généré électroniquement par le système de gestion scolaire <strong>Buyedi</strong> sous le contrôle du Ministère de l'Éducation Nationale.<br>
-                Ce certificat est sécurisé par un QR Code d'authenticité numérique. Toute falsification ou rature expose son auteur à des poursuites judiciaires.
+            <!-- NOTE DE SÉCURITÉ BAS DE CADRE -->
+            <div class="security-footer-note">
+                Document officiel certifié conforme par le système de gestion scolaire Buyedi &bull; Sécurisé par QR Code infalsifiable.<br>
+                Toute falsification ou rature expose son auteur à des sanctions administratives et judiciaires selon les lois de la République Gabonaise.
             </div>
         </div>
 
     </div>
 </div>
+
 </body>
 </html>

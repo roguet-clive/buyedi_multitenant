@@ -7,7 +7,7 @@ import ScolaritePaymentForm from '@/Pages/Paiements/Partials/ScolaritePaymentFor
 import StandardPaymentForm from '@/Pages/Paiements/Partials/StandardPaymentForm';
 import {
   UserIcon, CalendarIcon, MapPinIcon, EnvelopeIcon, ExclamationTriangleIcon, DocumentTextIcon,
-  CreditCardIcon, AcademicCapIcon, ArrowLeftIcon, ArrowDownTrayIcon,
+  CreditCardIcon, AcademicCapIcon, ArrowLeftIcon, ArrowDownTrayIcon, EyeIcon,
   ClockIcon, CheckBadgeIcon, XCircleIcon, CheckCircleIcon, IdentificationIcon, PrinterIcon,
   TrashIcon, PlusCircleIcon, CloudArrowUpIcon, DocumentPlusIcon, FolderIcon, ArrowPathIcon
 } from '@heroicons/react/24/outline';
@@ -26,7 +26,9 @@ export default function ShowEleve({
   fraisClasses = []
 }) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('infos');
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const initialTab = searchParams?.get('tab') || 'infos';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [scolariteModalOpen, setScolariteModalOpen] = useState(false);
   const [standardModalOpen, setStandardModalOpen] = useState(false);
@@ -68,7 +70,7 @@ export default function ShowEleve({
     { id: 'inscriptions', label: 'Scolarité', icon: AcademicCapIcon },
     { id: 'absences', label: 'Assiduité', icon: ClockIcon },
     ...(canViewFinances ? [{ id: 'paiements', label: 'Finances', icon: CreditCardIcon }] : []),
-    { id: 'documents', label: 'Pièces Jointes', icon: DocumentTextIcon },
+    { id: 'documents', label: 'Documents & Certificats', icon: DocumentTextIcon },
   ];
 
   return (
@@ -86,7 +88,20 @@ export default function ShowEleve({
             Dossiers Élèves
           </Link>
 
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveTab('documents')}
+              className={`px-3.5 py-1.5 font-bold text-xs sm:text-sm rounded-xl shadow-sm transition inline-flex items-center gap-1.5 ${
+                activeTab === 'documents'
+                  ? 'bg-blue-600 text-white shadow-blue-600/20'
+                  : 'bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <DocumentTextIcon className="w-4 h-4 text-blue-500" />
+              <span>Documents & Certificats</span>
+            </button>
+
             {can('ajouter_inscriptions') && !eleve.is_inscrit_annee_en_cours && (
               <Link href={route("inscriptions.create.eleve", eleve.id)} className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm shadow-emerald-600/20 transition hidden sm:block">
                 + Inscrire pour l'année
@@ -852,34 +867,34 @@ export default function ShowEleve({
                       </div>
                     </div>
 
-                    {!roles.some(r => ['super-admin', 'directeur', 'admin', 'personnel', 'comptable'].includes(r.toLowerCase())) ? (
-                      <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-slate-800 dark:to-slate-850 p-6 rounded-3xl border border-indigo-100 dark:border-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-                        <div className="space-y-1 max-w-xl">
-                          <h5 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">
-                            <DocumentTextIcon className="w-5 h-5 text-indigo-500" />
-                            Guichet Numérique des Demandes
-                          </h5>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                            Pour obtenir un <strong>Certificat de Scolarité</strong>, une <strong>Carte Scolaire</strong> ou une <strong>Fiche de Synthèse</strong>, transmettez votre demande en 1 clic. Dès validation par le secrétariat, votre document officiel certifié sera téléchargeable directement.
-                          </p>
-                        </div>
-                        <Link
-                          href={route('demandes-documents.index')}
-                          className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg shadow-indigo-500/25 flex items-center gap-2 transition-all shrink-0"
-                        >
-                          <PlusCircleIcon className="w-4 h-4" />
-                          <span>Faire / Suivre mes Demandes</span>
-                        </Link>
+                    {/* Grille des 5 documents officiels téléchargeables immédiatement */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <DocumentCard title="Certificat Scolarité" subtitle={`Année ${eleve.annee_actuelle || 'en cours'}`} icon={DocumentTextIcon} color="bg-blue-600" highlight="Officiel" href={route('eleves.certificat', eleve.id)} />
+                      <DocumentCard title="Carte Étudiant / Scolaire" subtitle="Format Badge ID CR80 avec Photo & QR" icon={IdentificationIcon} color="bg-indigo-600" highlight="Format Badge" href={route('eleves.carte', eleve.id)} />
+                      <DocumentCard title="Attestation de Conduite" subtitle="Attestation Officielle de Discipline" icon={CheckBadgeIcon} color="bg-emerald-600" highlight="Assiduité" href={route('eleves.attestation', eleve.id)} />
+                      <DocumentCard title="Fiche de Renseignements" subtitle="Dossier & Archive Complète de l'Élève" icon={UserIcon} color="bg-amber-600" href={route('eleves.fiche', eleve.id)} />
+                      <DocumentCard title="Billet d'Autorisation de Sortie" subtitle="Autorisation d'absence / Sortie exceptionnelle" icon={ClockIcon} color="bg-slate-700" href={route('eleves.sortie', eleve.id)} />
+                    </div>
+
+                    {/* Guichet numérique des demandes administratives */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-slate-800 dark:to-slate-850 p-6 rounded-3xl border border-indigo-100 dark:border-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 mt-4">
+                      <div className="space-y-1 max-w-xl">
+                        <h5 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                          <DocumentTextIcon className="w-5 h-5 text-indigo-500" />
+                          Guichet Numérique des Demandes
+                        </h5>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                          Le secrétariat et l'administration peuvent également enregistrer et traiter des demandes de documents spécifiques depuis le module central.
+                        </p>
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <DocumentCard title="Carte Étudiant" subtitle="Format Badge ID CR80" icon={IdentificationIcon} color="bg-indigo-500" highlight="Légal" href={route('eleves.carte', eleve.id)} />
-                        <DocumentCard title="Certificat Scolarité" subtitle={`Année ${eleve.annee_actuelle}`} icon={DocumentTextIcon} color="bg-blue-500" highlight="Vérifié" href={route('eleves.certificat', eleve.id)} />
-                        <DocumentCard title="Bonne Conduite" subtitle="Attestation Officielle" icon={CheckBadgeIcon} color="bg-emerald-500" highlight="Diplôme" href={route('eleves.attestation', eleve.id)} />
-                        <DocumentCard title="Fiche Synthèse" subtitle="Archive Complète de l'Élève" icon={UserIcon} color="bg-amber-500" href={route('eleves.fiche', eleve.id)} />
-                        <DocumentCard title="Billet de Sortie" subtitle="Autorisation d'absence / Sortie" icon={ClockIcon} color="bg-slate-600" href={route('eleves.sortie', eleve.id)} />
-                      </div>
-                    )}
+                      <Link
+                        href={route('demandes-documents.index')}
+                        className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg shadow-indigo-500/25 flex items-center gap-2 transition-all shrink-0"
+                      >
+                        <PlusCircleIcon className="w-4 h-4" />
+                        <span>Faire / Suivre les Demandes</span>
+                      </Link>
+                    </div>
                   </div>
 
                   {/* 2. PIÈCES JUSTIFICATIVES TÉLÉVERSÉES PAR L'ÉLÈVE / PARENT */}
@@ -1203,6 +1218,7 @@ export default function ShowEleve({
         <StandardPaymentForm
           inscriptions={inscriptionsForForm}
           fraisTypes={fraisTypes}
+          fraisClasses={fraisClasses}
           preselectedInscriptionId={eleve.inscription_en_cours_id}
           onClose={() => setStandardModalOpen(false)}
         />
@@ -1225,8 +1241,11 @@ function InfoCard({ label, value, valueClass = "" }) {
 
 function DocumentCard({ title, subtitle, icon: Icon, color, highlight, href }) {
   const { t } = useTranslation();
+  const viewUrl = `${href}.pdf`;
+  const downloadUrl = `${href}.pdf?download=1`;
+
   return (
-    <div className={`bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/50 hover:border-transparent hover:shadow-xl dark:hover:shadow-black/40 transition-all duration-300 relative group overflow-hidden`}>
+    <div className={`bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/50 hover:border-transparent hover:shadow-xl dark:hover:shadow-black/40 transition-all duration-300 relative group overflow-hidden flex flex-col justify-between`}>
       {highlight && (
         <div className={`absolute top-4 right-4 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase rounded text-center tracking-widest z-10`}>
           {highlight}
@@ -1235,21 +1254,37 @@ function DocumentCard({ title, subtitle, icon: Icon, color, highlight, href }) {
       {/* Background shape */}
       <div className={`absolute -right-8 -top-8 w-32 h-32 rounded-full ${color} opacity-5 group-hover:scale-150 group-hover:opacity-10 transition-all duration-500`}></div>
 
-      <div className="relative z-10 flex flex-col h-full">
-        <div className={`p-3.5 ${color} rounded-[1rem] text-white shadow-sm inline-flex w-max mb-5`}>
-          <Icon className="w-6 h-6" />
+      <div className="relative z-10 flex flex-col h-full justify-between">
+        <div>
+          <div className={`p-3.5 ${color} rounded-[1rem] text-white shadow-sm inline-flex w-max mb-5`}>
+            <Icon className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="font-extrabold text-slate-800 dark:text-white leading-tight mb-1">{title}</h4>
+            <p className="text-sm font-medium text-slate-500 mb-6">{subtitle}</p>
+          </div>
         </div>
-        <div className="flex-1">
-          <h4 className="font-extrabold text-slate-800 dark:text-white leading-tight mb-1">{title}</h4>
-          <p className="text-sm font-medium text-slate-500 mb-6">{subtitle}</p>
+
+        <div className="flex items-center gap-2 pt-2">
+          <a
+            href={viewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex items-center justify-center gap-2 text-xs sm:text-sm font-bold text-white ${color} hover:brightness-110 flex-1 px-3.5 py-2.5 rounded-xl shadow-md transition-all active:scale-95`}
+            title="Consulter et prévisualiser directement le PDF"
+          >
+            <EyeIcon className="w-4 h-4" />
+            <span>{t('view_pdf', 'Consulter PDF')}</span>
+          </a>
+          <a
+            href={downloadUrl}
+            download
+            className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 hover:text-indigo-600 transition-all active:scale-95 shadow-sm"
+            title="Télécharger directement le fichier PDF (.pdf)"
+          >
+            <ArrowDownTrayIcon className="w-4 h-4" />
+          </a>
         </div>
-        <a
-          href={href}
-          target="_blank"
-          className={`inline-flex items-center justify-center gap-2 text-sm font-bold text-white ${color} hover:brightness-110 w-full px-4 py-2.5 rounded-xl shadow-lg transition-all active:scale-95`}
-        >
-          <ArrowDownTrayIcon className="w-4 h-4" strokeWidth={3} /> {t('download_pdf', 'Générer (PDF)')}
-        </a>
       </div>
     </div>
   );

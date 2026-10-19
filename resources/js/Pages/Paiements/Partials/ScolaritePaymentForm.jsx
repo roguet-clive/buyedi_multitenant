@@ -117,7 +117,10 @@ export default function ScolaritePaymentForm({
         if (!selectedStudent) return null;
 
         const classeId = selectedStudent.classe_id;
-        const override = fraisClasses?.find(fc => String(fc.classe_id) === String(classeId));
+        const override = fraisClasses?.find(fc => 
+            String(fc.classe_id) === String(classeId) && 
+            (fc.frais_type?.is_scolarite || fc.is_scolarite || String(fc.frais_type_id) === String(tuitionFees[0]?.id))
+        );
         
         let officialMonthly = 20000;
         if (studentClasse?.montant_mensuel_officiel) {

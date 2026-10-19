@@ -1163,6 +1163,7 @@ export default function Index({ paiements, recapClasses = [], stats, annees, cur
                 <StandardPaymentForm
                     inscriptions={inscriptions}
                     fraisTypes={fraisTypes}
+                    fraisClasses={fraisClasses}
                     preselectedInscriptionId={preselectedInscriptionId}
                     onClose={() => { setGeneralModalOpen(false); setPreselectedInscriptionId(null); }}
                 />

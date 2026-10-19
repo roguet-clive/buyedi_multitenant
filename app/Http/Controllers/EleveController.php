@@ -319,8 +319,13 @@ class EleveController extends Controller
 
                 $fraisClasse = \App\Models\FraisClasse::where('classe_id', $currentInscription->classe_id)
                     ->where('annee_scolaire_id', $currentInscription->annee_scolaire_id)
+                    ->whereHas('fraisType', fn($q) => $q->where('is_scolarite', true))
                     ->with('echeances')
-                    ->first();
+                    ->first()
+                    ?? \App\Models\FraisClasse::where('classe_id', $currentInscription->classe_id)
+                        ->where('annee_scolaire_id', $currentInscription->annee_scolaire_id)
+                        ->with('echeances')
+                        ->first();
                 
                 $fraisTypeScolarite = \App\Models\FraisType::where('is_scolarite', true)
                     ->where(function($q) use ($currentInscription) {
@@ -720,11 +725,13 @@ class EleveController extends Controller
     {
         $etablissement = \App\Models\Etablissement::first();
         return [
-            'nom' => $etablissement->nom ?? config('app.name', 'École Buyedi'),
-            'adresse' => $etablissement->adresse ?? 'Adresse non configurée',
+            'nom' => $etablissement->nom ?? config('app.name', 'COMPLEXE SCOLAIRE BUYEDI'),
+            'sigle' => $etablissement->sigle ?? 'CS-BUYEDI',
+            'adresse' => $etablissement->adresse ?? 'Boulevard Triomphal, Libreville',
             'ville' => $etablissement->ville ?? 'Libreville',
-            'telephone' => $etablissement->telephone ?? '',
-            'email' => $etablissement->email ?? '',
+            'telephone' => $etablissement->telephone ?? '+241 77 00 00 00',
+            'email' => $etablissement->email ?? 'contact@buyedi.com',
+            'site_web' => 'https://appbuyedi.com',
             'logo' => $etablissement->logo ? public_path('storage/' . $etablissement->logo) : public_path('images/logo.png'),
         ];
     }
@@ -776,7 +783,7 @@ class EleveController extends Controller
             'reference' => $reference,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->download('certificat_' . $eleve->matricule . '.pdf');
+        return $this->returnPdfResponse($pdf, 'certificat_' . ($eleve->matricule ?: ('ID-' . $eleve->id)) . '.pdf');
     }
 
     public function downloadCarte(Eleve $eleve)
@@ -823,20 +830,57 @@ class EleveController extends Controller
             'qrCode' => $qrCode,
         ])->setPaper([0, 0, 242.64, 153.01], 'landscape'); // Format CR80 (Carte de crédit) 85.6mm x 54mm
 
-        return $pdf->download('carte_' . $eleve->matricule . '.pdf');
+        return $this->returnPdfResponse($pdf, 'carte_scolaire_' . ($eleve->matricule ?: ('ID-' . $eleve->id)) . '.pdf');
     }
 
     public function downloadAttestation(Eleve $eleve)
     {
+        $user = auth()->user();
+        if ($user && $user->hasRole(['eleve', 'parent', 'enseignant'])) {
+            $hasApproved = \App\Models\DemandeDocument::where('eleve_id', $eleve->id)
+                ->where('type_document', 'attestation_conduite')
+                ->where('statut', 'approuve')
+                ->exists();
+
+            if (!$hasApproved) {
+                return redirect()->route('demandes-documents.index')
+                    ->with('error', 'Le téléchargement direct des documents administratifs est restreint. Veuillez soumettre une demande au secrétariat.');
+            }
+        }
+
         $eleve->load(['user', 'inscriptions.classe', 'inscriptions.anneeScolaire']);
         if (!$eleve->inscriptionActuelle) return back()->with('error', 'L\'élève n\'est pas inscrit cette année.');
 
+        $inscription = $eleve->inscriptionActuelle;
+
+        // S'assurer qu'un code de sécurité existe pour le QR Code
+        if (!$inscription->code_securite) {
+            $inscription->update([
+                'code_securite' => (string) \Illuminate\Support\Str::uuid(),
+            ]);
+        }
+
+        $qrData = route('inscriptions.verify', $inscription->code_securite);
+
+        $qrCode = base64_encode(
+            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+                ->size(150)
+                ->margin(0)
+                ->errorCorrection('M')
+                ->generate($qrData)
+        );
+
+        $reference = 'ATTEST/' . ($inscription->anneeScolaire->nom ?? date('Y')) . '/' . $eleve->matricule;
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('documents.attestation_conduite', [
             'eleve' => $eleve,
-            'inscription' => $eleve->inscriptionActuelle,
-            'etablissement' => $this->getEtablissementData()
-        ]);
-        return $pdf->download('attestation_conduite_' . $eleve->matricule . '.pdf');
+            'inscription' => $inscription,
+            'etablissement' => $this->getEtablissementData(),
+            'qrCode' => $qrCode,
+            'reference' => $reference,
+        ])->setPaper('a4', 'portrait');
+
+        return $this->returnPdfResponse($pdf, 'attestation_conduite_' . ($eleve->matricule ?: ('ID-' . $eleve->id)) . '.pdf');
     }
 
     public function downloadFiche(Eleve $eleve)
@@ -887,19 +931,65 @@ class EleveController extends Controller
             'reference' => $reference,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->download('fiche_renseignements_' . $eleve->matricule . '.pdf');
+        return $this->returnPdfResponse($pdf, 'fiche_renseignements_' . ($eleve->matricule ?: ('ID-' . $eleve->id)) . '.pdf');
     }
 
     public function downloadSortie(Eleve $eleve)
     {
         $eleve->load(['user', 'inscriptions.classe', 'inscriptions.anneeScolaire']);
-        
+        $inscription = $eleve->inscriptionActuelle ?? $eleve->inscriptions()->latest()->first();
+
+        if ($inscription && !$inscription->code_securite) {
+            $inscription->update([
+                'code_securite' => (string) \Illuminate\Support\Str::uuid(),
+            ]);
+        }
+
+        $qrData = $inscription && $inscription->code_securite
+            ? route('inscriptions.verify', $inscription->code_securite)
+            : route('eleves.show', $eleve->id);
+
+        $qrCode = base64_encode(
+            \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+                ->size(150)
+                ->margin(0)
+                ->errorCorrection('M')
+                ->generate($qrData)
+        );
+
+        $reference = 'SORTIE/' . date('Ymd') . '/' . ($eleve->matricule ?: ('ID-' . $eleve->id));
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('documents.billet_sortie', [
             'eleve' => $eleve,
-            'inscription' => $eleve->inscriptionActuelle ?? null,
-            'etablissement' => $this->getEtablissementData()
+            'inscription' => $inscription,
+            'etablissement' => $this->getEtablissementData(),
+            'qrCode' => $qrCode,
+            'reference' => $reference,
+        ])->setPaper('a4', 'portrait');
+
+        return $this->returnPdfResponse($pdf, 'billet_sortie_' . ($eleve->matricule ?: ('ID-' . $eleve->id)) . '.pdf');
+    }
+
+    /**
+     * Retourne une réponse PDF propre (inline par défaut avec Content-Type et nom sécurisé).
+     * Si l'URL comporte ?download=1, force le téléchargement en pièce jointe (attachment).
+     */
+    private function returnPdfResponse(\Barryvdh\DomPDF\PDF $pdf, string $filename)
+    {
+        $cleanFilename = preg_replace('/[^A-Za-z0-9\._\-]/', '_', $filename);
+        if (!str_ends_with(strtolower($cleanFilename), '.pdf')) {
+            $cleanFilename .= '.pdf';
+        }
+
+        $disposition = request()->has('download') ? 'attachment' : 'inline';
+
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "{$disposition}; filename=\"{$cleanFilename}\"",
+            'Content-Transfer-Encoding' => 'binary',
+            'Accept-Ranges' => 'bytes',
+            'Cache-Control' => 'private, no-transform, no-store, must-revalidate',
         ]);
-        return $pdf->download('billet_sortie_' . $eleve->matricule . '.pdf');
     }
 
     /**

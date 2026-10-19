@@ -15,7 +15,9 @@ import {
     ClockIcon, 
     XCircleIcon,
     CheckCircleIcon,
-    XMarkIcon
+    XMarkIcon,
+    DocumentTextIcon,
+    IdentificationIcon
 } from '@heroicons/react/24/solid';
 import useTranslation from '@/Hooks/useTranslation';
 import toast from 'react-hot-toast';
@@ -28,10 +30,18 @@ export default function Show({ inscription, fraisAnnexes = [], tenueFraisType })
     const permissions = auth?.permissions || [];
     const can = (permission) => permissions.includes(permission);
 
-    const eleve = inscription.eleve?.user;
+    const eleveUser = inscription.eleve?.user || {};
+    const eleveProfile = inscription.eleve || {};
+    const eleve = eleveUser; // Conserver la rétrocompatibilité
     const classe = inscription.classe;
     const annee = inscription.annee_scolaire;
     const paiements = inscription.paiements || [];
+
+    // Résolution complète de la photo d'identité de l'élève
+    const rawPhoto = eleveProfile?.photo || eleveUser?.photo || eleveUser?.avatar;
+    const studentPhoto = rawPhoto 
+        ? (rawPhoto.startsWith('http') || rawPhoto.startsWith('/storage') ? rawPhoto : `/storage/${rawPhoto}`)
+        : null;
 
     const isSecondaire = classe?.type === 'secondaire' || 
         (classe?.nom && !['maternelle', 'primaire', 'creche'].includes(classe?.type?.toLowerCase()));
@@ -143,15 +153,44 @@ export default function Show({ inscription, fraisAnnexes = [], tenueFraisType })
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-3 items-center w-full md:w-auto">
+                <div className="flex flex-wrap gap-2.5 items-center w-full md:w-auto">
                     <a
                         href={route('inscriptions.recu', inscription.id)}
                         target="_blank"
-                        className="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-[#0B1A2D] dark:hover:text-white border border-slate-200 dark:border-slate-700 px-4 py-2.5 rounded-xl font-semibold shadow-sm transition-all hover:bg-slate-50 dark:hover:bg-slate-700"
+                        className="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-[#0B1A2D] dark:hover:text-white border border-slate-200 dark:border-slate-700 px-3.5 py-2.5 rounded-xl font-semibold shadow-sm transition-all hover:bg-slate-50 dark:hover:bg-slate-700 text-xs sm:text-sm"
                     >
-                        <PrinterIcon className="w-5 h-5 text-slate-400" />
+                        <PrinterIcon className="w-4 h-4 text-slate-400" />
                         <span>{t('recu', 'Bordereau Inscription')}</span>
                     </a>
+
+                    <a
+                        href={`${route('eleves.certificat', inscription.eleve_id)}.pdf`}
+                        target="_blank"
+                        className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-700 px-3.5 py-2.5 rounded-xl font-semibold shadow-sm transition-all text-xs sm:text-sm"
+                        title="Consulter et imprimer le certificat officiel de scolarité (PDF)"
+                    >
+                        <DocumentTextIcon className="w-4 h-4 text-blue-500" />
+                        <span>Certificat Scolarité (PDF)</span>
+                    </a>
+
+                    <a
+                        href={`${route('eleves.carte', inscription.eleve_id)}.pdf`}
+                        target="_blank"
+                        className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 px-3.5 py-2.5 rounded-xl font-semibold shadow-sm transition-all text-xs sm:text-sm"
+                        title="Consulter et imprimer la carte scolaire au format badge CR80 (PDF)"
+                    >
+                        <IdentificationIcon className="w-4 h-4 text-indigo-500" />
+                        <span>Carte Scolaire (PDF)</span>
+                    </a>
+
+                    <Link
+                        href={`${route('eleves.show', inscription.eleve_id)}?tab=documents`}
+                        className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 px-3.5 py-2.5 rounded-xl font-semibold shadow-sm transition-all text-xs sm:text-sm"
+                        title="Voir tous les documents et pièces justificatives de l'élève"
+                    >
+                        <AcademicCapIcon className="w-4 h-4 text-slate-500" />
+                        <span>Tous les Documents</span>
+                    </Link>
 
                     {can('modifier_inscriptions') && (
                         <Link
@@ -189,10 +228,19 @@ export default function Show({ inscription, fraisAnnexes = [], tenueFraisType })
                         <div className="h-24 bg-gradient-to-br from-[#0B1A2D] to-blue-900 w-full absolute top-0 left-0"></div>
 
                         <div className="p-6 pt-12 relative z-10 flex flex-col items-center">
-                            <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-full p-1.5 shadow-lg mb-4">
+                            <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-full p-1.5 shadow-lg mb-4 ring-2 ring-slate-100 dark:ring-slate-700">
                                 <div className="w-full h-full bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-3xl font-bold text-slate-400 dark:text-slate-500 overflow-hidden">
-                                    {eleve?.avatar ? (
-                                        <img src={`/storage/${eleve.avatar}`} alt="Avatar" className="w-full h-full object-cover" />
+                                    {studentPhoto ? (
+                                        <img 
+                                            src={studentPhoto} 
+                                            alt={`${eleve?.prenom || ''} ${eleve?.nom || ''}`} 
+                                            className="w-full h-full object-cover" 
+                                            onError={(e) => {
+                                                e.currentTarget.onerror = null;
+                                                e.currentTarget.style.display = 'none';
+                                                e.currentTarget.parentElement.innerHTML = `<span class="text-2xl font-bold text-slate-400">${(eleve?.prenom?.[0] || '') + (eleve?.nom?.[0] || '')}</span>`;
+                                            }}
+                                        />
                                     ) : (
                                         <UserCircleIcon className="w-20 h-20 text-slate-300 dark:text-slate-600" />
                                     )}
@@ -209,15 +257,21 @@ export default function Show({ inscription, fraisAnnexes = [], tenueFraisType })
                             <div className="w-full border-t border-slate-100 dark:border-slate-700/50 pt-4 mt-2 space-y-3 text-sm">
                                 <div className="flex justify-between items-center">
                                     <span className="text-slate-500 dark:text-slate-400 font-medium">Sexe</span>
-                                    <span className="font-semibold text-slate-800 dark:text-slate-200">{eleve?.sexe === 'M' ? 'Masculin' : (eleve?.sexe === 'F' ? 'Féminin' : '-')}</span>
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                        {(eleveProfile?.sexe || eleve?.sexe) === 'M' ? 'Masculin' : ((eleveProfile?.sexe || eleve?.sexe) === 'F' ? 'Féminin' : '-')}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-slate-500 dark:text-slate-400 font-medium">Naissance</span>
-                                    <span className="font-semibold text-slate-800 dark:text-slate-200">{eleve?.date_naissance ? new Date(eleve.date_naissance).toLocaleDateString('fr-FR') : '-'}</span>
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                        {eleveProfile?.date_naissance || eleve?.date_naissance 
+                                            ? new Date(eleveProfile?.date_naissance || eleve?.date_naissance).toLocaleDateString('fr-FR') 
+                                            : '-'}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-slate-500 dark:text-slate-400 font-medium">Contact</span>
-                                    <span className="font-semibold text-slate-800 dark:text-slate-200">{eleve?.phone || eleve?.email || '-'}</span>
+                                    <span className="font-semibold text-slate-800 dark:text-slate-200">{eleve?.telephone || eleve?.phone || eleve?.email || '-'}</span>
                                 </div>
                             </div>
                         </div>

@@ -100,9 +100,10 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
 
         // 2. Effectifs par classe
         csvContent += `2. EFFECTIFS PAR CLASSE\n`;
-        csvContent += `Classe;Cycle;Garcons;Filles;Total;Part (%)\n`;
+        csvContent += `Classe;Cycle;Garcons;Filles;Total;Part (%);Modalité Scolarité\n`;
         (demographie?.classes || []).forEach(c => {
-            csvContent += `"${c.nom}";"${c.type}";${c.garcons};${c.filles};${c.total_eleves};${c.pourcentage}%\n`;
+            const modalite = c.modalite_scolarite || (c.mode_paiement === 'mensuel' ? '10 Mois' : '3 Tranches');
+            csvContent += `"${c.nom}";"${c.type}";${c.garcons};${c.filles};${c.total_eleves};${c.pourcentage}%;"${modalite}"\n`;
         });
         csvContent += `\n`;
 
@@ -124,32 +125,46 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
         document.body.removeChild(link);
     };
 
-    // Select Custom Styles
+    // Select Custom Styles - Hauteur et alignement cohérents avec les boutons
     const selectStyles = {
         control: (base, state) => ({
             ...base,
             backgroundColor: state.isFocused ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
             borderColor: state.isFocused ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.2)',
             boxShadow: state.isFocused ? '0 0 0 1px rgba(255, 255, 255, 0.5)' : null,
-            borderRadius: '0.875rem',
-            padding: '2px',
+            borderRadius: '0.75rem',
+            minHeight: '38px',
+            height: '38px',
             color: 'white',
             cursor: 'pointer',
-            minWidth: '180px',
-            transition: 'all 0.3s ease'
+            minWidth: '150px',
+            transition: 'all 0.2s ease'
+        }),
+        valueContainer: (base) => ({
+            ...base,
+            height: '38px',
+            padding: '0 8px',
+            display: 'flex',
+            alignItems: 'center'
+        }),
+        indicatorsContainer: (base) => ({
+            ...base,
+            height: '38px'
         }),
         singleValue: (base) => ({
             ...base,
             color: 'white',
-            fontWeight: '600'
+            fontWeight: '600',
+            fontSize: '0.875rem'
         }),
         placeholder: (base) => ({
             ...base,
-            color: 'rgba(255,255,255,0.7)'
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: '0.875rem'
         }),
         menu: (base) => ({
             ...base,
-            borderRadius: '1rem',
+            borderRadius: '0.75rem',
             overflow: 'hidden',
             boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
             border: '1px solid #e2e8f0',
@@ -161,7 +176,8 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
             backgroundColor: state.isSelected ? '#3B82F6' : state.isFocused ? '#EFF6FF' : 'white',
             color: state.isSelected ? 'white' : '#1e293b',
             cursor: 'pointer',
-            padding: '10px 15px',
+            padding: '8px 12px',
+            fontSize: '0.875rem'
         })
     };
 
@@ -195,31 +211,31 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
             `}} />
 
             {/* HERO BANNER & ACTIONS */}
-            <div className="bg-gradient-to-br from-[#0B1A2D] via-[#112640] to-teal-950 rounded-3xl p-6 md:p-8 mb-8 shadow-2xl relative overflow-hidden text-white border border-slate-800">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-                <div className="absolute bottom-0 left-0 w-72 h-72 bg-blue-500/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
+            <div className="bg-gradient-to-br from-[#0B1A2D] via-[#112640] to-teal-950 rounded-2xl p-5 md:p-6 mb-6 shadow-xl relative overflow-hidden text-white border border-slate-800">
+                <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                <div className="absolute bottom-0 left-0 w-60 h-60 bg-blue-500/10 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
 
-                <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-emerald-300 text-xs md:text-sm font-medium mb-3 border border-white/10 shadow-sm">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-white/10 backdrop-blur-md rounded-full text-emerald-300 text-xs font-medium mb-2 border border-white/10 shadow-sm">
                             <TrendingUp className="w-3.5 h-3.5" />
                             <span>{t("stats_dashboard", "Tableau de Bord Analytique & Décisionnel")}</span>
                         </div>
-                        <h1 className="text-2xl md:text-4xl font-black mb-2 tracking-tight text-white drop-shadow-sm flex items-center gap-3">
+                        <h1 className="text-xl md:text-3xl font-black mb-1.5 tracking-tight text-white drop-shadow-sm flex items-center gap-2.5">
                             {t("stats_title", "Statistiques de l'Établissement")}
-                            <span className="text-sm font-normal px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                 {selectedAnnee?.nom || '2026-2027'}
                             </span>
                         </h1>
-                        <p className="text-slate-300 text-sm md:text-base max-w-2xl font-light">
+                        <p className="text-slate-300 text-xs md:text-sm max-w-xl font-light">
                             {t("stats_subtitle", "Indicateurs démographiques, ventilation des effectifs, flux financiers et assiduité en temps réel.")}
                         </p>
                     </div>
 
-                    {/* ACTIONS: ANNEE + EXPORT + PRINT */}
-                    <div className="w-full lg:w-auto flex flex-wrap items-center gap-3 no-print">
-                        <div className="flex-1 sm:flex-initial bg-white/5 backdrop-blur-md p-2 rounded-2xl border border-white/10 shadow-inner flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-slate-300 ml-2" />
+                    {/* ACTIONS: ANNEE + EXPORT + PRINT (Barre d'outils compacte et alignée) */}
+                    <div className="w-full lg:w-auto flex flex-wrap sm:flex-nowrap items-center gap-2.5 no-print">
+                        <div className="flex items-center gap-1.5 bg-white/10 hover:bg-white/15 border border-white/15 px-2.5 py-1 rounded-xl backdrop-blur-md transition-colors">
+                            <Calendar className="w-4 h-4 text-emerald-300 shrink-0" />
                             <Select
                                 options={annees.map(a => ({ value: a.id, label: a.nom }))}
                                 defaultValue={annees.map(a => ({ value: a.id, label: a.nom })).find(opt => opt.value == filters.annee_id)}
@@ -232,45 +248,45 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
 
                         <button
                             onClick={handleExportCSV}
-                            className="inline-flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-2xl border border-white/10 backdrop-blur-md transition-all duration-200 active:scale-95 shadow-sm"
+                            className="inline-flex items-center justify-center gap-2 h-[40px] px-3.5 bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold rounded-xl border border-white/15 backdrop-blur-md transition-all duration-200 active:scale-95 shadow-sm whitespace-nowrap"
                             title="Exporter les statistiques au format Excel (CSV)"
                         >
                             <Download className="w-4 h-4 text-emerald-300" />
-                            <span className="hidden sm:inline">Exporter CSV</span>
+                            <span>Export CSV</span>
                         </button>
 
                         <button
                             onClick={handlePrint}
-                            className="inline-flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-2xl transition-all duration-200 active:scale-95 shadow-lg shadow-blue-600/30"
+                            className="inline-flex items-center justify-center gap-2 h-[40px] px-3.5 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 active:scale-95 shadow-md shadow-blue-600/30 whitespace-nowrap"
                             title="Imprimer le rapport ou générer un PDF"
                         >
                             <Printer className="w-4 h-4" />
-                            <span className="hidden sm:inline">Imprimer</span>
+                            <span>Imprimer</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* 4 CARTES KPI DE SYNTHÈSE AU SOMMET */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            {/* 4 CARTES KPI DE SYNTHÈSE AU SOMMET (Compactes, modernes et équilibrées) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {/* KPI 1 : Effectif Total */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-2xl hover:-translate-y-1 duration-300 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
-                    <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             Effectif Global
                         </span>
-                        <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-2xl text-blue-600 dark:text-blue-400 shadow-inner">
-                            <Users className="w-5 h-5" />
+                        <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                            <Users className="w-4 h-4" />
                         </div>
                     </div>
-                    <div className="flex items-baseline gap-2 mb-2">
-                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                        <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                             {kpis?.total_eleves || 0}
                         </span>
                         <span className="text-xs font-medium text-slate-500 dark:text-slate-400">élèves inscrits</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/80">
                         <span className="inline-flex items-center gap-1 font-medium">
                             <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                             {kpis?.garcons || 0} G ({kpis?.pct_garcons || 0}%)
@@ -279,56 +295,56 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                             <span className="w-2 h-2 rounded-full bg-pink-500"></span>
                             {kpis?.filles || 0} F ({kpis?.pct_filles || 0}%)
                         </span>
-                        <span className="text-[11px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md font-semibold text-slate-600 dark:text-slate-300">
+                        <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-semibold text-slate-600 dark:text-slate-300">
                             {kpis?.reinscrits || 0} Réinscrits
                         </span>
                     </div>
                 </div>
 
                 {/* KPI 2 : Classes & Ratio */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-2xl hover:-translate-y-1 duration-300 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
-                    <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             Classes & Groupes
                         </span>
-                        <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl text-emerald-600 dark:text-emerald-400 shadow-inner">
-                            <GraduationCap className="w-5 h-5" />
+                        <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-emerald-600 dark:text-emerald-400">
+                            <GraduationCap className="w-4 h-4" />
                         </div>
                     </div>
-                    <div className="flex items-baseline gap-2 mb-2">
-                        <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                        <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                             {kpis?.total_classes || 0}
                         </span>
-                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">classes pédagogiques</span>
+                        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">classes</span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/80">
                         <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                            ~{kpis?.moyenne_par_classe || 0} élèves / classe
+                            ~{kpis?.moyenne_par_classe || 0} él./cl.
                         </span>
-                        <span className="text-[11px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-md font-semibold">
+                        <span className="text-[10px] bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-semibold">
                             3 Cycles
                         </span>
                     </div>
                 </div>
 
                 {/* KPI 3 : Total Encaissé */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-2xl hover:-translate-y-1 duration-300 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-28 h-28 bg-indigo-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
-                    <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             Recettes Encaissées
                         </span>
-                        <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl text-indigo-600 dark:text-indigo-400 shadow-inner">
-                            <TrendingUp className="w-5 h-5" />
+                        <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
+                            <TrendingUp className="w-4 h-4" />
                         </div>
                     </div>
-                    <div className="flex items-baseline gap-2 mb-2">
-                        <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                        <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                             {formatCurrency(kpis?.total_revenus || 0)}
                         </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/80">
                         <span className="text-slate-500">Dépenses :</span>
                         <span className="font-semibold text-rose-600 dark:text-rose-400">
                             {formatCurrency(kpis?.total_depenses || 0)}
@@ -337,24 +353,24 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                 </div>
 
                 {/* KPI 4 : Solde Net & Marge */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-2xl hover:-translate-y-1 duration-300 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
-                    <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             Trésorerie Nette
                         </span>
-                        <div className="p-2.5 bg-amber-50 dark:bg-amber-900/30 rounded-2xl text-amber-600 dark:text-amber-400 shadow-inner">
-                            <Wallet className="w-5 h-5" />
+                        <div className="p-2 bg-amber-50 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400">
+                            <Wallet className="w-4 h-4" />
                         </div>
                     </div>
-                    <div className="flex items-baseline gap-2 mb-2">
-                        <span className={`text-2xl font-black tracking-tight ${kpis?.solde_net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                    <div className="flex items-baseline gap-2 mb-1.5">
+                        <span className={`text-xl sm:text-2xl font-black tracking-tight ${kpis?.solde_net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                             {formatCurrency(kpis?.solde_net || 0)}
                         </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <span className="text-slate-500">Marge résiduelle :</span>
-                        <span className={`inline-flex items-center font-bold px-2 py-0.5 rounded-md ${
+                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                        <span className="text-slate-500">Marge :</span>
+                        <span className={`inline-flex items-center font-bold px-1.5 py-0.5 rounded text-[11px] ${
                             kpis?.marge_pourcentage >= 0 
                                 ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' 
                                 : 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
@@ -366,8 +382,8 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
             </div>
 
             {/* TABS HEADER - PILL STYLE */}
-            <div className="mb-8 flex overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 hide-scrollbar no-print">
-                <nav className="flex space-x-2 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
+            <div className="mb-6 flex overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 hide-scrollbar no-print">
+                <nav className="flex space-x-1.5 bg-slate-100/90 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/70 dark:border-slate-700/60 shadow-sm">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
@@ -375,9 +391,9 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2.5 whitespace-nowrap py-2.5 px-5 rounded-xl font-semibold text-sm transition-all duration-300 ${
+                                className={`flex items-center gap-2 whitespace-nowrap py-2 px-3.5 rounded-lg font-semibold text-xs sm:text-sm transition-all duration-200 ${
                                     isActive
-                                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-md ring-1 ring-slate-200/50 dark:ring-slate-700'
+                                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm ring-1 ring-slate-200/60 dark:ring-slate-700'
                                         : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
                                 }`}
                             >
@@ -390,47 +406,47 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
             </div>
 
             {/* CONTENT AREA */}
-            <div className="space-y-8">
+            <div className="space-y-6">
 
                 {/* ======================================================== */}
                 {/* --- ONGLET 1 : DÉMOGRAPHIE & EFFECTIFS PAR CLASSE --- */}
                 {/* ======================================================== */}
                 {activeTab === 'general' && (
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         {/* 2 Graphiques côte à côte */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                             
-                            {/* Carte 1 : Répartition Garçons / Filles (DONUT PRO SANS SUPERPOSITION) */}
-                            <div className="bg-white dark:bg-slate-900 p-7 md:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-2xl duration-300 relative overflow-hidden flex flex-col justify-between">
+                            {/* Carte 1 : Répartition Garçons / Filles */}
+                            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden flex flex-col justify-between">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 dark:bg-indigo-900/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
                                 <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                                            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl text-indigo-600 dark:text-indigo-400">
-                                                <PieChart className="w-5 h-5" />
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2.5">
+                                            <div className="p-2 bg-indigo-50 dark:bg-indigo-900/40 rounded-xl text-indigo-600 dark:text-indigo-400">
+                                                <PieChart className="w-4 h-4" />
                                             </div>
                                             {t("stats_repartition_sexe", "Répartition par Sexe")}
                                         </h3>
-                                        <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg">
+                                        <span className="text-xs font-semibold px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg">
                                             Total : {kpis?.total_eleves || 0}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
                                         Équilibre de parité garçons / filles sur l'ensemble des classes.
                                     </p>
                                 </div>
 
                                 {/* Graphique Donut avec Total au centre */}
-                                <div className="h-64 relative flex items-center justify-center">
+                                <div className="h-56 relative flex items-center justify-center">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
                                                 data={genreData}
                                                 cx="50%"
                                                 cy="50%"
-                                                innerRadius={65}
-                                                outerRadius={95}
+                                                innerRadius={55}
+                                                outerRadius={80}
                                                 paddingAngle={4}
                                                 dataKey="value"
                                                 labelLine={false}
@@ -445,11 +461,12 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                                     name
                                                 ]}
                                                 contentStyle={{ 
-                                                    borderRadius: '1rem', 
+                                                    borderRadius: '0.75rem', 
                                                     border: 'none', 
                                                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                                     backgroundColor: '#1E293B',
-                                                    color: 'white'
+                                                    color: 'white',
+                                                    fontSize: '0.813rem'
                                                 }}
                                                 itemStyle={{ color: 'white', fontWeight: 'bold' }}
                                             />
@@ -458,31 +475,31 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
 
                                     {/* Texte au centre du Donut */}
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                        <span className="text-3xl font-black text-slate-800 dark:text-white">
+                                        <span className="text-2xl font-black text-slate-800 dark:text-white">
                                             {kpis?.total_eleves || 0}
                                         </span>
-                                        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                                             Élèves
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* Badges informatifs sous le graphique */}
-                                <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/20 rounded-2xl border border-blue-100/60 dark:border-blue-800/40">
-                                        <div className="w-3.5 h-3.5 rounded-full bg-blue-500 shrink-0"></div>
+                                <div className="grid grid-cols-2 gap-2.5 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center gap-2.5 p-2.5 bg-blue-50/60 dark:bg-blue-900/20 rounded-xl border border-blue-100/70 dark:border-blue-800/40">
+                                        <div className="w-3 h-3 rounded-full bg-blue-500 shrink-0"></div>
                                         <div>
-                                            <div className="text-xs text-slate-500 dark:text-slate-400">Garçons</div>
-                                            <div className="text-base font-bold text-slate-800 dark:text-white">
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400">Garçons</div>
+                                            <div className="text-sm font-bold text-slate-800 dark:text-white">
                                                 {kpis?.garcons || 0} <span className="text-xs font-normal text-blue-600">({kpis?.pct_garcons || 0}%)</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3 p-3 bg-pink-50/50 dark:bg-pink-900/20 rounded-2xl border border-pink-100/60 dark:border-pink-800/40">
-                                        <div className="w-3.5 h-3.5 rounded-full bg-pink-500 shrink-0"></div>
+                                    <div className="flex items-center gap-2.5 p-2.5 bg-pink-50/60 dark:bg-pink-900/20 rounded-xl border border-pink-100/70 dark:border-pink-800/40">
+                                        <div className="w-3 h-3 rounded-full bg-pink-500 shrink-0"></div>
                                         <div>
-                                            <div className="text-xs text-slate-500 dark:text-slate-400">Filles</div>
-                                            <div className="text-base font-bold text-slate-800 dark:text-white">
+                                            <div className="text-[11px] text-slate-500 dark:text-slate-400">Filles</div>
+                                            <div className="text-sm font-bold text-slate-800 dark:text-white">
                                                 {kpis?.filles || 0} <span className="text-xs font-normal text-pink-600">({kpis?.pct_filles || 0}%)</span>
                                             </div>
                                         </div>
@@ -490,51 +507,52 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                 </div>
                             </div>
 
-                            {/* Carte 2 : Élèves par Cycle (BAR CHART SOIGNÉ) */}
-                            <div className="bg-white dark:bg-slate-900 p-7 md:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-2xl duration-300 relative overflow-hidden flex flex-col justify-between">
+                            {/* Carte 2 : Élèves par Cycle */}
+                            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden flex flex-col justify-between">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 dark:bg-emerald-900/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
                                 <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                                            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400">
-                                                <School className="w-5 h-5" />
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2.5">
+                                            <div className="p-2 bg-emerald-50 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400">
+                                                <School className="w-4 h-4" />
                                             </div>
-                                            {t("stats_students_by_cycle", "Effectifs par Cycle d'Enseignement")}
+                                            {t("stats_students_by_cycle", "Effectifs par Cycle")}
                                         </h3>
-                                        <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg">
+                                        <span className="text-xs font-semibold px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-lg">
                                             {sectionData.length} Cycles
                                         </span>
                                     </div>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
                                         Répartition des apprenants entre Maternelle, Primaire et Secondaire.
                                     </p>
                                 </div>
 
-                                <div className="h-64">
+                                <div className="h-56">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={sectionData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
+                                        <BarChart data={sectionData} margin={{ top: 15, right: 15, left: -15, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                             <XAxis 
                                                 dataKey="name" 
                                                 axisLine={false} 
                                                 tickLine={false} 
-                                                tick={{ fill: '#64748b', fontSize: 13, fontWeight: 600 }} 
-                                                dy={8} 
+                                                tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} 
+                                                dy={6} 
                                             />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                                            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
                                             <Tooltip
                                                 formatter={(value) => [`${value} élève(s)`, 'Effectif']}
                                                 cursor={{ fill: 'rgba(226, 232, 240, 0.4)' }}
                                                 contentStyle={{ 
-                                                    borderRadius: '1rem', 
+                                                    borderRadius: '0.75rem', 
                                                     border: 'none', 
                                                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                                     backgroundColor: '#1E293B',
-                                                    color: 'white'
+                                                    color: 'white',
+                                                    fontSize: '0.813rem'
                                                 }}
                                             />
-                                            <Bar dataKey="value" radius={[10, 10, 0, 0]} maxBarSize={65}>
+                                            <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={55}>
                                                 {sectionData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                                                 ))}
@@ -544,11 +562,11 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                 </div>
 
                                 {/* Résumé chiffré par cycle */}
-                                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                                     {sectionData.map((s, idx) => (
-                                        <div key={idx} className="flex-1 min-w-[100px] p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-center border border-slate-100 dark:border-slate-800">
-                                            <div className="text-xs text-slate-500 font-medium">{s.name}</div>
-                                            <div className="text-sm font-bold text-slate-800 dark:text-white">
+                                        <div key={idx} className="flex-1 min-w-[90px] p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-center border border-slate-100 dark:border-slate-800">
+                                            <div className="text-[11px] text-slate-500 font-medium">{s.name}</div>
+                                            <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-white">
                                                 {s.value} <span className="text-[10px] font-normal text-slate-400">({((s.value / (kpis?.total_eleves || 1)) * 100).toFixed(0)}%)</span>
                                             </div>
                                         </div>
@@ -558,24 +576,24 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                         </div>
 
                         {/* TABLEAU COMPLET DES EFFECTIFS PAR CLASSE */}
-                        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                            <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-xl text-blue-600 dark:text-blue-400 shadow-inner">
-                                        <Layers className="w-5 h-5" />
+                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800 overflow-hidden">
+                            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="p-2 bg-blue-50 dark:bg-blue-900/40 rounded-xl text-blue-600 dark:text-blue-400">
+                                        <Layers className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-xl font-bold text-slate-800 dark:text-white">
+                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white">
                                             Ventilation Détaillée des Effectifs par Classe
                                         </h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                                            Suivi précis de chaque classe, ratio filles/garçons et part relative dans l'établissement.
+                                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                                            Suivi précis par classe, parité filles/garçons et modalités de paiement scolarité.
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                    <Users className="w-4 h-4 text-blue-500" />
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 shrink-0">
+                                    <Users className="w-3.5 h-3.5 text-blue-500" />
                                     Total Inscrits : <span className="text-blue-600 font-bold">{kpis?.total_eleves || 0} élèves</span>
                                 </div>
                             </div>
@@ -584,24 +602,24 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider font-bold">
-                                            <th className="px-6 py-4">Classe</th>
-                                            <th className="px-6 py-4">Cycle</th>
-                                            <th className="px-6 py-4 text-center">Garçons</th>
-                                            <th className="px-6 py-4 text-center">Filles</th>
-                                            <th className="px-6 py-4 text-center">Effectif Total</th>
-                                            <th className="px-6 py-4">Part de l'Établissement</th>
-                                            <th className="px-6 py-4 text-right">Modalité Scolarité</th>
+                                            <th className="px-4 py-3">Classe</th>
+                                            <th className="px-4 py-3">Cycle</th>
+                                            <th className="px-4 py-3 text-center">Garçons</th>
+                                            <th className="px-4 py-3 text-center">Filles</th>
+                                            <th className="px-4 py-3 text-center">Effectif Total</th>
+                                            <th className="px-4 py-3">Part Relative</th>
+                                            <th className="px-4 py-3 text-right">Modalité Scolarité</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
                                         {(demographie?.classes || []).map((classe, idx) => (
                                             <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                                                <td className="px-6 py-4 font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></div>
                                                     {classe.nom}
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
                                                         classe.type === 'Maternelle' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
                                                         classe.type === 'Primaire' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' :
                                                         'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
@@ -609,47 +627,53 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                                         {classe.type}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-medium text-blue-600 dark:text-blue-400">
+                                                <td className="px-4 py-3 text-center font-medium text-blue-600 dark:text-blue-400">
                                                     {classe.garcons}
                                                 </td>
-                                                <td className="px-6 py-4 text-center font-medium text-pink-600 dark:text-pink-400">
+                                                <td className="px-4 py-3 text-center font-medium text-pink-600 dark:text-pink-400">
                                                     {classe.filles}
                                                 </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="inline-flex items-center justify-center px-3 py-1 rounded-xl text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                                                <td className="px-4 py-3 text-center">
+                                                    <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-lg text-xs font-black bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
                                                         {classe.total_eleves}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-28 bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="w-24 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                                                             <div 
                                                                 className="bg-blue-600 h-full rounded-full transition-all duration-500" 
                                                                 style={{ width: `${classe.pourcentage}%` }}
                                                             ></div>
                                                         </div>
-                                                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 min-w-[40px]">
+                                                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 min-w-[36px]">
                                                             {classe.pourcentage}%
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <span className="text-xs font-medium uppercase px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-400">
-                                                        {classe.mode_paiement === 'mensuel' ? '10 Mois' : '3 Tranches'}
+                                                <td className="px-4 py-3 text-right">
+                                                    <span className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-lg ${
+                                                        classe.mode_paiement === 'mensuel'
+                                                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40'
+                                                            : classe.mode_paiement === 'tranches'
+                                                            ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40'
+                                                            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40'
+                                                    }`}>
+                                                        {classe.modalite_scolarite || (classe.mode_paiement === 'mensuel' ? '10 Mois' : '3 Tranches')}
                                                     </span>
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                     <tfoot>
-                                        <tr className="bg-slate-100/90 dark:bg-slate-800/90 font-black text-slate-800 dark:text-white text-sm">
-                                            <td className="px-6 py-4" colSpan="2">TOTAL GÉNÉRAL</td>
-                                            <td className="px-6 py-4 text-center text-blue-600">{kpis?.garcons || 0}</td>
-                                            <td className="px-6 py-4 text-center text-pink-600">{kpis?.filles || 0}</td>
-                                            <td className="px-6 py-4 text-center text-base font-black text-emerald-600">
+                                        <tr className="bg-slate-100/90 dark:bg-slate-800/90 font-black text-slate-800 dark:text-white text-xs sm:text-sm">
+                                            <td className="px-4 py-3" colSpan="2">TOTAL GÉNÉRAL</td>
+                                            <td className="px-4 py-3 text-center text-blue-600">{kpis?.garcons || 0}</td>
+                                            <td className="px-4 py-3 text-center text-pink-600">{kpis?.filles || 0}</td>
+                                            <td className="px-4 py-3 text-center text-sm font-black text-emerald-600">
                                                 {kpis?.total_eleves || 0}
                                             </td>
-                                            <td className="px-6 py-4" colSpan="2">
+                                            <td className="px-4 py-3" colSpan="2">
                                                 100% de l'effectif
                                             </td>
                                         </tr>
@@ -664,53 +688,53 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                 {/* --- ONGLET 2 : FINANCES & RECOUVREMENT --- */}
                 {/* ======================================================== */}
                 {activeTab === 'finances' && (
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         {/* 3 Cartes de synthèse financière */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                            <div className="bg-gradient-to-br from-emerald-500 to-teal-700 text-white rounded-3xl p-6 shadow-lg shadow-emerald-500/20">
-                                <div className="text-xs uppercase tracking-wider font-semibold opacity-80 mb-2">Total Recettes Scolaires</div>
-                                <div className="text-2xl md:text-3xl font-black mb-1">{formatCurrency(finances?.totalRevenus)}</div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-gradient-to-br from-emerald-500 to-teal-700 text-white rounded-2xl p-4 sm:p-5 shadow-sm">
+                                <div className="text-[11px] uppercase tracking-wider font-bold opacity-80 mb-1">Total Recettes Scolaires</div>
+                                <div className="text-xl sm:text-2xl font-black mb-0.5">{formatCurrency(finances?.totalRevenus)}</div>
                                 <div className="text-xs opacity-90">Total des encaissements enregistrés</div>
                             </div>
-                            <div className="bg-gradient-to-br from-rose-500 to-pink-700 text-white rounded-3xl p-6 shadow-lg shadow-rose-500/20">
-                                <div className="text-xs uppercase tracking-wider font-semibold opacity-80 mb-2">Total Charges & Dépenses</div>
-                                <div className="text-2xl md:text-3xl font-black mb-1">{formatCurrency(finances?.totalDepenses)}</div>
+                            <div className="bg-gradient-to-br from-rose-500 to-pink-700 text-white rounded-2xl p-4 sm:p-5 shadow-sm">
+                                <div className="text-[11px] uppercase tracking-wider font-bold opacity-80 mb-1">Total Charges & Dépenses</div>
+                                <div className="text-xl sm:text-2xl font-black mb-0.5">{formatCurrency(finances?.totalDepenses)}</div>
                                 <div className="text-xs opacity-90">Salaires, charges et dépenses opérationnelles</div>
                             </div>
-                            <div className="bg-gradient-to-br from-blue-600 to-indigo-800 text-white rounded-3xl p-6 shadow-lg shadow-blue-500/20">
-                                <div className="text-xs uppercase tracking-wider font-semibold opacity-80 mb-2">Résultat Net de Trésorerie</div>
-                                <div className="text-2xl md:text-3xl font-black mb-1">{formatCurrency(finances?.soldeNet)}</div>
+                            <div className="bg-gradient-to-br from-blue-600 to-indigo-800 text-white rounded-2xl p-4 sm:p-5 shadow-sm">
+                                <div className="text-[11px] uppercase tracking-wider font-bold opacity-80 mb-1">Résultat Net de Trésorerie</div>
+                                <div className="text-xl sm:text-2xl font-black mb-0.5">{formatCurrency(finances?.soldeNet)}</div>
                                 <div className="text-xs opacity-90">Solde disponible après décaissements</div>
                             </div>
                         </div>
 
                         {/* 2 Graphiques : Recettes par Type + Modes de Paiement */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                             
                             {/* Graphique 1 : Recettes par Type de Frais */}
-                            <div className="bg-white dark:bg-slate-900 p-7 md:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 relative overflow-hidden flex flex-col justify-between">
-                                <div className="mb-6">
-                                    <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                                        <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-xl text-blue-600 dark:text-blue-400">
-                                            <TrendingUp className="w-5 h-5" />
+                            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden flex flex-col justify-between">
+                                <div className="mb-4">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2.5">
+                                        <div className="p-2 bg-blue-50 dark:bg-blue-900/40 rounded-xl text-blue-600 dark:text-blue-400">
+                                            <TrendingUp className="w-4 h-4" />
                                         </div>
                                         {t("stats_revenue_source", "Recettes par Rubrique de Frais")}
                                     </h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                         Ventilation des encaissements par scolarité, inscriptions, uniformes, etc.
                                     </p>
                                 </div>
 
-                                <div className="h-80">
+                                <div className="h-72">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={revenueData} layout="vertical" margin={{ top: 0, right: 30, left: 10, bottom: 5 }}>
+                                        <BarChart data={revenueData} layout="vertical" margin={{ top: 0, right: 25, left: 10, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
                                             <XAxis type="number" hide />
                                             <YAxis 
                                                 type="category" 
                                                 dataKey="name" 
-                                                width={130} 
-                                                tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }} 
+                                                width={120} 
+                                                tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }} 
                                                 axisLine={false} 
                                                 tickLine={false} 
                                             />
@@ -718,14 +742,15 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                                 formatter={(value) => [formatCurrency(value), t('revenue', 'Montant')]}
                                                 cursor={{ fill: 'rgba(226, 232, 240, 0.4)' }}
                                                 contentStyle={{ 
-                                                    borderRadius: '1rem', 
+                                                    borderRadius: '0.75rem', 
                                                     border: 'none', 
                                                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                                     backgroundColor: '#1E293B',
-                                                    color: 'white'
+                                                    color: 'white',
+                                                    fontSize: '0.813rem'
                                                 }}
                                             />
-                                            <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={26}>
+                                            <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={22}>
                                                 {revenueData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                 ))}
@@ -734,7 +759,7 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                     </ResponsiveContainer>
                                 </div>
 
-                                <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-100 dark:border-slate-800 text-xs">
+                                <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
                                     {revenueData.slice(0, 3).map((r, i) => (
                                         <div key={i} className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
                                             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></span>
@@ -746,28 +771,28 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                             </div>
 
                             {/* Graphique 2 : Répartition par Mode de Paiement */}
-                            <div className="bg-white dark:bg-slate-900 p-7 md:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 relative overflow-hidden flex flex-col justify-between">
-                                <div className="mb-6">
-                                    <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                                        <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400">
-                                            <Wallet className="w-5 h-5" />
+                            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden flex flex-col justify-between">
+                                <div className="mb-4">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2.5">
+                                        <div className="p-2 bg-emerald-50 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400">
+                                            <Wallet className="w-4 h-4" />
                                         </div>
                                         Répartition par Mode de Paiement
                                     </h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                         Répartition des règlements reçus (Espèces, Virement, Mobile Money...).
                                     </p>
                                 </div>
 
-                                <div className="h-64 relative flex items-center justify-center">
+                                <div className="h-56 relative flex items-center justify-center">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
                                                 data={modesPaiementData}
                                                 cx="50%"
                                                 cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={90}
+                                                innerRadius={55}
+                                                outerRadius={80}
                                                 paddingAngle={4}
                                                 dataKey="value"
                                             >
@@ -778,18 +803,19 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                             <Tooltip
                                                 formatter={(value) => [formatCurrency(value), 'Montant Encaissé']}
                                                 contentStyle={{ 
-                                                    borderRadius: '1rem', 
+                                                    borderRadius: '0.75rem', 
                                                     border: 'none', 
                                                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                                     backgroundColor: '#1E293B',
-                                                    color: 'white'
+                                                    color: 'white',
+                                                    fontSize: '0.813rem'
                                                 }}
                                             />
                                         </PieChart>
                                     </ResponsiveContainer>
 
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                        <span className="text-lg font-black text-slate-800 dark:text-white">
+                                        <span className="text-base font-black text-slate-800 dark:text-white">
                                             {modesPaiementData.reduce((acc, m) => acc + (m.count || 0), 0)}
                                         </span>
                                         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -798,13 +824,13 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                                     </div>
                                 </div>
 
-                                <div className="space-y-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                <div className="space-y-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                                     {modesPaiementData.map((m, i) => (
-                                        <div key={i} className="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40">
+                                        <div key={i} className="flex items-center justify-between text-xs p-1.5 px-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/40">
                                             <div className="flex items-center gap-2">
-                                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[(i + 3) % COLORS.length] }}></span>
+                                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[(i + 3) % COLORS.length] }}></span>
                                                 <span className="font-medium text-slate-700 dark:text-slate-300">{m.name}</span>
-                                                <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300">
+                                                <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.2 rounded text-slate-600 dark:text-slate-300">
                                                     {m.count} reçus
                                                 </span>
                                             </div>
@@ -816,86 +842,87 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                         </div>
 
                         {/* Graphique 3 : Évolution Mensuelle & Répartition des Dépenses */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                             {/* Comparatif Mensuel Recettes vs Dépenses */}
-                            <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-7 md:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800">
-                                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-3">
-                                    <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl text-indigo-600 dark:text-indigo-400">
-                                        <BarChart3 className="w-5 h-5" />
+                            <div className="lg:col-span-2 bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800">
+                                <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white mb-1.5 flex items-center gap-2.5">
+                                    <div className="p-2 bg-indigo-50 dark:bg-indigo-900/40 rounded-xl text-indigo-600 dark:text-indigo-400">
+                                        <BarChart3 className="w-4 h-4" />
                                     </div>
                                     Comparatif Mensuel : Recettes vs Dépenses
                                 </h3>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
                                     Évolution des flux de trésorerie mois par mois sur l'année scolaire.
                                 </p>
 
-                                <div className="h-72">
+                                <div className="h-64">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={monthlyEvolutionData} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
+                                        <BarChart data={monthlyEvolutionData} margin={{ top: 15, right: 15, left: -10, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
+                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} />
                                             <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
                                             <Tooltip
                                                 formatter={(value, name) => [formatCurrency(value), name === 'recettes' ? 'Recettes' : 'Dépenses']}
                                                 contentStyle={{ 
-                                                    borderRadius: '1rem', 
+                                                    borderRadius: '0.75rem', 
                                                     border: 'none', 
                                                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
                                                     backgroundColor: '#1E293B',
-                                                    color: 'white'
+                                                    color: 'white',
+                                                    fontSize: '0.813rem'
                                                 }}
                                             />
                                             <Legend 
                                                 formatter={(val) => val === 'recettes' ? 'Recettes (Encaissements)' : 'Dépenses (Décaissements)'}
-                                                wrapperStyle={{ paddingTop: '15px' }}
+                                                wrapperStyle={{ paddingTop: '10px', fontSize: '0.813rem' }}
                                             />
-                                            <Bar dataKey="recettes" fill="#10B981" radius={[6, 6, 0, 0]} maxBarSize={32} />
-                                            <Bar dataKey="depenses" fill="#F43F5E" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                                            <Bar dataKey="recettes" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={28} />
+                                            <Bar dataKey="depenses" fill="#F43F5E" radius={[4, 4, 0, 0]} maxBarSize={28} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
 
                             {/* Dépenses par Catégorie */}
-                            <div className="bg-white dark:bg-slate-900 p-7 md:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between">
+                            <div className="bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
                                 <div>
-                                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-3">
-                                        <div className="p-2 bg-rose-100 dark:bg-rose-900/40 rounded-xl text-rose-600 dark:text-rose-400">
-                                            <ArrowDownRight className="w-5 h-5" />
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white mb-1.5 flex items-center gap-2.5">
+                                        <div className="p-2 bg-rose-50 dark:bg-rose-900/40 rounded-xl text-rose-600 dark:text-rose-400">
+                                            <ArrowDownRight className="w-4 h-4" />
                                         </div>
                                         Dépenses par Catégorie
                                     </h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
                                         Postes de coûts principaux (Salaires, Loyer, Fournitures...).
                                     </p>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-2.5">
                                     {depensesData.length > 0 ? (
                                         depensesData.map((d, idx) => {
                                             const totalDep = finances?.totalDepenses || 1;
                                             const pct = ((d.value / totalDep) * 100).toFixed(1);
                                             return (
-                                                <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                                    <div className="flex justify-between items-center mb-1.5">
-                                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{d.name}</span>
-                                                        <span className="text-xs font-black text-rose-600 dark:text-rose-400">{formatCurrency(d.value)}</span>
+                                                <div key={idx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{d.name}</span>
+                                                        <span className="text-xs font-bold text-rose-600 dark:text-rose-400">{formatCurrency(d.value)}</span>
                                                     </div>
-                                                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                                                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
                                                         <div className="bg-rose-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
                                                     </div>
-                                                    <div className="text-[10px] text-right text-slate-400 mt-1">{pct}% du total</div>
+                                                    <div className="text-[10px] text-right text-slate-400 mt-0.5">{pct}% du total</div>
                                                 </div>
                                             );
                                         })
                                     ) : (
-                                        <div className="text-center py-10 text-slate-400 text-xs">
+                                        <div className="text-center py-8 text-slate-400 text-xs">
                                             Aucune dépense enregistrée sur cette période.
                                         </div>
                                     )}
                                 </div>
 
-                                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
+                                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
                                     <span className="text-xs text-slate-500">Total des charges : </span>
                                     <span className="text-sm font-black text-slate-800 dark:text-white">{formatCurrency(finances?.totalDepenses)}</span>
                                 </div>
@@ -908,24 +935,24 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                 {/* --- ONGLET 3 : PERFORMANCE & NOTES --- */}
                 {/* ======================================================== */}
                 {activeTab === 'performance' && (
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                         {/* État vide soigné ou données si saisies */}
                         {(!performance?.classRanking || performance.classRanking.length === 0) && (
-                            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 md:p-12 shadow-xl border border-slate-100 dark:border-slate-800 text-center relative overflow-hidden">
-                                <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-amber-50 dark:bg-amber-900/30 text-amber-500 mb-6 shadow-inner">
-                                    <GraduationCap className="w-10 h-10" />
+                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 md:p-10 shadow-sm border border-slate-200/80 dark:border-slate-800 text-center relative overflow-hidden">
+                                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-500 mb-4 shadow-inner">
+                                    <GraduationCap className="w-8 h-8" />
                                 </div>
-                                <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">
+                                <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
                                     Module Examens & Performance Pédagogique
                                 </h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-xl mx-auto text-sm leading-relaxed mb-8">
+                                <p className="text-slate-500 dark:text-slate-400 max-w-xl mx-auto text-xs sm:text-sm leading-relaxed mb-6">
                                     Les indicateurs de moyennes générales, taux de réussite par classe et tableau d'honneur des élèves seront automatiquement calculés et projetés ici dès la validation des premières évaluations trimestrielles.
                                 </p>
 
-                                <div className="inline-flex flex-wrap items-center justify-center gap-4">
+                                <div className="inline-flex flex-wrap items-center justify-center gap-3">
                                     <button 
                                         onClick={() => router.visit(route('notes.index') || '/notes')}
-                                        className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition-all duration-200"
+                                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all duration-200 active:scale-95"
                                     >
                                         <BookOpen className="w-4 h-4" />
                                         Accéder à la Saisie des Notes
@@ -936,46 +963,46 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
 
                         {/* Si des données de performance existent, les voici avec labels traduits */}
                         {performance?.classRanking && performance.classRanking.length > 0 && (
-                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
                                 {/* Class Ranking Chart */}
-                                <div className="xl:col-span-2 bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800">
-                                    <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-3">
-                                        <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-lg text-amber-600 dark:text-amber-400">
-                                            <TrendingUp className="w-5 h-5" />
+                                <div className="xl:col-span-2 bg-white dark:bg-slate-900 p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2.5">
+                                        <div className="p-2 bg-amber-50 dark:bg-amber-900/40 rounded-xl text-amber-600 dark:text-amber-400">
+                                            <TrendingUp className="w-4 h-4" />
                                         </div>
                                         Taux de Réussite & Moyenne par Classe
                                     </h3>
-                                    <div className="h-80">
+                                    <div className="h-72">
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={performance?.classRanking} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                                            <BarChart data={performance?.classRanking} margin={{ top: 15, right: 0, left: -20, bottom: 0 }}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                                <XAxis dataKey="classe" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-                                                <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
+                                                <XAxis dataKey="classe" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} dy={8} />
+                                                <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
                                                 <Tooltip
                                                     formatter={(value, name) => [
                                                         name.includes('Taux') || name === 'success_rate' ? `${value}%` : `${value}/20`,
                                                         name.includes('Taux') || name === 'success_rate' ? 'Taux de Réussite' : 'Moyenne Générale'
                                                     ]}
-                                                    contentStyle={{ borderRadius: '1rem', border: 'none', backgroundColor: '#1E293B', color: 'white' }}
+                                                    contentStyle={{ borderRadius: '0.75rem', border: 'none', backgroundColor: '#1E293B', color: 'white', fontSize: '0.813rem' }}
                                                 />
-                                                <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="circle" />
-                                                <Bar dataKey="success_rate" name="Taux de Réussite (%)" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                                                <Bar dataKey="average_global" name="Moyenne Générale (/20)" fill="#8B5CF6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                                                <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '0.813rem' }} iconType="circle" />
+                                                <Bar dataKey="success_rate" name="Taux de Réussite (%)" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={32} />
+                                                <Bar dataKey="average_global" name="Moyenne Générale (/20)" fill="#8B5CF6" radius={[4, 4, 0, 0]} maxBarSize={32} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
 
                                 {/* Top Students Table */}
-                                <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col">
-                                    <div className="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                                        <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
-                                            <Award className="w-5 h-5 text-amber-500" />
+                                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800 overflow-hidden flex flex-col">
+                                    <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                                        <h3 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                            <Award className="w-4 h-4 text-amber-500" />
                                             Tableau d'Honneur
                                         </h3>
                                     </div>
-                                    <div className="p-4">
-                                        {/* Table content */}
+                                    <div className="p-4 text-xs text-slate-400 text-center py-10">
+                                        Données d'évaluation en attente de validation.
                                     </div>
                                 </div>
                             </div>
@@ -987,17 +1014,17 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                 {/* --- ONGLET 4 : VIE SCOLAIRE & ASSIDUITÉ --- */}
                 {/* ======================================================== */}
                 {activeTab === 'viescolaire' && (
-                    <div className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Assiduité */}
-                            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
-                                <div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl w-fit mb-4">
-                                    <UserCheck className="w-6 h-6" />
+                            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden">
+                                <div className="p-2.5 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl w-fit mb-3">
+                                    <UserCheck className="w-5 h-5" />
                                 </div>
-                                <div className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-1">
+                                <div className="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">
                                     Assiduité & Ponctualité
                                 </div>
-                                <div className="text-3xl font-black text-slate-800 dark:text-white mb-2">
+                                <div className="text-2xl font-black text-slate-800 dark:text-white mb-1.5">
                                     {vieScolaire?.absences || 0}
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -1006,14 +1033,14 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                             </div>
 
                             {/* Discipline */}
-                            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
-                                <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl w-fit mb-4">
-                                    <ShieldCheck className="w-6 h-6" />
+                            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden">
+                                <div className="p-2.5 bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-xl w-fit mb-3">
+                                    <ShieldCheck className="w-5 h-5" />
                                 </div>
-                                <div className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-1">
+                                <div className="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">
                                     Climat & Sanctions
                                 </div>
-                                <div className="text-3xl font-black text-slate-800 dark:text-white mb-2">
+                                <div className="text-2xl font-black text-slate-800 dark:text-white mb-1.5">
                                     {vieScolaire?.sanctions || 0}
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -1022,14 +1049,14 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                             </div>
 
                             {/* Équipe pédagogique */}
-                            <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
-                                <div className="p-3 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-2xl w-fit mb-4">
-                                    <School className="w-6 h-6" />
+                            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm hover:shadow-md border border-slate-200/80 dark:border-slate-800 transition-all duration-200 relative overflow-hidden">
+                                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl w-fit mb-3">
+                                    <School className="w-5 h-5" />
                                 </div>
-                                <div className="text-xs uppercase tracking-wider font-bold text-slate-400 mb-1">
+                                <div className="text-[11px] uppercase tracking-wider font-bold text-slate-400 mb-1">
                                     Corps Enseignant
                                 </div>
-                                <div className="text-3xl font-black text-slate-800 dark:text-white mb-2">
+                                <div className="text-2xl font-black text-slate-800 dark:text-white mb-1.5">
                                     {vieScolaire?.enseignants || 0}
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -1039,19 +1066,19 @@ export default function Index({ annexes, filters, selectedAnnee, annees, kpis, d
                         </div>
 
                         {/* Guide & raccourcis */}
-                        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-6 text-white flex flex-col md:flex-row items-center justify-between gap-5">
                             <div>
-                                <h4 className="text-xl font-bold mb-1 flex items-center gap-2">
-                                    <Sparkles className="w-5 h-5 text-amber-400" />
+                                <h4 className="text-lg font-bold mb-1 flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-amber-400" />
                                     Gestionnaire de Vie Scolaire Intégré
                                 </h4>
-                                <p className="text-slate-300 text-sm max-w-xl font-light">
+                                <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-light">
                                     Pour ajouter des fiches d'absences, enregistrer les retards ou convoquer un conseil de discipline, utilisez les modules dédiés de la barre latérale.
                                 </p>
                             </div>
                             <button
                                 onClick={() => router.visit(route('eleves.index'))}
-                                className="px-6 py-3 bg-white text-slate-900 hover:bg-slate-100 font-bold text-sm rounded-2xl transition-all shadow-md active:scale-95 shrink-0"
+                                className="px-5 py-2.5 bg-white text-slate-900 hover:bg-slate-100 font-bold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95 shrink-0"
                             >
                                 Explorer les Dossiers Élèves
                             </button>

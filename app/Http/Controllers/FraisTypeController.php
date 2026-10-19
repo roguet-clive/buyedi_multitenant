@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FraisType;
+use App\Models\Classe;
 use App\Models\AnneeScolaire;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,23 +19,38 @@ class FraisTypeController extends Controller
     }
 
     /**
-     * Liste des types de frais avec filtre et pagination
+     * Liste des types de frais avec filtre, pagination et couverture par classe
      */
     public function index(Request $request)
     {
         $search = $request->input('search', '');
+        $currentYear = AnneeScolaire::where('en_cours', true)->first();
+        $totalClassesCount = Classe::count();
 
-        $query = FraisType::with('anneeScolaire');
+        $query = FraisType::with('anneeScolaire')
+            ->withCount(['fraisClasses' => function ($q) use ($currentYear) {
+                if ($currentYear) {
+                    $q->where('annee_scolaire_id', $currentYear->id);
+                }
+            }]);
 
         if ($search) {
-            $query->where('nom', 'like', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('nom', 'like', "%{$search}%")
+                  ->orWhere('code', 'like', "%{$search}%");
+            });
         }
 
-        $fraisTypes = $query->paginate(10)->withQueryString();
+        $fraisTypes = $query->orderBy('is_scolarite', 'desc')
+            ->orderBy('nom', 'asc')
+            ->paginate(15)
+            ->withQueryString();
 
         return Inertia::render('FraisTypes/Index', [
             'fraisTypes' => $fraisTypes,
             'filters' => ['search' => $search],
+            'totalClassesCount' => $totalClassesCount,
+            'currentYear' => $currentYear,
         ]);
     }
 
@@ -43,7 +59,7 @@ class FraisTypeController extends Controller
      */
     public function create()
     {
-        $annees = AnneeScolaire::all(); // pour choisir l'année du frais
+        $annees = AnneeScolaire::all();
         $currentAnneeId = AnneeScolaire::where('en_cours', true)->value('id');
         return Inertia::render('FraisTypes/Create', compact('annees', 'currentAnneeId'));
     }
@@ -58,14 +74,17 @@ class FraisTypeController extends Controller
             'code' => 'nullable|string|max:50',
             'montant' => 'required|numeric|min:0',
             'annee_scolaire_id' => 'nullable|exists:annee_scolaires,id',
-            'globale' => 'required|boolean',
-            'is_scolarite' => 'boolean',
+            'globale' => 'nullable|boolean',
+            'is_scolarite' => 'nullable|boolean',
         ]);
+
+        $validated['globale'] = $validated['globale'] ?? true;
+        $validated['is_scolarite'] = $validated['is_scolarite'] ?? false;
 
         FraisType::create($validated);
 
         return redirect()->route('frais_types.index')
-                         ->with('success', 'Type de frais créé avec succès ✅');
+                         ->with('success', 'Rubrique comptable créée avec succès ✅');
     }
 
     /**
@@ -90,14 +109,17 @@ class FraisTypeController extends Controller
             'code' => 'nullable|string|max:50',
             'montant' => 'required|numeric|min:0',
             'annee_scolaire_id' => 'nullable|exists:annee_scolaires,id',
-            'globale' => 'required|boolean',
-            'is_scolarite' => 'boolean',
+            'globale' => 'nullable|boolean',
+            'is_scolarite' => 'nullable|boolean',
         ]);
+
+        $validated['globale'] = $validated['globale'] ?? true;
+        $validated['is_scolarite'] = $validated['is_scolarite'] ?? false;
 
         $fraisType->update($validated);
 
         return redirect()->route('frais_types.index')
-                         ->with('success', 'Type de frais mis à jour ✅');
+                         ->with('success', 'Rubrique comptable mise à jour ✅');
     }
 
     /**
@@ -105,9 +127,13 @@ class FraisTypeController extends Controller
      */
     public function destroy(FraisType $fraisType)
     {
+        if ($fraisType->paiements()->count() > 0) {
+            return redirect()->back()->with('error', "Impossible de supprimer la rubrique '{$fraisType->nom}' car {$fraisType->paiements()->count()} règlement(s) y sont rattachés.");
+        }
+
         $fraisType->delete();
 
         return redirect()->route('frais_types.index')
-                         ->with('success', 'Type de frais supprimé ✅');
+                         ->with('success', 'Rubrique comptable supprimée ✅');
     }
 }

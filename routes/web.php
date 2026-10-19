@@ -48,6 +48,9 @@ Route::middleware([SetLocale::class])->group(function () {
 
 
         // Gestion des utilisateurs
+        Route::post('users/{user}/reset-credentials', [UserController::class, 'resetCredentials'])
+            ->name('users.reset-credentials')
+            ->middleware('role:super-admin');
         Route::resource('users', UserController::class);
 
         // Gestion des personnels & enseignants (Module RH)
@@ -107,10 +110,15 @@ Route::middleware([SetLocale::class])->group(function () {
         Route::post('eleves/{eleve}/documents', [EleveController::class, 'storeDocument'])->name('eleves.documents.store');
         Route::delete('eleves/documents/{document}', [EleveController::class, 'destroyDocument'])->name('eleves.documents.destroy');
         Route::get('eleves/{eleve}/certificat', [EleveController::class, 'downloadCertificate'])->name('eleves.certificat');
+        Route::get('eleves/{eleve}/certificat.pdf', [EleveController::class, 'downloadCertificate']);
         Route::get('eleves/{eleve}/carte', [EleveController::class, 'downloadCarte'])->name('eleves.carte');
+        Route::get('eleves/{eleve}/carte.pdf', [EleveController::class, 'downloadCarte']);
         Route::get('eleves/{eleve}/attestation', [EleveController::class, 'downloadAttestation'])->name('eleves.attestation');
+        Route::get('eleves/{eleve}/attestation.pdf', [EleveController::class, 'downloadAttestation']);
         Route::get('eleves/{eleve}/fiche', [EleveController::class, 'downloadFiche'])->name('eleves.fiche');
+        Route::get('eleves/{eleve}/fiche.pdf', [EleveController::class, 'downloadFiche']);
         Route::get('eleves/{eleve}/sortie', [EleveController::class, 'downloadSortie'])->name('eleves.sortie');
+        Route::get('eleves/{eleve}/sortie.pdf', [EleveController::class, 'downloadSortie']);
         Route::resource('eleves', EleveController::class)->parameters(['eleves' => 'eleve']);
 
         // Gestion des parents

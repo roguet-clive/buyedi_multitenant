@@ -10,6 +10,7 @@ use App\Models\Paiement;
 use App\Models\Depense;
 use App\Models\Classe;
 use App\Models\FraisType;
+use App\Models\FraisClasse;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -67,7 +68,13 @@ class StatsController extends Controller
                 ];
             });
 
-        // Effectifs détaillés par classe
+        // Effectifs détaillés par classe avec modalité de scolarité dynamique
+        $fraisScolariteMap = FraisClasse::where('annee_scolaire_id', $anneeId)
+            ->whereHas('fraisType', fn($q) => $q->where('is_scolarite', true))
+            ->with(['echeances' => fn($q) => $q->orderBy('ordre')])
+            ->get()
+            ->keyBy('classe_id');
+
         $classesStats = Classe::withCount([
             'inscriptions as total_eleves' => function($q) use ($anneeId) {
                 $q->where('annee_scolaire_id', $anneeId);
@@ -82,8 +89,32 @@ class StatsController extends Controller
             }
         ])
         ->get()
-        ->map(function ($c) use ($totalInscrits) {
+        ->map(function ($c) use ($totalInscrits, $fraisScolariteMap) {
             $pct = $totalInscrits > 0 ? round(($c->total_eleves / $totalInscrits) * 100, 1) : 0;
+            
+            // Résolution dynamique de la modalité configurée dans Frais de Classe
+            $fraisConfig = $fraisScolariteMap[$c->id] ?? null;
+            $nombreEcheances = 0;
+
+            if ($fraisConfig) {
+                $modePaiement = $fraisConfig->mode_paiement;
+                $nombreEcheances = $fraisConfig->echeances->count();
+
+                if ($modePaiement === 'mensuel') {
+                    $modaliteLabel = $nombreEcheances > 0 ? "{$nombreEcheances} Mois" : "Mensuel";
+                } elseif ($modePaiement === 'tranches') {
+                    $modaliteLabel = $nombreEcheances > 0 ? "{$nombreEcheances} Tranches" : "Tranches";
+                } elseif ($modePaiement === 'unique') {
+                    $modaliteLabel = "Paiement unique";
+                } else {
+                    $modaliteLabel = ucfirst($modePaiement);
+                }
+            } else {
+                // Fallback selon le cycle si pas encore paramétré dans Frais de classe
+                $modePaiement = $c->mode_paiement_scolarite ?? ($c->isSecondaire() ? 'tranches' : 'mensuel');
+                $modaliteLabel = $modePaiement === 'mensuel' ? '10 Mois' : '3 Tranches';
+            }
+
             return [
                 'id' => $c->id,
                 'nom' => $c->nom,
@@ -92,7 +123,10 @@ class StatsController extends Controller
                 'filles' => (int) $c->filles,
                 'garcons' => (int) $c->garcons,
                 'pourcentage' => $pct,
-                'mode_paiement' => $c->mode_paiement_scolarite ?? 'tranches'
+                'mode_paiement' => $modePaiement,
+                'modalite_scolarite' => $modaliteLabel,
+                'nombre_echeances' => $nombreEcheances,
+                'is_dynamique' => $fraisConfig !== null,
             ];
         });
 

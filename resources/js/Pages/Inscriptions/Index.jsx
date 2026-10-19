@@ -480,8 +480,20 @@ export default function Index() {
                     {/* ÉLÈVE */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0B1A2D] to-blue-800 text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-white dark:ring-slate-800">
-                          {insc.eleve?.user?.prenom?.charAt(0)}{insc.eleve?.user?.nom?.charAt(0)}
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0B1A2D] to-blue-800 text-white flex items-center justify-center font-bold text-sm shadow-sm ring-2 ring-white dark:ring-slate-800 overflow-hidden shrink-0">
+                          {insc.eleve?.photo ? (
+                            <img
+                              src={insc.eleve.photo.startsWith('http') || insc.eleve.photo.startsWith('/storage') ? insc.eleve.photo : `/storage/${insc.eleve.photo}`}
+                              alt={`${insc.eleve?.user?.prenom || ''} ${insc.eleve?.user?.nom || ''}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement.innerText = `${insc.eleve?.user?.prenom?.charAt(0) || ''}${insc.eleve?.user?.nom?.charAt(0) || ''}`;
+                              }}
+                            />
+                          ) : (
+                            <span>{insc.eleve?.user?.prenom?.charAt(0)}{insc.eleve?.user?.nom?.charAt(0)}</span>
+                          )}
                         </div>
                         <div>
                           <div className="font-bold text-slate-800 dark:text-white group-hover:text-blue-600 transition-colors">

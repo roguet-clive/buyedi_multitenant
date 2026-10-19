@@ -32,6 +32,26 @@ class Eleve extends Model
         'date_naissance' => 'date',
     ];
 
+    protected $appends = [
+        'photo_url',
+    ];
+
+    /**
+     * URL publique de la photo de profil de l'élève
+     */
+    public function getPhotoUrlAttribute(): ?string
+    {
+        if (empty($this->photo)) {
+            return null;
+        }
+
+        if (str_starts_with($this->photo, 'http://') || str_starts_with($this->photo, 'https://')) {
+            return $this->photo;
+        }
+
+        return \Illuminate\Support\Facades\Storage::url($this->photo);
+    }
+
     /**
      * Auto-génération du matricule officiel selon la nomenclature : {SIGLE}-{YEAR}-{NUM:04d}
      * Exemple : CS-BUYEDI-2026-0001

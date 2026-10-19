@@ -13,12 +13,14 @@
         th, td { border: 1px solid #999; padding: 8px; text-align: center; }
         th { background-color: #eee; }
         .text-left { text-align: left; }
-        .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 10px; border-top: 1px solid #ccc; padding-top: 10px; }
+
         .signatures { margin-top: 40px; display: flex; justify-content: space-between; }
         .sig-box { width: 30%; float: left; text-align: center; height: 100px; border: 1px solid #eee; }
     </style>
 </head>
 <body>
+
+    @include('documents.partials.footer', ['etablissement' => $etablissement])
 
     <div class="header">
         @if(!empty($etablissement['logo']))
@@ -107,10 +109,6 @@
             </td>
         </tr>
     </table>
-
-    <div class="footer">
-        <p>Bulletin officiel certifié • Buyedi School Management System • Édité le {{ date('d/m/Y H:i') }}</p>
-    </div>
 
 </body>
 </html>
