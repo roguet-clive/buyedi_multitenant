@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     School,
     ShieldCheck,
@@ -17,7 +18,6 @@ import {
     Clock,
     Lock,
     Globe2,
-    PhoneCall,
     Check,
     ChevronDown,
     ChevronUp,
@@ -25,13 +25,15 @@ import {
     Phone,
     Mail,
     MapPin,
-    ArrowUpRight,
     QrCode,
     Sliders,
     Building2,
-    Layers,
     Calendar,
-    Send
+    Send,
+    MessageCircle,
+    Database,
+    Bell,
+    CheckCircle
 } from 'lucide-react';
 
 export default function Landing({ tenants = [], pricing = {} }) {
@@ -42,6 +44,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
     const [openFaq, setOpenFaq] = useState(0);
     const [selectedSchool, setSelectedSchool] = useState('');
     const [demoSent, setDemoSent] = useState(false);
+    const [mockupTab, setMockupTab] = useState('recouvrement'); // 'recouvrement' | 'transactions' | 'eleves'
     const [demoForm, setDemoForm] = useState({
         nom: '',
         ecole: '',
@@ -67,6 +70,18 @@ export default function Landing({ tenants = [], pricing = {} }) {
         setDemoSent(true);
     };
 
+    // 🌟 Éléments de la Marquee qui défile en continu
+    const marqueeItems = [
+        { icon: ShieldCheck, text: "Base de données MySQL 100% isolée par école" },
+        { icon: QrCode, text: "Reçus de paiement certifiés avec QR Code infalsifiable" },
+        { icon: GraduationCap, text: "Bulletins conformes aux normes ministérielles MEN" },
+        { icon: MessageCircle, text: "Notifications & alertes d'absences par WhatsApp / SMS" },
+        { icon: Zap, text: "Déploiement automatique d'un établissement en 60s" },
+        { icon: Database, text: "Sauvegardes automatiques quotidiennes sur cloud privé" },
+        { icon: BarChart3, text: "Comptabilité & journal de caisse en temps réel" },
+        { icon: Lock, text: "Étanchéité totale des données & conformité RGPD" },
+    ];
+
     // 📦 Données des onglets de modules
     const modulesData = {
         scolarite: {
@@ -78,9 +93,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
                 "Édition instantanée des certificats, attestations et billets de sortie"
             ],
             table: [
-                { col1: "Inscriptions 2026", col2: "542 élèves", badge: "Validé", badgeColor: "bg-emerald-50 text-emerald-700" },
-                { col1: "Classes actives", col2: "18 classes", badge: "Actif", badgeColor: "bg-blue-50 text-blue-700" },
-                { col1: "Dossiers complets", col2: "96.4%", badge: "Conforme", badgeColor: "bg-indigo-50 text-indigo-700" },
+                { col1: "Inscriptions validées", col2: "542 élèves inscrits", badge: "Validé", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                { col1: "Classes actives", col2: "18 classes réparties", badge: "Actif", badgeColor: "bg-blue-50 text-blue-700 border border-blue-200" },
+                { col1: "Dossiers complets", col2: "96.4% de conformité", badge: "Conforme", badgeColor: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
             ]
         },
         finances: {
@@ -92,9 +107,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
                 "Journal de caisse complet avec export comptable automatisé"
             ],
             table: [
-                { col1: "Scolarité Tranche 1", col2: "120 000 F", badge: "Payé (QR Validé)", badgeColor: "bg-emerald-50 text-emerald-700" },
-                { col1: "Frais d'inscription", col2: "35 000 F", badge: "Payé", badgeColor: "bg-emerald-50 text-emerald-700" },
-                { col1: "Cantine & Transport", col2: "45 000 F", badge: "En attente", badgeColor: "bg-amber-50 text-amber-700" },
+                { col1: "Scolarité Tranche 1", col2: "120 000 F CFA", badge: "Payé (QR Validé)", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                { col1: "Frais d'inscription", col2: "35 000 F CFA", badge: "Payé", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                { col1: "Cantine & Transport", col2: "45 000 F CFA", badge: "En attente", badgeColor: "bg-amber-50 text-amber-700 border border-amber-200" },
             ]
         },
         bulletins: {
@@ -106,9 +121,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
                 "Tableau d'honneur, avertissements et statistiques de réussite"
             ],
             table: [
-                { col1: "Trimestre 1 (Général)", col2: "Moy. 13.8 / 20", badge: "Généré", badgeColor: "bg-emerald-50 text-emerald-700" },
-                { col1: "Taux de réussite", col2: "89.4%", badge: "Excellent", badgeColor: "bg-blue-50 text-blue-700" },
-                { col1: "Conseils de classe", col2: "18 / 18", badge: "Clôturé", badgeColor: "bg-indigo-50 text-indigo-700" },
+                { col1: "Trimestre 1 (Général)", col2: "Moyenne 13.8 / 20", badge: "Généré", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                { col1: "Taux de réussite", col2: "89.4% admis", badge: "Excellent", badgeColor: "bg-blue-50 text-blue-700 border border-blue-200" },
+                { col1: "Conseils de classe", col2: "18 / 18 validés", badge: "Clôturé", badgeColor: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
             ]
         },
         parents: {
@@ -120,9 +135,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
                 "Téléchargement direct des reçus et des bulletins scolaires"
             ],
             table: [
-                { col1: "Comptes parents actifs", col2: "710 comptes", badge: "Connecté", badgeColor: "bg-emerald-50 text-emerald-700" },
-                { col1: "Notifications envoyées", col2: "1 420 SMS", badge: "Délivré", badgeColor: "bg-blue-50 text-blue-700" },
-                { col1: "Taux d'ouverture", col2: "99.1%", badge: "Record", badgeColor: "bg-purple-50 text-purple-700" },
+                { col1: "Comptes parents actifs", col2: "710 parents connectés", badge: "Connecté", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                { col1: "Notifications envoyées", col2: "1 420 SMS envoyés", badge: "Délivré", badgeColor: "bg-blue-50 text-blue-700 border border-blue-200" },
+                { col1: "Taux d'ouverture", col2: "99.1% d'engagement", badge: "Record", badgeColor: "bg-purple-50 text-purple-700 border border-purple-200" },
             ]
         },
         rh: {
@@ -134,9 +149,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
                 "Impression sécurisée des fiches de paie et registres du personnel"
             ],
             table: [
-                { col1: "Masse salariale mensuelle", col2: "3 850 000 F", badge: "Payé", badgeColor: "bg-emerald-50 text-emerald-700" },
-                { col1: "Enseignants vacataires", col2: "24 profs", badge: "Heures validées", badgeColor: "bg-blue-50 text-blue-700" },
-                { col1: "Bulletins de paie", col2: "32 générés", badge: "Archivé", badgeColor: "bg-indigo-50 text-indigo-700" },
+                { col1: "Masse salariale mensuelle", col2: "3 850 000 F CFA", badge: "Payé", badgeColor: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                { col1: "Enseignants vacataires", col2: "24 professeurs", badge: "Validé", badgeColor: "bg-blue-50 text-blue-700 border border-blue-200" },
+                { col1: "Bulletins de paie", col2: "32 fiches générées", badge: "Archivé", badgeColor: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
             ]
         }
     };
@@ -165,18 +180,18 @@ export default function Landing({ tenants = [], pricing = {} }) {
     ];
 
     return (
-        <div className="min-h-screen bg-white text-slate-800 font-sans selection:bg-blue-600 selection:text-white">
+        <div className="min-h-screen bg-white text-slate-800 font-sans selection:bg-blue-600 selection:text-white overflow-x-hidden">
             <Head title="Buyedi SaaS - Pilotez votre établissement vers l'excellence numérique" />
 
-            {/* 🧭 NAVIGATION BAR ÉLÉGANTE & BLANCHE */}
-            <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm">
+            {/* 🧭 NAVIGATION BAR ÉLÉGANTE */}
+            <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-                    {/* Logo & Marque */}
-                    <Link href="/" className="flex items-center gap-3">
+                    {/* Logo */}
+                    <Link href="/" className="flex items-center gap-3 group">
                         <img
                             src="/images/logo.png"
                             alt="Logo Buyedi"
-                            className="h-10 sm:h-12 w-auto object-contain"
+                            className="h-10 sm:h-12 w-auto object-contain transition-transform group-hover:scale-105"
                             onError={(e) => {
                                 e.target.style.display = 'none';
                                 e.target.nextSibling.style.display = 'flex';
@@ -209,7 +224,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                         setSelectedSchool(e.target.value);
                                         handleSchoolRedirect(e.target.value);
                                     }}
-                                    className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none focus:border-blue-600"
+                                    className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-medium focus:outline-none focus:border-blue-600 cursor-pointer hover:bg-slate-100 transition"
                                 >
                                     <option value="">🏫 Accéder à mon école...</option>
                                     {tenants.map((t) => (
@@ -223,7 +238,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                         <a
                             href="#demo"
-                            className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition"
+                            className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition hover:border-slate-300"
                         >
                             <Phone className="w-3.5 h-3.5 text-emerald-600" />
                             <span>Prendre contact</span>
@@ -240,21 +255,26 @@ export default function Landing({ tenants = [], pricing = {} }) {
                 </div>
             </nav>
 
-            {/* 🚀 HERO SECTION (Exactement conforme à la maquette) */}
+            {/* 🚀 HERO SECTION (Ultra dynamique & fidèle à l'image) */}
             <section id="accueil" className="relative pt-12 pb-20 overflow-hidden bg-gradient-to-b from-blue-50/40 via-white to-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
                         
                         {/* Colonne Gauche : Titre & Promesse */}
-                        <div className="lg:col-span-7 space-y-6 text-left">
-                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-bold uppercase tracking-wider">
+                        <motion.div
+                            initial={{ opacity: 0, x: -30 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.6 }}
+                            className="lg:col-span-7 space-y-6 text-left"
+                        >
+                            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-bold uppercase tracking-wider shadow-xs">
                                 <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                                 <span>Plateforme de Gestion Scolaire & Financière</span>
                             </div>
 
                             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.12]">
                                 Pilotez votre <br />
-                                établissement vers <br />
+                                <span className="text-slate-900">établissement vers</span> <br />
                                 <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent">
                                     l'excellence numérique.
                                 </span>
@@ -268,7 +288,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
                                 <Link
                                     href="/onboarding"
-                                    className="inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm sm:text-base px-8 py-4 rounded-xl shadow-xl shadow-blue-600/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                    className="inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm sm:text-base px-8 py-4 rounded-xl shadow-xl shadow-blue-600/25 transition-all hover:scale-[1.03] active:scale-[0.98]"
                                 >
                                     <span>Créer l'école de l'excellence</span>
                                     <ArrowRight className="w-5 h-5" />
@@ -276,7 +296,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                                 <a
                                     href="#demo"
-                                    className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-sm sm:text-base px-7 py-4 rounded-xl shadow-sm transition"
+                                    className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-sm sm:text-base px-7 py-4 rounded-xl shadow-xs transition hover:border-slate-400"
                                 >
                                     <span>Demander une démonstration</span>
                                 </a>
@@ -297,11 +317,16 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                     <span>Support réactif 24/7</span>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
 
                         {/* Colonne Droite : Mockup Interactif Flottant du Dashboard */}
-                        <div className="lg:col-span-5 relative">
-                            <div className="relative mx-auto max-w-md bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xl shadow-blue-500/10">
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.7, delay: 0.1 }}
+                            className="lg:col-span-5 relative"
+                        >
+                            <div className="relative mx-auto max-w-md bg-white border border-slate-200/90 rounded-3xl p-6 shadow-2xl shadow-blue-500/10 animate-float">
                                 
                                 {/* Header du Mockup */}
                                 <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -309,22 +334,44 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                         <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Espace Scolaire Dédié</div>
                                         <div className="text-sm font-extrabold text-slate-900">CS Sagesse Divine</div>
                                     </div>
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-xs">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                         Établissement actif
                                     </span>
                                 </div>
 
-                                {/* KPI cards de démonstration */}
+                                {/* Mini sélecteur d'onglets à l'intérieur du mockup */}
+                                <div className="flex items-center gap-2 mt-4 bg-slate-50 p-1 rounded-xl border border-slate-100 text-[11px] font-semibold text-slate-600">
+                                    <button
+                                        onClick={() => setMockupTab('recouvrement')}
+                                        className={`flex-1 py-1 rounded-lg transition ${mockupTab === 'recouvrement' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
+                                    >
+                                        Finance
+                                    </button>
+                                    <button
+                                        onClick={() => setMockupTab('transactions')}
+                                        className={`flex-1 py-1 rounded-lg transition ${mockupTab === 'transactions' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
+                                    >
+                                        Reçu QR
+                                    </button>
+                                    <button
+                                        onClick={() => setMockupTab('eleves')}
+                                        className={`flex-1 py-1 rounded-lg transition ${mockupTab === 'eleves' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
+                                    >
+                                        Effectifs
+                                    </button>
+                                </div>
+
+                                {/* KPI cards du Mockup */}
                                 <div className="grid grid-cols-2 gap-3 my-4">
-                                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
+                                    <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 transition-all hover:bg-slate-50">
                                         <div className="text-[11px] font-semibold text-slate-500">Recouvrement</div>
                                         <div className="text-xl font-black text-slate-900 mt-0.5">88,2%</div>
                                         <div className="text-[10px] text-emerald-600 font-bold mt-1 flex items-center gap-0.5">
                                             <TrendingUp className="w-3 h-3" /> +4,3% ce mois
                                         </div>
                                     </div>
-                                    <div className="bg-slate-50 rounded-2xl p-3 border border-slate-100">
+                                    <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 transition-all hover:bg-slate-50">
                                         <div className="text-[11px] font-semibold text-slate-500">Élèves Inscrits</div>
                                         <div className="text-xl font-black text-slate-900 mt-0.5">842 élèves</div>
                                         <div className="text-[10px] text-blue-600 font-bold mt-1">100% à jour</div>
@@ -335,7 +382,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                 <div className="mb-4">
                                     <Link
                                         href="/onboarding"
-                                        className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs py-3 rounded-xl shadow-md transition hover:opacity-95"
+                                        className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs py-3 rounded-xl shadow-md transition-all hover:shadow-lg"
                                     >
                                         <span>Créer l'espace de votre école</span>
                                         <ArrowRight className="w-3.5 h-3.5" />
@@ -343,7 +390,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                 </div>
 
                                 {/* Dernier Paiement avec QR Code Badge */}
-                                <div className="bg-blue-50/60 rounded-2xl p-3.5 border border-blue-100 flex items-center justify-between">
+                                <div className="bg-blue-50/70 rounded-2xl p-3.5 border border-blue-100 flex items-center justify-between transition-all hover:border-blue-200">
                                     <div className="flex items-center gap-2.5">
                                         <div className="w-9 h-9 rounded-xl bg-white border border-blue-200 text-blue-600 flex items-center justify-center shadow-xs">
                                             <QrCode className="w-5 h-5" />
@@ -361,10 +408,12 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                                     <span>Sous-domaine : <strong>sagesse.buyedi.com</strong></span>
-                                    <span className="text-emerald-600 font-semibold">Base isolée 🔒</span>
+                                    <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                                        <Lock className="w-3 h-3" /> Base isolée
+                                    </span>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
 
                     </div>
                 </div>
@@ -394,23 +443,32 @@ export default function Landing({ tenants = [], pricing = {} }) {
                 </div>
             </section>
 
-            {/* 🏷️ TICKER DES ENGAGEMENTS */}
-            <div className="bg-blue-600 text-white py-3 overflow-hidden text-xs font-bold tracking-wide">
-                <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-around gap-4 text-center">
-                    <span className="flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-blue-200" />
-                        Base de données MySQL 100% isolée par école
-                    </span>
-                    <span className="hidden sm:inline">•</span>
-                    <span className="flex items-center gap-2">
-                        <QrCode className="w-4 h-4 text-blue-200" />
-                        Reçus de paiement certifiés avec QR Code infalsifiable
-                    </span>
-                    <span className="hidden sm:inline">•</span>
-                    <span className="flex items-center gap-2">
-                        <GraduationCap className="w-4 h-4 text-blue-200" />
-                        Bulletins conformes aux normes ministérielles MEN
-                    </span>
+            {/* 🌊 MARQUEE BLEUE QUI DÉFILE EN CONTINU (Exactement demandée par l'utilisateur !) */}
+            <div className="bg-blue-600 text-white py-3.5 overflow-hidden shadow-inner select-none relative group">
+                <div className="animate-marquee items-center gap-12 font-bold text-xs sm:text-sm tracking-wide">
+                    {/* Première boucle */}
+                    {marqueeItems.map((item, idx) => {
+                        const Icon = item.icon;
+                        return (
+                            <div key={`m1-${idx}`} className="flex items-center gap-3 shrink-0">
+                                <Icon className="w-4 h-4 text-blue-200 shrink-0" />
+                                <span>{item.text}</span>
+                                <span className="text-blue-300 ml-6 opacity-60">•</span>
+                            </div>
+                        );
+                    })}
+
+                    {/* Deuxième boucle pour assurer un défilement infini sans coupure */}
+                    {marqueeItems.map((item, idx) => {
+                        const Icon = item.icon;
+                        return (
+                            <div key={`m2-${idx}`} className="flex items-center gap-3 shrink-0">
+                                <Icon className="w-4 h-4 text-blue-200 shrink-0" />
+                                <span>{item.text}</span>
+                                <span className="text-blue-300 ml-6 opacity-60">•</span>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -428,9 +486,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {/* Pilier 1 */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:border-blue-500/40 transition duration-300 flex flex-col justify-between">
+                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:shadow-xl hover:border-blue-500/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                         <div>
-                            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-5 font-bold">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-5 font-bold shadow-xs">
                                 <School className="w-6 h-6" />
                             </div>
                             <h3 className="text-base font-extrabold text-slate-900 mb-2">Gestion Administrative</h3>
@@ -438,15 +496,16 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                 Inscriptions en 1 clic, gestion des classes, dossiers élèves complets et archivage sécurisé de tous les documents.
                             </p>
                         </div>
-                        <a href="#modules" className="mt-6 text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                            <span>En savoir plus</span> <ArrowRight className="w-3.5 h-3.5" />
+                        <a href="#modules" className="mt-6 text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 group">
+                            <span>En savoir plus</span>
+                            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
                         </a>
                     </div>
 
                     {/* Pilier 2 */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:border-emerald-500/40 transition duration-300 flex flex-col justify-between">
+                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:shadow-xl hover:border-emerald-500/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                         <div>
-                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-5 font-bold">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-5 font-bold shadow-xs">
                                 <CreditCard className="w-6 h-6" />
                             </div>
                             <h3 className="text-base font-extrabold text-slate-900 mb-2">Finances & Facturation</h3>
@@ -454,15 +513,16 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                 Suivi des paiements, gestion des tranches, relances automatiques et reçus certifiés avec QR Code infalsifiable.
                             </p>
                         </div>
-                        <a href="#modules" className="mt-6 text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
-                            <span>En savoir plus</span> <ArrowRight className="w-3.5 h-3.5" />
+                        <a href="#modules" className="mt-6 text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 group">
+                            <span>En savoir plus</span>
+                            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
                         </a>
                     </div>
 
                     {/* Pilier 3 */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:border-violet-500/40 transition duration-300 flex flex-col justify-between">
+                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:shadow-xl hover:border-violet-500/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                         <div>
-                            <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-5 font-bold">
+                            <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-5 font-bold shadow-xs">
                                 <FileText className="w-6 h-6" />
                             </div>
                             <h3 className="text-base font-extrabold text-slate-900 mb-2">Suivi Pédagogique</h3>
@@ -470,15 +530,16 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                 Bulletins de notes officiels, gestion des absences, emplois du temps et relevés de notes générés en masse.
                             </p>
                         </div>
-                        <a href="#modules" className="mt-6 text-xs font-bold text-violet-600 hover:text-violet-700 flex items-center gap-1">
-                            <span>En savoir plus</span> <ArrowRight className="w-3.5 h-3.5" />
+                        <a href="#modules" className="mt-6 text-xs font-bold text-violet-600 hover:text-violet-700 flex items-center gap-1 group">
+                            <span>En savoir plus</span>
+                            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
                         </a>
                     </div>
 
                     {/* Pilier 4 */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm hover:shadow-xl hover:border-purple-500/40 transition duration-300 flex flex-col justify-between">
+                    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs hover:shadow-xl hover:border-purple-500/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                         <div>
-                            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-5 font-bold">
+                            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mb-5 font-bold shadow-xs">
                                 <Users className="w-6 h-6" />
                             </div>
                             <h3 className="text-base font-extrabold text-slate-900 mb-2">Portail Parents & SMS</h3>
@@ -486,14 +547,15 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                 Accès mobile dédié pour les parents, suivi des notes en temps réel et notifications d'absence instantanées par SMS.
                             </p>
                         </div>
-                        <a href="#modules" className="mt-6 text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1">
-                            <span>En savoir plus</span> <ArrowRight className="w-3.5 h-3.5" />
+                        <a href="#modules" className="mt-6 text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1 group">
+                            <span>En savoir plus</span>
+                            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
                         </a>
                     </div>
                 </div>
             </section>
 
-            {/* 📑 MODULES INTÉGRÉS AVEC ONGLETS INTERACTIFS */}
+            {/* 📑 MODULES INTÉGRÉS AVEC ONGLETS INTERACTIFS & ANIMATION FRAMER MOTION */}
             <section id="modules" className="py-20 bg-slate-50/70 border-y border-slate-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center max-w-3xl mx-auto mb-12">
@@ -506,7 +568,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                         </p>
                     </div>
 
-                    {/* Barre d'onglets */}
+                    {/* Barre d'onglets animée */}
                     <div className="flex flex-wrap items-center justify-center gap-2 mb-10">
                         {[
                             { id: 'scolarite', name: 'Gestion Scolaire', icon: School },
@@ -521,9 +583,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                                    className={`relative inline-flex items-center gap-2 px-5 py-3 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                                         isActive
-                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                                            ? 'text-white shadow-lg shadow-blue-600/25 bg-blue-600'
                                             : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
                                     }`}
                                 >
@@ -534,71 +596,82 @@ export default function Landing({ tenants = [], pricing = {} }) {
                         })}
                     </div>
 
-                    {/* Carte d'aperçu dynamique du module sélectionné */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 shadow-xl shadow-slate-200/50">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                            
-                            {/* Colonne Descriptif */}
-                            <div className="lg:col-span-6 space-y-4">
-                                <div className="text-xs font-bold uppercase tracking-wider text-blue-600">Module Spécialisé</div>
-                                <h3 className="text-2xl sm:text-3xl font-black text-slate-900">
-                                    {modulesData[activeTab].title}
-                                </h3>
-                                <p className="text-slate-600 text-sm leading-relaxed">
-                                    {modulesData[activeTab].desc}
-                                </p>
+                    {/* Carte d'aperçu dynamique du module avec Framer Motion */}
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -15 }}
+                            transition={{ duration: 0.25 }}
+                            className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 shadow-xl shadow-slate-200/50"
+                        >
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                                
+                                {/* Colonne Descriptif */}
+                                <div className="lg:col-span-6 space-y-4">
+                                    <div className="text-xs font-bold uppercase tracking-wider text-blue-600">Module Spécialisé</div>
+                                    <h3 className="text-2xl sm:text-3xl font-black text-slate-900">
+                                        {modulesData[activeTab].title}
+                                    </h3>
+                                    <p className="text-slate-600 text-sm leading-relaxed">
+                                        {modulesData[activeTab].desc}
+                                    </p>
 
-                                <ul className="space-y-2.5 pt-2 text-xs sm:text-sm text-slate-700">
-                                    {modulesData[activeTab].bullets.map((b, idx) => (
-                                        <li key={idx} className="flex items-start gap-2.5">
-                                            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                                            <span>{b}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-
-                                <div className="pt-4">
-                                    <Link
-                                        href="/onboarding"
-                                        className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700"
-                                    >
-                                        <span>Tester ce module sur votre école</span>
-                                        <ArrowRight className="w-4 h-4" />
-                                    </Link>
-                                </div>
-                            </div>
-
-                            {/* Colonne Mockup Tableau */}
-                            <div className="lg:col-span-6">
-                                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-inner">
-                                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                        <span>Indicateur Clé</span>
-                                        <span>Statut d'Exécution</span>
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        {modulesData[activeTab].table.map((row, idx) => (
-                                            <div key={idx} className="bg-white rounded-xl p-3.5 border border-slate-200 flex items-center justify-between shadow-xs">
-                                                <div>
-                                                    <div className="text-xs font-bold text-slate-900">{row.col1}</div>
-                                                    <div className="text-[11px] text-slate-500">{row.col2}</div>
-                                                </div>
-                                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${row.badgeColor}`}>
-                                                    {row.badge}
-                                                </span>
-                                            </div>
+                                    <ul className="space-y-2.5 pt-2 text-xs sm:text-sm text-slate-700">
+                                        {modulesData[activeTab].bullets.map((b, idx) => (
+                                            <li key={idx} className="flex items-start gap-2.5">
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                                                <span>{b}</span>
+                                            </li>
                                         ))}
-                                    </div>
+                                    </ul>
 
-                                    <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400">
-                                        <span>Données sécurisées en temps réel</span>
-                                        <span className="font-semibold text-emerald-600">✓ Synchronisé</span>
+                                    <div className="pt-4">
+                                        <Link
+                                            href="/onboarding"
+                                            className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 group"
+                                        >
+                                            <span>Tester ce module sur votre école</span>
+                                            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                                        </Link>
                                     </div>
                                 </div>
-                            </div>
 
-                        </div>
-                    </div>
+                                {/* Colonne Mockup Tableau */}
+                                <div className="lg:col-span-6">
+                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-inner">
+                                        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                            <span>Indicateur Clé</span>
+                                            <span>Statut d'Exécution</span>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            {modulesData[activeTab].table.map((row, idx) => (
+                                                <div key={idx} className="bg-white rounded-xl p-3.5 border border-slate-200 flex items-center justify-between shadow-xs">
+                                                    <div>
+                                                        <div className="text-xs font-bold text-slate-900">{row.col1}</div>
+                                                        <div className="text-[11px] text-slate-500">{row.col2}</div>
+                                                    </div>
+                                                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${row.badgeColor}`}>
+                                                        {row.badge}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400">
+                                            <span>Données sécurisées en temps réel</span>
+                                            <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                                                <CheckCircle className="w-3.5 h-3.5" /> Synchronisé
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
             </section>
 
@@ -619,7 +692,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                     <div className="mb-10">
                         <div className="flex items-center justify-between mb-3">
                             <span className="text-sm font-bold text-slate-700">Nombre d'élèves de l'école :</span>
-                            <span className="px-4 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full font-black text-base sm:text-lg">
+                            <span className="px-4 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-full font-black text-base sm:text-lg shadow-xs">
                                 {simulatedStudents} élèves
                             </span>
                         </div>
@@ -641,19 +714,19 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                     {/* 3 Cartes de métriques ROI */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 text-center">
-                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 hover:border-blue-300 transition">
                             <div className="text-3xl font-black text-blue-600 mb-1">+{timeSavedHours}h</div>
                             <div className="text-xs font-bold text-slate-700">Temps administratif économisé / an</div>
                             <div className="text-[11px] text-slate-500 mt-1">Inscriptions, bulletins & reçus instantanés</div>
                         </div>
 
-                        <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-5">
+                        <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-5 hover:border-emerald-300 transition">
                             <div className="text-3xl font-black text-emerald-600 mb-1">+{moneyRecovered} F</div>
                             <div className="text-xs font-bold text-slate-700">Recouvrement d'impayés amélioré</div>
                             <div className="text-[11px] text-slate-500 mt-1">Grâce aux alertes et relances automatiques</div>
                         </div>
 
-                        <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-5">
+                        <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-5 hover:border-amber-300 transition">
                             <div className="text-3xl font-black text-amber-600 mb-1">+{paperSavings} F</div>
                             <div className="text-xs font-bold text-slate-700">Économies papier & fournitures</div>
                             <div className="text-[11px] text-slate-500 mt-1">Zéro reçus papier perdus, bulletins en ligne</div>
@@ -689,7 +762,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                             <button
                                 onClick={() => setBillingAnnual(false)}
                                 className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-                                    !billingAnnual ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                    !billingAnnual ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                                 }`}
                             >
                                 Facturation mensuelle
@@ -697,7 +770,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                             <button
                                 onClick={() => setBillingAnnual(true)}
                                 className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                                    billingAnnual ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                    billingAnnual ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
                                 }`}
                             >
                                 <span>Facturation annuelle</span>
@@ -711,7 +784,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch max-w-7xl mx-auto">
                         
                         {/* 1. STANDARD */}
-                        <div className="bg-white border border-slate-200 rounded-3xl p-8 flex flex-col justify-between shadow-sm hover:shadow-xl transition">
+                        <div className="bg-white border border-slate-200 rounded-3xl p-8 flex flex-col justify-between shadow-xs hover:shadow-xl transition">
                             <div>
                                 <h3 className="text-xl font-black text-slate-900">STANDARD</h3>
                                 <p className="text-xs text-slate-500 mt-1">Idéal pour écoles maternelles et petits collèges</p>
@@ -750,7 +823,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                             <Link
                                 href="/onboarding?formule=starter"
-                                className="mt-8 w-full py-3.5 px-4 rounded-xl text-center text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition shadow-sm"
+                                className="mt-8 w-full py-3.5 px-4 rounded-xl text-center text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition shadow-xs"
                             >
                                 Choisir Standard
                             </Link>
@@ -867,7 +940,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Avis 1 */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm flex flex-col justify-between">
+                    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs hover:shadow-xl transition flex flex-col justify-between">
                         <div>
                             <div className="flex items-center gap-1 text-amber-400 mb-4">
                                 {[...Array(5)].map((_, i) => (
@@ -890,7 +963,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                     </div>
 
                     {/* Avis 2 */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm flex flex-col justify-between">
+                    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs hover:shadow-xl transition flex flex-col justify-between">
                         <div>
                             <div className="flex items-center gap-1 text-amber-400 mb-4">
                                 {[...Array(5)].map((_, i) => (
@@ -913,7 +986,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                     </div>
 
                     {/* Avis 3 */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm flex flex-col justify-between">
+                    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs hover:shadow-xl transition flex flex-col justify-between">
                         <div>
                             <div className="flex items-center gap-1 text-amber-400 mb-4">
                                 {[...Array(5)].map((_, i) => (
@@ -977,13 +1050,17 @@ export default function Landing({ tenants = [], pricing = {} }) {
                             {/* Formulaire Démo */}
                             <div className="lg:col-span-7">
                                 {demoSent ? (
-                                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-8 text-center space-y-3">
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        className="bg-emerald-50 border border-emerald-200 rounded-2xl p-8 text-center space-y-3"
+                                    >
                                         <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
                                         <h4 className="text-lg font-extrabold text-emerald-900">Demande enregistrée avec succès !</h4>
                                         <p className="text-xs text-emerald-700 leading-relaxed max-w-sm mx-auto">
                                             Merci {demoForm.nom}. Notre conseiller prendra contact avec vous sous 2 heures ouvrées pour planifier votre démonstration.
                                         </p>
-                                    </div>
+                                    </motion.div>
                                 ) : (
                                     <form onSubmit={handleDemoSubmit} className="space-y-4">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -995,7 +1072,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                                     placeholder="Jean-Paul Mba"
                                                     value={demoForm.nom}
                                                     onChange={(e) => setDemoForm({ ...demoForm, nom: e.target.value })}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600 transition"
                                                 />
                                             </div>
                                             <div>
@@ -1006,7 +1083,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                                     placeholder="CS Saint-Exupéry"
                                                     value={demoForm.ecole}
                                                     onChange={(e) => setDemoForm({ ...demoForm, ecole: e.target.value })}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600 transition"
                                                 />
                                             </div>
                                         </div>
@@ -1020,7 +1097,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                                     placeholder="direction@ecole.ga"
                                                     value={demoForm.email}
                                                     onChange={(e) => setDemoForm({ ...demoForm, email: e.target.value })}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600 transition"
                                                 />
                                             </div>
                                             <div>
@@ -1031,7 +1108,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                                     placeholder="+241 77 00 00 00"
                                                     value={demoForm.telephone}
                                                     onChange={(e) => setDemoForm({ ...demoForm, telephone: e.target.value })}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600 transition"
                                                 />
                                             </div>
                                         </div>
@@ -1041,7 +1118,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                             <select
                                                 value={demoForm.eleves}
                                                 onChange={(e) => setDemoForm({ ...demoForm, eleves: e.target.value })}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600 transition"
                                             >
                                                 <option value="moins-150">Moins de 150 élèves</option>
                                                 <option value="150-400">150 à 400 élèves</option>
@@ -1052,7 +1129,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                                         <button
                                             type="submit"
-                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl shadow-lg shadow-blue-600/25 transition"
+                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm py-3.5 rounded-xl shadow-lg shadow-blue-600/25 transition hover:scale-[1.01] active:scale-[0.99]"
                                         >
                                             Réserver ma démonstration gratuite
                                         </button>
@@ -1080,7 +1157,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                         return (
                             <div
                                 key={index}
-                                className="bg-white border border-slate-200 rounded-2xl overflow-hidden transition shadow-xs"
+                                className="bg-white border border-slate-200 rounded-2xl overflow-hidden transition shadow-xs hover:border-slate-300"
                             >
                                 <button
                                     onClick={() => setOpenFaq(isOpen ? null : index)}
@@ -1093,11 +1170,21 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                         <ChevronDown className="w-5 h-5 text-slate-400 shrink-0" />
                                     )}
                                 </button>
-                                {isOpen && (
-                                    <div className="px-6 pb-5 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3">
-                                        {faq.a}
-                                    </div>
-                                )}
+                                <AnimatePresence>
+                                    {isOpen && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="px-6 pb-5 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3">
+                                                {faq.a}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         );
                     })}
