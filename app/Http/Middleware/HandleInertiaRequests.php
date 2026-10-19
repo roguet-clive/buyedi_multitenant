@@ -27,7 +27,13 @@ class HandleInertiaRequests extends Middleware
             ],
             'unreadNotificationsCount' => $request->user() ? $request->user()->unreadNotifications()->where('type', '!=', 'App\Notifications\MessageNotification')->count() : 0,
             'unreadMessagesCount' => $request->user() ? $request->user()->unreadNotifications()->where('type', 'App\Notifications\MessageNotification')->count() : 0,
-            'etablissement' => fn () => \App\Models\Etablissement::first(),
+            'tenant' => tenancy()->initialized ? [
+                'id' => tenant('id'),
+                'nom' => tenant('nom'),
+                'statut' => tenant('statut'),
+                'formule' => tenant('formule'),
+            ] : null,
+            'etablissement' => fn () => tenancy()->initialized ? \App\Models\Etablissement::first() : null,
             'flash' => [
                 'message' => fn () => $request->session()->get('message'),
                 'success' => fn () => $request->session()->get('success'),
