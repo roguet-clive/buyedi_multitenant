@@ -26,11 +26,12 @@ foreach (config('tenancy.central_domains', ['localhost', '127.0.0.1']) as $centr
         Route::post('/onboarding', [OnboardingController::class, 'store'])->name('central.onboarding.store');
         Route::get('/api/check-subdomain', [OnboardingController::class, 'checkSubdomain'])->name('central.api.check-subdomain');
 
-        // 👑 Console Super-Admin SaaS Buyedi
+        // 👑 Console Super-Admin SaaS Buyedi Solutions
         Route::prefix('super-admin')->group(function () {
             Route::get('/', [SuperAdminController::class, 'index'])->name('central.super-admin.index');
             Route::patch('/tenants/{tenant}/status', [SuperAdminController::class, 'updateStatus'])->name('central.super-admin.update-status');
             Route::post('/tenants/{tenant}/impersonate', [SuperAdminController::class, 'impersonate'])->name('central.super-admin.impersonate');
+            Route::post('/payments', [SuperAdminController::class, 'storePayment'])->name('central.super-admin.store-payment');
         });
     });
 }

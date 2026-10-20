@@ -76,4 +76,12 @@ class Tenant extends BaseTenant implements TenantWithDatabase
     {
         return $this->statut === 'suspendu';
     }
+
+    /**
+     * Historique des paiements d'abonnement SaaS
+     */
+    public function subscriptionPayments()
+    {
+        return $this->hasMany(SubscriptionPayment::class, 'tenant_id', 'id');
+    }
 }
