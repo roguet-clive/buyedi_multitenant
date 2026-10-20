@@ -1351,17 +1351,17 @@ export default function Landing({ tenants = [], pricing = {} }) {
                             <div className="flex items-center gap-2.5">
                                 <img
                                     src="/images/logo.png"
-                                    alt="Logo Buyedi"
+                                    alt="Logo Buyedi Solutions"
                                     className="h-9 w-auto brightness-200 invert"
                                     onError={(e) => { e.target.style.display = 'none'; }}
                                 />
-                                <span className="text-xl font-black text-white">Buyedi</span>
+                                <span className="text-xl font-black text-white">Buyedi Solutions</span>
                             </div>
                             <p className="text-xs text-slate-400 leading-relaxed">
-                                Plateforme SaaS de référence pour la gestion scolaire, pédagogique et financière des établissements d'excellence.
+                                Plateforme SaaS de référence conçue par Buyedi Solutions pour la gestion scolaire, pédagogique et financière des établissements d'excellence.
                             </p>
                             <div className="text-xs text-slate-500 font-mono">
-                                Multi-Tenant • Bases Dédiées
+                                Architecture Multi-Tenant • Bases Dédiées
                             </div>
                         </div>
 
@@ -1419,7 +1419,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
 
                     <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
                         <div>
-                            &copy; {new Date().getFullYear()} Buyedi Multi-Tenant. Tous droits réservés.
+                            &copy; {new Date().getFullYear()} Buyedi Solutions. Tous droits réservés.
                         </div>
                         <div className="flex items-center gap-6">
                             <span>Conforme réglementations MEN</span>
