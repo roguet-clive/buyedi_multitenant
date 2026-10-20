@@ -16,17 +16,43 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
+        $user = $request->user();
+        $isTenant = tenancy()->initialized;
+
+        $roles = [];
+        $permissions = [];
+        $isSuperAdmin = false;
+
+        if ($user) {
+            if ($isTenant) {
+                try {
+                    $roles = $user->getRoleNames()->values()->all();
+                    $permissions = $user->getAllPermissions()->pluck('name')->values()->all();
+                    $isSuperAdmin = $user->hasRole('super-admin') || $user->hasRole('superadmin');
+                } catch (\Throwable $e) {
+                    $roles = [];
+                    $permissions = [];
+                    $isSuperAdmin = false;
+                }
+            } else {
+                // Contexte Central (Plateforme SaaS Buyedi Solutions)
+                $isSuperAdmin = $user->isSuperAdmin();
+                $roles = $isSuperAdmin ? ['super-admin'] : [];
+                $permissions = $isSuperAdmin ? ['*'] : [];
+            }
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
-                'roles' => $request->user() ? $request->user()->getRoleNames()->values()->all() : [],
-                'isSuperAdmin' => $request->user() ? ($request->user()->hasRole('super-admin') || $request->user()->hasRole('superadmin')) : false,
-                'permissions' => $request->user() ? $request->user()->getAllPermissions()->pluck('name')->values()->all() : [],
-                'unreadCount' => $request->user() ? $request->user()->unreadNotifications()->count() : 0,
+                'user' => $user,
+                'roles' => $roles,
+                'isSuperAdmin' => $isSuperAdmin,
+                'permissions' => $permissions,
+                'unreadCount' => ($user && $isTenant) ? $user->unreadNotifications()->count() : 0,
             ],
-            'unreadNotificationsCount' => $request->user() ? $request->user()->unreadNotifications()->where('type', '!=', 'App\Notifications\MessageNotification')->count() : 0,
-            'unreadMessagesCount' => $request->user() ? $request->user()->unreadNotifications()->where('type', 'App\Notifications\MessageNotification')->count() : 0,
+            'unreadNotificationsCount' => ($user && $isTenant) ? $user->unreadNotifications()->where('type', '!=', 'App\Notifications\MessageNotification')->count() : 0,
+            'unreadMessagesCount' => ($user && $isTenant) ? $user->unreadNotifications()->where('type', 'App\Notifications\MessageNotification')->count() : 0,
             'tenant' => tenancy()->initialized ? [
                 'id' => tenant('id'),
                 'nom' => tenant('nom'),

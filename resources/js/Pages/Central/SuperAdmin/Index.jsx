@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     School,
     Users,
@@ -30,10 +30,13 @@ import {
     Unlock,
     FileText,
     Check,
-    AlertCircle
+    AlertCircle,
+    LogOut,
+    ShieldCheck
 } from 'lucide-react';
 
 export default function SuperAdminIndex({ tenants = [], payments = [], stats = {} }) {
+    const { auth } = usePage().props;
     const [activeView, setActiveView] = useState('ecoles'); // 'ecoles' | 'finances' | 'factures'
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
@@ -165,7 +168,12 @@ export default function SuperAdminIndex({ tenants = [], payments = [], stats = {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+                        <div className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            <span className="font-semibold text-slate-300 font-mono text-[11px]">{auth?.user?.email || 'admin@buyedi.com'}</span>
+                        </div>
+
                         <button
                             onClick={() => {
                                 setPaymentData({
@@ -179,18 +187,29 @@ export default function SuperAdminIndex({ tenants = [], payments = [], stats = {
                                 });
                                 setIsPaymentModalOpen(true);
                             }}
-                            className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
+                            className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
                         >
-                            <CreditCard className="w-4 h-4" />
+                            <CreditCard className="w-3.5 h-3.5" />
                             <span>Encaisser Abonnement</span>
                         </button>
 
                         <Link
                             href="/onboarding"
-                            className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-indigo-600/30 transition-all"
+                            className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 px-3.5 rounded-xl shadow-lg shadow-indigo-600/30 transition-all"
                         >
-                            <PlusCircle className="w-4 h-4" />
+                            <PlusCircle className="w-3.5 h-3.5" />
                             <span>Déployer une école</span>
+                        </Link>
+
+                        <Link
+                            href="/super-admin/logout"
+                            method="post"
+                            as="button"
+                            className="inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/40 text-slate-400 hover:text-rose-400 font-bold text-xs py-2 px-3 rounded-xl transition cursor-pointer"
+                            title="Fermer la session Super-Admin"
+                        >
+                            <LogOut className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Déconnexion</span>
                         </Link>
                     </div>
                 </div>

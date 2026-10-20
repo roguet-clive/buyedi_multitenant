@@ -1387,9 +1387,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                     </Link>
                                 </li>
                                 <li>
-                                    <Link href="/super-admin" className="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1">
-                                        <Lock className="w-3 h-3" />
-                                        <span>Super Admin SaaS</span>
+                                    <Link href="/super-admin/login" className="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1">
+                                        <Lock className="w-3 h-3 text-amber-500" />
+                                        <span>Super Admin (Sécurisé)</span>
                                     </Link>
                                 </li>
                                 <li><a href="#simulateur" className="hover:text-white transition">Simulateur de ROI</a></li>

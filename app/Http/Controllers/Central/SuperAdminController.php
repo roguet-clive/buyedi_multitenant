@@ -239,6 +239,17 @@ class SuperAdminController extends Controller
             return back()->with('error', "Aucun utilisateur trouvé dans l'école pour l'impersonation.");
         }
 
+        if (function_exists('activity')) {
+            try {
+                activity('security')
+                    ->causedBy($request->user())
+                    ->performedOn($tenant)
+                    ->log("Connexion Super-Admin (Impersonation) vers l'établissement {$tenant->nom} ({$tenant->id})");
+            } catch (\Throwable $e) {
+                // Silently continue if log fails
+            }
+        }
+
         $token = tenancy()->impersonate($tenant, (string) $adminUserId, '/dashboard');
 
         $port = parse_url(config('app.url', 'http://localhost'), PHP_URL_PORT);
