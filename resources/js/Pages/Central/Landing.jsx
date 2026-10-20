@@ -33,7 +33,11 @@ import {
     MessageCircle,
     Database,
     Bell,
-    CheckCircle
+    CheckCircle,
+    Smartphone,
+    Award,
+    Headphones,
+    RefreshCw
 } from 'lucide-react';
 
 export default function Landing({ tenants = [], pricing = {} }) {
@@ -45,6 +49,9 @@ export default function Landing({ tenants = [], pricing = {} }) {
     const [selectedSchool, setSelectedSchool] = useState('');
     const [demoSent, setDemoSent] = useState(false);
     const [mockupTab, setMockupTab] = useState('recouvrement'); // 'recouvrement' | 'transactions' | 'eleves'
+    const [qrScanned, setQrScanned] = useState(false);
+    const [isScanning, setIsScanning] = useState(false);
+    const [smsSent, setSmsSent] = useState(false);
     const [demoForm, setDemoForm] = useState({
         nom: '',
         ecole: '',
@@ -53,6 +60,21 @@ export default function Landing({ tenants = [], pricing = {} }) {
         eleves: '300-600',
         message: '',
     });
+
+    const triggerQrScan = () => {
+        setIsScanning(true);
+        setTimeout(() => {
+            setIsScanning(false);
+            setQrScanned(true);
+        }, 1200);
+    };
+
+    const triggerSmsReminders = () => {
+        setSmsSent(true);
+        setTimeout(() => {
+            setSmsSent(false);
+        }, 3500);
+    };
 
     // 💰 Calculs dynamiques du simulateur de ROI
     const timeSavedHours = Math.round(simulatedStudents * 0.16);
@@ -70,16 +92,18 @@ export default function Landing({ tenants = [], pricing = {} }) {
         setDemoSent(true);
     };
 
-    // 🌟 Éléments de la Marquee qui défile en continu
+    // 🌟 Éléments de la Marquee qui défile en continu (Image de référence utilisateur)
     const marqueeItems = [
         { icon: ShieldCheck, text: "Base de données MySQL 100% isolée par école" },
         { icon: QrCode, text: "Reçus de paiement certifiés avec QR Code infalsifiable" },
         { icon: GraduationCap, text: "Bulletins conformes aux normes ministérielles MEN" },
-        { icon: MessageCircle, text: "Notifications & alertes d'absences par WhatsApp / SMS" },
-        { icon: Zap, text: "Déploiement automatique d'un établissement en 60s" },
+        { icon: Smartphone, text: "Portail mobile parents & alertes SMS automatiques" },
+        { icon: Zap, text: "Déploiement automatique de votre école en moins de 60 secondes" },
+        { icon: Award, text: "15 jours d'essai gratuit offert sans carte bancaire" },
         { icon: Database, text: "Sauvegardes automatiques quotidiennes sur cloud privé" },
         { icon: BarChart3, text: "Comptabilité & journal de caisse en temps réel" },
-        { icon: Lock, text: "Étanchéité totale des données & conformité RGPD" },
+        { icon: Headphones, text: "Support technique VIP 7j/7 dédié aux écoles" },
+        { icon: Lock, text: "Étanchéité totale des données & sécurité certifiée" },
     ];
 
     // 📦 Données des onglets de modules
@@ -344,39 +368,166 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                 <div className="flex items-center gap-2 mt-4 bg-slate-50 p-1 rounded-xl border border-slate-100 text-[11px] font-semibold text-slate-600">
                                     <button
                                         onClick={() => setMockupTab('recouvrement')}
-                                        className={`flex-1 py-1 rounded-lg transition ${mockupTab === 'recouvrement' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
+                                        className={`flex-1 py-1.5 rounded-lg transition-all ${mockupTab === 'recouvrement' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
                                     >
-                                        Finance
+                                        Finance & Caisse
                                     </button>
                                     <button
                                         onClick={() => setMockupTab('transactions')}
-                                        className={`flex-1 py-1 rounded-lg transition ${mockupTab === 'transactions' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
+                                        className={`flex-1 py-1.5 rounded-lg transition-all ${mockupTab === 'transactions' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
                                     >
-                                        Reçu QR
+                                        Reçu QR Code
                                     </button>
                                     <button
                                         onClick={() => setMockupTab('eleves')}
-                                        className={`flex-1 py-1 rounded-lg transition ${mockupTab === 'eleves' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
+                                        className={`flex-1 py-1.5 rounded-lg transition-all ${mockupTab === 'eleves' ? 'bg-white shadow-xs text-blue-600 font-bold' : 'hover:text-slate-900'}`}
                                     >
                                         Effectifs
                                     </button>
                                 </div>
 
-                                {/* KPI cards du Mockup */}
-                                <div className="grid grid-cols-2 gap-3 my-4">
-                                    <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 transition-all hover:bg-slate-50">
-                                        <div className="text-[11px] font-semibold text-slate-500">Recouvrement</div>
-                                        <div className="text-xl font-black text-slate-900 mt-0.5">88,2%</div>
-                                        <div className="text-[10px] text-emerald-600 font-bold mt-1 flex items-center gap-0.5">
-                                            <TrendingUp className="w-3 h-3" /> +4,3% ce mois
-                                        </div>
-                                    </div>
-                                    <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-100 transition-all hover:bg-slate-50">
-                                        <div className="text-[11px] font-semibold text-slate-500">Élèves Inscrits</div>
-                                        <div className="text-xl font-black text-slate-900 mt-0.5">842 élèves</div>
-                                        <div className="text-[10px] text-blue-600 font-bold mt-1">100% à jour</div>
-                                    </div>
-                                </div>
+                                {/* Contenu dynamique selon l'onglet choisi */}
+                                <AnimatePresence mode="wait">
+                                    {mockupTab === 'recouvrement' && (
+                                        <motion.div
+                                            key="recouvrement"
+                                            initial={{ opacity: 0, y: 8 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -8 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="my-4 space-y-3"
+                                        >
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-100">
+                                                    <div className="text-[11px] font-semibold text-slate-500">Recouvrement</div>
+                                                    <div className="text-xl font-black text-slate-900 mt-0.5">88,2%</div>
+                                                    <div className="text-[10px] text-emerald-600 font-bold mt-1 flex items-center gap-0.5">
+                                                        <TrendingUp className="w-3 h-3" /> +4,3% ce mois
+                                                    </div>
+                                                </div>
+                                                <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-100">
+                                                    <div className="text-[11px] font-semibold text-slate-500">Caisse du Jour</div>
+                                                    <div className="text-xl font-black text-slate-900 mt-0.5">1 450 000 F</div>
+                                                    <div className="text-[10px] text-blue-600 font-bold mt-1">12 paiements validés</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-3 flex items-center justify-between">
+                                                <div className="space-y-0.5">
+                                                    <div className="text-xs font-bold text-amber-900">Relance Tranche 2</div>
+                                                    <div className="text-[11px] text-amber-700">14 retards identifiés</div>
+                                                </div>
+                                                <button
+                                                    onClick={triggerSmsReminders}
+                                                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-xs cursor-pointer ${
+                                                        smsSent
+                                                            ? 'bg-emerald-600 text-white'
+                                                            : 'bg-amber-600 hover:bg-amber-700 text-white'
+                                                    }`}
+                                                >
+                                                    {smsSent ? '✓ 14 SMS transmis !' : '⚡ Relancer par SMS'}
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+                                    {mockupTab === 'transactions' && (
+                                        <motion.div
+                                            key="transactions"
+                                            initial={{ opacity: 0, y: 8 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -8 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="my-4 space-y-3"
+                                        >
+                                            <div className="bg-blue-50/70 rounded-2xl p-3.5 border border-blue-100 relative overflow-hidden">
+                                                {isScanning && (
+                                                    <motion.div
+                                                        className="absolute inset-x-0 h-1 bg-gradient-to-r from-blue-400 via-indigo-500 to-blue-400 shadow-md shadow-blue-500 z-10"
+                                                        animate={{ top: ['0%', '100%', '0%'] }}
+                                                        transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+                                                    />
+                                                )}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="w-10 h-10 rounded-xl bg-white border border-blue-200 text-blue-600 flex items-center justify-center shadow-xs">
+                                                            <QrCode className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-bold text-slate-900">Reçu Scolarité #REC-084</div>
+                                                            <div className="text-[11px] text-slate-500">Élève : NDONG Alain (1ère C)</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-xs font-black text-slate-900">120 000 F</div>
+                                                        <div className="text-[10px] font-bold text-emerald-600">
+                                                            {qrScanned ? '✓ Conforme MEN' : 'Vérifiable'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-3 pt-2.5 border-t border-blue-100/80 flex items-center justify-between">
+                                                    <span className="text-[10px] text-slate-500 font-mono">Empreinte SHA-256 certifiée</span>
+                                                    <button
+                                                        onClick={triggerQrScan}
+                                                        disabled={isScanning}
+                                                        className="text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-white px-2.5 py-1 rounded-md border border-blue-200 shadow-2xs flex items-center gap-1 cursor-pointer"
+                                                    >
+                                                        {isScanning ? (
+                                                            <>
+                                                                <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                                                                <span>Scan en cours...</span>
+                                                            </>
+                                                        ) : qrScanned ? (
+                                                            '✓ Reçu Authentifié'
+                                                        ) : (
+                                                            'Tester le scanner QR'
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+                                    {mockupTab === 'eleves' && (
+                                        <motion.div
+                                            key="eleves"
+                                            initial={{ opacity: 0, y: 8 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -8 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="my-4 space-y-3"
+                                        >
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-100">
+                                                    <div className="text-[11px] font-semibold text-slate-500">Effectifs Inscrits</div>
+                                                    <div className="text-xl font-black text-slate-900 mt-0.5">842 élèves</div>
+                                                    <div className="text-[10px] text-emerald-600 font-bold mt-1">100% dossiers à jour</div>
+                                                </div>
+                                                <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-100">
+                                                    <div className="text-[11px] font-semibold text-slate-500">Classes Actives</div>
+                                                    <div className="text-xl font-black text-slate-900 mt-0.5">28 classes</div>
+                                                    <div className="text-[10px] text-blue-600 font-bold mt-1">Maternelle au Lycée</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center">
+                                                        KM
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs font-bold text-slate-900">Koumba Marc - Tle D</div>
+                                                        <div className="text-[10px] text-indigo-700 font-semibold">Moyenne T1 : 15.2 / 20 • Tableau d'honneur</div>
+                                                    </div>
+                                                </div>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                                    À jour
+                                                </span>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
 
                                 {/* Bouton Action du Mockup */}
                                 <div className="mb-4">
@@ -389,24 +540,7 @@ export default function Landing({ tenants = [], pricing = {} }) {
                                     </Link>
                                 </div>
 
-                                {/* Dernier Paiement avec QR Code Badge */}
-                                <div className="bg-blue-50/70 rounded-2xl p-3.5 border border-blue-100 flex items-center justify-between transition-all hover:border-blue-200">
-                                    <div className="flex items-center gap-2.5">
-                                        <div className="w-9 h-9 rounded-xl bg-white border border-blue-200 text-blue-600 flex items-center justify-center shadow-xs">
-                                            <QrCode className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs font-bold text-slate-900">Paiement Frais de Scolarité</div>
-                                            <div className="text-[11px] text-slate-500">Reçu certifié #REC-2026-084</div>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-xs font-black text-slate-900">120 000 F</div>
-                                        <div className="text-[10px] font-bold text-emerald-600">✓ QR Vérifié</div>
-                                    </div>
-                                </div>
-
-                                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                                     <span>Sous-domaine : <strong>sagesse.buyedi.com</strong></span>
                                     <span className="text-emerald-600 font-semibold flex items-center gap-1">
                                         <Lock className="w-3 h-3" /> Base isolée
@@ -423,19 +557,19 @@ export default function Landing({ tenants = [], pricing = {} }) {
             <section className="border-y border-slate-100 bg-slate-50/50 py-10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x-0 md:divide-x divide-slate-200">
-                        <div className="space-y-1">
+                        <div className="space-y-1 hover:scale-105 transition-transform duration-200">
                             <div className="text-3xl sm:text-4xl font-black text-blue-600">+20</div>
                             <div className="text-xs sm:text-sm font-bold text-slate-600">Établissements Partenaires</div>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 hover:scale-105 transition-transform duration-200">
                             <div className="text-3xl sm:text-4xl font-black text-slate-900">+12 500</div>
                             <div className="text-xs sm:text-sm font-bold text-slate-600">Élèves & Parents Gérés</div>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 hover:scale-105 transition-transform duration-200">
                             <div className="text-3xl sm:text-4xl font-black text-emerald-600">+35%</div>
                             <div className="text-xs sm:text-sm font-bold text-slate-600">Gain de temps administratif</div>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 hover:scale-105 transition-transform duration-200">
                             <div className="text-3xl sm:text-4xl font-black text-indigo-600">98.2%</div>
                             <div className="text-xs sm:text-sm font-bold text-slate-600">Taux de satisfaction client</div>
                         </div>
@@ -444,16 +578,31 @@ export default function Landing({ tenants = [], pricing = {} }) {
             </section>
 
             {/* 🌊 MARQUEE BLEUE QUI DÉFILE EN CONTINU (Exactement demandée par l'utilisateur !) */}
-            <div className="bg-blue-600 text-white py-3.5 overflow-hidden shadow-inner select-none relative group">
-                <div className="animate-marquee items-center gap-12 font-bold text-xs sm:text-sm tracking-wide">
+            <div className="bg-blue-600 text-white py-3.5 overflow-hidden shadow-inner select-none relative group border-y border-blue-500">
+                {/* Dégradés latéraux pour estomper l'entrée et la sortie des éléments */}
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-blue-600 to-transparent z-10" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-blue-600 to-transparent z-10" />
+
+                <motion.div
+                    className="flex items-center gap-10 font-bold text-xs sm:text-sm tracking-wide shrink-0 will-change-transform"
+                    animate={{ x: ["0%", "-50%"] }}
+                    transition={{
+                        ease: "linear",
+                        duration: 35,
+                        repeat: Infinity,
+                    }}
+                    style={{ width: "max-content" }}
+                >
                     {/* Première boucle */}
                     {marqueeItems.map((item, idx) => {
                         const Icon = item.icon;
                         return (
-                            <div key={`m1-${idx}`} className="flex items-center gap-3 shrink-0">
-                                <Icon className="w-4 h-4 text-blue-200 shrink-0" />
-                                <span>{item.text}</span>
-                                <span className="text-blue-300 ml-6 opacity-60">•</span>
+                            <div key={`m1-${idx}`} className="flex items-center gap-2.5 shrink-0 hover:text-blue-200 transition-colors">
+                                <span className="p-1 rounded-md bg-white/15 backdrop-blur-xs flex items-center justify-center">
+                                    <Icon className="w-4 h-4 text-white shrink-0" />
+                                </span>
+                                <span className="whitespace-nowrap font-medium text-white tracking-wide">{item.text}</span>
+                                <span className="text-blue-300/70 ml-6">•</span>
                             </div>
                         );
                     })}
@@ -462,14 +611,16 @@ export default function Landing({ tenants = [], pricing = {} }) {
                     {marqueeItems.map((item, idx) => {
                         const Icon = item.icon;
                         return (
-                            <div key={`m2-${idx}`} className="flex items-center gap-3 shrink-0">
-                                <Icon className="w-4 h-4 text-blue-200 shrink-0" />
-                                <span>{item.text}</span>
-                                <span className="text-blue-300 ml-6 opacity-60">•</span>
+                            <div key={`m2-${idx}`} className="flex items-center gap-2.5 shrink-0 hover:text-blue-200 transition-colors">
+                                <span className="p-1 rounded-md bg-white/15 backdrop-blur-xs flex items-center justify-center">
+                                    <Icon className="w-4 h-4 text-white shrink-0" />
+                                </span>
+                                <span className="whitespace-nowrap font-medium text-white tracking-wide">{item.text}</span>
+                                <span className="text-blue-300/70 ml-6">•</span>
                             </div>
                         );
                     })}
-                </div>
+                </motion.div>
             </div>
 
             {/* 🏛️ LES 4 PILIERS D'EXCELLENCE */}
