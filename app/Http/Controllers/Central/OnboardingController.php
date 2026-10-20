@@ -86,6 +86,20 @@ class OnboardingController extends Controller
         $subdomainHost = "{$tenant->id}.localhost{$portStr}";
         $tenantLoginUrl = "http://{$subdomainHost}/login";
 
-        return redirect()->away($tenantLoginUrl)->with('success', "Votre établissement '{$tenant->nom}' a été créé avec succès ! Connectez-vous avec vos identifiants administrateur.");
+        return Inertia::render('Central/Onboarding', [
+            'centralHost' => parse_url(config('app.url', 'http://localhost'), PHP_URL_HOST) ?: 'localhost',
+            'createdSchool' => [
+                'id' => $tenant->id,
+                'nom' => $tenant->nom,
+                'subdomain' => $tenant->id,
+                'domain' => $subdomainHost,
+                'login_url' => $tenantLoginUrl,
+                'admin_email' => $validated['admin_email'],
+                'formule' => $validated['formule'],
+                'telephone' => $validated['telephone'],
+                'ville' => $validated['ville'] ?? 'Libreville',
+                'statut' => $tenant->statut,
+            ],
+        ]);
     }
 }

@@ -14,10 +14,14 @@ import {
     Phone,
     MapPin,
     User,
-    Check
+    Check,
+    Copy,
+    ExternalLink,
+    ArrowRight,
+    Database
 } from 'lucide-react';
 
-export default function Onboarding({ centralHost = 'localhost' }) {
+export default function Onboarding({ centralHost = 'localhost', createdSchool = null }) {
     const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
     const initialFormule = urlParams.get('formule') || 'pro';
 
@@ -89,10 +93,148 @@ export default function Onboarding({ centralHost = 'localhost' }) {
         return () => clearTimeout(timeout);
     }, [data.subdomain]);
 
+    const [copied, setCopied] = useState(false);
+    const [countdown, setCountdown] = useState(6);
+    const [autoRedirectPaused, setAutoRedirectPaused] = useState(false);
+
+    useEffect(() => {
+        if (!createdSchool || autoRedirectPaused) return;
+
+        if (countdown <= 0) {
+            window.location.href = createdSchool.login_url;
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setCountdown((prev) => prev - 1);
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [createdSchool, countdown, autoRedirectPaused]);
+
+    const handleCopy = () => {
+        if (!createdSchool) return;
+        const text = `Établissement : ${createdSchool.nom}\nSous-domaine : http://${createdSchool.domain}\nIdentifiant : ${createdSchool.admin_email}\nLien d'accès : ${createdSchool.login_url}`;
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         post('/onboarding');
     };
+
+    // 🎉 ÉCRAN DE SUCCÈS OFFICIEL LORSQUE L'ÉCOLE EST DÉPLOYÉE
+    if (createdSchool) {
+        return (
+            <div className="min-h-screen bg-slate-950 text-slate-100 font-sans py-12 px-4 sm:px-6 lg:px-8 selection:bg-indigo-500 selection:text-white flex items-center justify-center">
+                <Head title={`Félicitations - ${createdSchool.nom} est prêt !`} />
+
+                {/* Background Glow */}
+                <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+                    <div className="absolute top-[10%] left-[20%] w-[500px] h-[500px] rounded-full bg-emerald-600/10 blur-[130px]" />
+                    <div className="absolute bottom-[10%] right-[20%] w-[500px] h-[500px] rounded-full bg-indigo-600/10 blur-[130px]" />
+                </div>
+
+                <div className="max-w-xl w-full mx-auto bg-slate-900/90 border border-slate-800 rounded-3xl p-8 sm:p-10 shadow-2xl backdrop-blur-md text-center">
+                    {/* Icône de succès */}
+                    <div className="w-20 h-20 rounded-full bg-emerald-500/15 border-2 border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-emerald-500/10">
+                        <CheckCircle2 className="w-10 h-10" />
+                    </div>
+
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold mb-3">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Déploiement Réussi en 54 secondes</span>
+                    </div>
+
+                    <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-2">
+                        {createdSchool.nom} est opérationnel !
+                    </h1>
+                    <p className="text-xs sm:text-sm text-slate-400 mb-8">
+                        Votre environnement scolaire dédié et votre base de données MySQL isolée sont prêts pour votre équipe.
+                    </p>
+
+                    {/* Récapitulatif des identifiants et accès */}
+                    <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 mb-6 text-left space-y-3">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                            <span className="text-xs text-slate-400">Sous-domaine dédié</span>
+                            <a
+                                href={createdSchool.login_url}
+                                className="text-xs font-mono font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                            >
+                                <span>{createdSchool.domain}</span>
+                                <ExternalLink className="w-3 h-3" />
+                            </a>
+                        </div>
+
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                            <span className="text-xs text-slate-400">Compte Administrateur</span>
+                            <span className="text-xs font-mono font-bold text-white">{createdSchool.admin_email}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                            <span className="text-xs text-slate-400">Formule Activée</span>
+                            <span className="text-xs font-bold text-amber-400 uppercase tracking-wide">
+                                {createdSchool.formule === 'enterprise' ? 'Réseau Entreprise' : createdSchool.formule === 'starter' ? 'Starter' : 'Établissement Pro'} (Essai 14j)
+                            </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-400">Base de données MySQL</span>
+                            <span className="text-xs font-mono text-emerald-400 flex items-center gap-1 font-semibold">
+                                <ShieldCheck className="w-3.5 h-3.5" /> 100% Isolée
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Boutons d'Action */}
+                    <div className="space-y-3">
+                        <a
+                            href={createdSchool.login_url}
+                            className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-sm py-3.5 px-6 rounded-xl shadow-lg shadow-emerald-900/30 transition-all hover:scale-[1.01]"
+                        >
+                            <span>Accéder à l'espace de votre école (Connexion)</span>
+                            <ArrowRight className="w-4 h-4" />
+                        </a>
+
+                        <button
+                            type="button"
+                            onClick={handleCopy}
+                            className="w-full inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-3 px-4 rounded-xl border border-slate-700 transition cursor-pointer"
+                        >
+                            {copied ? (
+                                <>
+                                    <Check className="w-4 h-4 text-emerald-400" />
+                                    <span className="text-emerald-400">Identifiants copiés dans le presse-papier !</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Copy className="w-4 h-4" />
+                                    <span>Copier mes identifiants de connexion</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Compte à rebours de redirection */}
+                    <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
+                        <span>
+                            {!autoRedirectPaused ? `Redirection automatique dans ${countdown}s...` : 'Redirection automatique en pause.'}
+                        </span>
+                        {!autoRedirectPaused && (
+                            <button
+                                onClick={() => setAutoRedirectPaused(true)}
+                                className="text-slate-400 hover:text-white underline cursor-pointer"
+                            >
+                                Rester sur cette page
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 font-sans py-12 px-4 sm:px-6 lg:px-8 selection:bg-indigo-500 selection:text-white">
